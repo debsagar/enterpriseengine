@@ -1,0 +1,5 @@
+# Only needed to rebuild or run the inspection notebook. Generator uses stdlib.
+nbformat>=5.10,<6
+nbclient>=0.10,<1
+nbconvert>=7.16,<8
+ipykernel>=6,<8

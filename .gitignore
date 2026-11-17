@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+runs/
+native/*-run/
+native/run/
+env-cache/
+**/env/
+*.sql
+*.tar
+*.log
+.ipynb_checkpoints/

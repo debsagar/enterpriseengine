@@ -1,0 +1,13 @@
+{
+  "days": 120,
+  "seed": 42,
+  "demand_scale": 0.02,
+  "orders_per_day": 3,
+  "opening_stock_days": 14,
+  "capacity_units": 600,
+  "maintenance_units": 3000,
+  "maintenance_days": 2,
+  "report_every": 7,
+  "receipt_delay": 1,
+  "shift_minutes": 480
+}

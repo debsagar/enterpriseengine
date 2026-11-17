@@ -1,0 +1,27 @@
+{
+  "source_commit": "0e2d52c",
+  "source": "Norvale phase 1 datagen v2 completed local run",
+  "business_period": [
+    "2027-01-01",
+    "2027-04-30"
+  ],
+  "omitted": [
+    "raw ERP SQL authentication data",
+    "service secrets and tokens",
+    "Docker volumes and live service configuration",
+    "private state and execution traces",
+    "historical v1 walkthroughs and smoke runs"
+  ],
+  "sha256": {
+    "checks.json": "80d445bdab99d56ccf6a480211be3ddbb0ff9916d7af85d47f478740951affea",
+    "config.json": "711dd052668d0a895a9f648f680f8a62733893c4032aa68d07ee7e1436df771d",
+    "observable/export-notes.json": "aada1f415556bb33c335aba0025e60e21e9bf1a09683f15d3b3eddcf98449592",
+    "observable/general-ledger.json": "4bc2b2ccf423bac3eb829b2a57a3e840df45d89dd87b6f3632f1264d3c27dc83",
+    "observable/mail.json": "3f3be035788ca0f763f91a4d470a1808a32a30f6549b8bccacc33d35b6f23564",
+    "observable/native-records.json": "0940cf7706f85137c56be12b36f38c6b902f24268e12ede7c1a0c2d48bf03feb",
+    "observable/stock-balances.json": "fcc12f2e08c8de9d7ae2c2a3d6044207861228a1d3f8055103273c7011ebb524",
+    "observable/stock-ledger.json": "f7f985b52c40b77521ec935bdab3e3eab2c4a019dd1173c4550dc63993a1d33c",
+    "observable/tickets.json": "160835d44dc19283f902ca6292d1e32beea385fbdb269fe784b8dd89b6ccdb50",
+    "summary.json": "a08fdb5ef1a29786eef285554b004174de7e7e92b4fa729eeeea102385a27c4a"
+  }
+}

@@ -1,0 +1,7 @@
+FROM mariadb:10.6 AS clock
+RUN apt-get update && apt-get install -y --no-install-recommends gcc make curl ca-certificates libc6-dev
+RUN curl -fsSL https://github.com/wolfcw/libfaketime/archive/refs/tags/v0.9.13.tar.gz | tar xz -C /tmp
+RUN make -C /tmp/libfaketime-0.9.13/src all
+
+FROM frappe/erpnext:v15.124.1
+COPY --from=clock /tmp/libfaketime-0.9.13/src/libfaketime.so.1 /usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1

@@ -1,0 +1,1906 @@
+[
+  {
+    "day": 0,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "1",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 2726f5259ac1dd92] Replenishment approval requested",
+      "date": "Fri, 01 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490148680.3050066.13507169222956628780@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00001 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 5,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "2",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref e316a20b22e617dc] Replenishment approval requested",
+      "date": "Wed, 06 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490155719.3050066.10699522101040783576@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00002 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 7,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "3",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 1a0473d869263b14] Replenishment approval requested",
+      "date": "Fri, 08 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490160965.3050066.6276834074596912534@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00003 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 7,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "4",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 4fef18c93a86d1d1] Replenishment approval requested",
+      "date": "Fri, 08 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490161736.3050066.8673577893926096586@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00004 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 7,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "5",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 6851d6580d70811b] Replenishment approval requested",
+      "date": "Fri, 08 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490161873.3050066.16965620682109356887@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00005 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 7,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "6",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 6346ec6882e10083] Replenishment approval requested",
+      "date": "Fri, 08 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490161986.3050066.10358391433013892317@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00006 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 10,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "7",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref ca5b12d81c035f04] Replenishment approval requested",
+      "date": "Mon, 11 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490170590.3132899.10030772348263228032@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00007 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 11,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "1",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref 093cea8e9d2ab342] Filler unavailable for service",
+      "date": "Tue, 12 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490171607.3132899.9397102317413936095@norvale.test>",
+      "body": "Filler preventive service due after 3192 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 13,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "8",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 3a274d40929cdaca] Replenishment approval requested",
+      "date": "Thu, 14 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490175792.3132899.13079164725240899878@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00008 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 13,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "9",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref db92bc135278ac88] Replenishment approval requested",
+      "date": "Thu, 14 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490176526.3132899.18046492621200918167@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00009 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 13,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "10",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 215ce00998aef0b8] Replenishment approval requested",
+      "date": "Thu, 14 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490176727.3132899.12511798006982593944@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00010 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 14,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "11",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 0b194dd0d279bf36] Replenishment approval requested",
+      "date": "Fri, 15 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490179540.3132899.3407532644590861418@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00011 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 15,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "12",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 7bce832959025590] Replenishment approval requested",
+      "date": "Sat, 16 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490183782.3132899.8058766765328991863@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00012 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 17,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "13",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 2036f4de61cd3b86] Replenishment approval requested",
+      "date": "Mon, 18 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490187161.3132899.15559678512192938940@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00013 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 18,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "14",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 49becc3870d55d75] Replenishment approval requested",
+      "date": "Tue, 19 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490190124.3132899.7576707790166693321@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00014 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 18,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "15",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref e12c90b906fbb8c8] Replenishment approval requested",
+      "date": "Tue, 19 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490190231.3132899.17208869886150393184@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00015 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 18,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "16",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 639be715588a2463] Replenishment approval requested",
+      "date": "Tue, 19 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490190330.3132899.12990702046785407483@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00016 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 19,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "2",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref 9096898512ed601a] Filler unavailable for service",
+      "date": "Wed, 20 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490191217.3132899.17482206018385869429@norvale.test>",
+      "body": "Filler preventive service due after 3012 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 19,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "17",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 325018d1b7069dfa] Replenishment approval requested",
+      "date": "Wed, 20 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490192797.3132899.6635541913206198911@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00017 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 20,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "18",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 2e96cb2fae440fbb] Replenishment approval requested",
+      "date": "Thu, 21 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490194544.3132899.6108851103603546569@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00018 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 20,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "19",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 134c3295ec2afe56] Replenishment approval requested",
+      "date": "Thu, 21 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490194677.3132899.1254377118192716978@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00019 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 21,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "20",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 235eb9717372456c] Repeated shortage: master data request",
+      "date": "Fri, 22 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490195815.3132899.13964026684588534089@norvale.test>",
+      "body": "Repeated native inventory shortage for CARB, observed days [18, 21]. Request reorder level 3. Approval is not implementation.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 21,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "21",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref a2d9e5c1b92137af] Replenishment approval requested",
+      "date": "Fri, 22 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490197586.3132899.11885437622860855140@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00020 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 21,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "22",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref dead608fcbb21d31] Replenishment approval requested",
+      "date": "Fri, 22 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490197701.3132899.6188252523313789007@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00021 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 21,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "23",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref d59ec7409d50ffc8] Replenishment approval requested",
+      "date": "Fri, 22 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490197809.3132899.8355956974901435691@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00022 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 21,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "24",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 26e96c0e3bc6f92c] Replenishment approval requested",
+      "date": "Fri, 22 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490197956.3132899.1738073193247179788@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00023 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 22,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "25",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 7e2902195dff89f2] Repeated shortage: master data request",
+      "date": "Sat, 23 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490200813.3132899.10545662346887128786@norvale.test>",
+      "body": "Repeated native inventory shortage for BOT750, observed days [21, 22]. Request reorder level 576. Approval is not implementation.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 22,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "26",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 5a5b95f0cbc61ada] Repeated shortage: master data request",
+      "date": "Sat, 23 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490201490.3132899.17811813376638900992@norvale.test>",
+      "body": "Repeated native inventory shortage for LAS, observed days [21, 22]. Request reorder level 58. Approval is not implementation.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 25,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "27",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref d2bfc966047c2c61] Replenishment approval requested",
+      "date": "Tue, 26 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490206247.3132899.3601437722007852076@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00024 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 25,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "28",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref dad080874dd2c8b7] Replenishment approval requested",
+      "date": "Tue, 26 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490206973.3132899.1659678918743818027@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00025 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 25,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "29",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 330e28eebacd9767] Replenishment approval requested",
+      "date": "Tue, 26 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490207076.3132899.18408530263559905504@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00026 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 26,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "30",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 3add66554312f6c8] Replenishment approval requested",
+      "date": "Wed, 27 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490209531.3132899.4834620145331726177@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00027 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 27,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "31",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 3b011030602ec0d7] Replenishment approval requested",
+      "date": "Thu, 28 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490213820.3132899.6666490003743123169@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00028 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 27,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "32",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 148e7a647a3542ba] Replenishment approval requested",
+      "date": "Thu, 28 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490214533.3132899.1006096174794410998@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00029 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 29,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "33",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 793300eabeb5267c] Replenishment approval requested",
+      "date": "Sat, 30 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490221109.3132899.14731117271013048404@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00030 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 30,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "3",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref e9803991f11baf9e] Filler unavailable for service",
+      "date": "Sun, 31 Jan 2027 00:00:00 +0000",
+      "message_id": "<179490222034.3132899.14389470782152919773@norvale.test>",
+      "body": "Filler preventive service due after 3096 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 32,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "34",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref ebe188d5be0c4a96] Replenishment approval requested",
+      "date": "Tue, 02 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490226581.3132899.758714056751453954@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00031 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 33,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "35",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref b69cd4fccbc04b14] Replenishment approval requested",
+      "date": "Wed, 03 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490229774.3132899.1616024995769630364@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00032 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 35,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "36",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref f6b851f1e9e0b5ff] Replenishment approval requested",
+      "date": "Fri, 05 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490251789.3294392.5488165615926186877@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00033 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 35,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "37",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 723ce0db3e20de3a] Replenishment approval requested",
+      "date": "Fri, 05 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490252539.3294392.9533215169172406230@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00034 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 38,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "4",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref 7b684f386f56e017] Filler unavailable for service",
+      "date": "Mon, 08 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490269339.3336446.3279650024459894236@norvale.test>",
+      "body": "Filler preventive service due after 3384 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 39,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "38",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 319e7fc9b0dded2d] Replenishment approval requested",
+      "date": "Tue, 09 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490273404.3336446.5056856774848978168@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00035 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 40,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "39",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 2def439ff45b9d5d] Replenishment approval requested",
+      "date": "Wed, 10 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490294508.3394683.7488534745138347332@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00036 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 42,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "40",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 279aa041f8f9965b] Replenishment approval requested",
+      "date": "Fri, 12 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490303706.3394683.10329709136150415014@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00037 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 45,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "5",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref 4d702d419c348f50] Filler unavailable for service",
+      "date": "Mon, 15 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490310552.3394683.13699765396846494627@norvale.test>",
+      "body": "Filler preventive service due after 3000 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 47,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "41",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref dddd3051c11bb62d] Replenishment approval requested",
+      "date": "Wed, 17 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490317108.3394683.15155904173598082046@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00038 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 48,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "42",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 6ee0e4014f5f5142] Replenishment approval requested",
+      "date": "Thu, 18 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490322035.3394683.4839996980757249620@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00039 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 48,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "43",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref e79ccf56813d9e6f] Replenishment approval requested",
+      "date": "Thu, 18 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490322799.3394683.12995035710211947412@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00040 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 49,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "44",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref e095203076e1f4ee] Replenishment approval requested",
+      "date": "Fri, 19 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490326398.3394683.13494725416491520532@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00041 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 49,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "45",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref dce453b92b17c757] Replenishment approval requested",
+      "date": "Fri, 19 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490326527.3394683.1767457379190939715@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00042 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 50,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "46",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 5f3828229119be76] Replenishment approval requested",
+      "date": "Sat, 20 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490330490.3394683.6434502961068638765@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00043 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 52,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "6",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref 930c65d52af6fc42] Filler unavailable for service",
+      "date": "Mon, 22 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490334820.3394683.13020467454309072360@norvale.test>",
+      "body": "Filler preventive service due after 3000 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 54,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "47",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref ab9875273e5f10ac] Replenishment approval requested",
+      "date": "Wed, 24 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490339916.3394683.4582397285610696684@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00044 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 56,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "48",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 1063aa1dbb4b3632] Repeated shortage: master data request",
+      "date": "Fri, 26 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490345670.3394683.16350872334037567278@norvale.test>",
+      "body": "Repeated native inventory shortage for EMU, observed days [29, 56]. Request reorder level 35. Approval is not implementation.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 56,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "49",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref a7e1a2724dc0636d] Replenishment approval requested",
+      "date": "Fri, 26 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490347661.3394683.11055637912601336765@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00045 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 56,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "50",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 79c2324e7605e921] Replenishment approval requested",
+      "date": "Fri, 26 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490347775.3394683.17458914828685877406@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00046 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 57,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "51",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 7f9df6c82c36a803] Replenishment approval requested",
+      "date": "Sat, 27 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490351005.3394683.200157030156134622@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00047 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 57,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "52",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 1aecd8455b2b719d] Replenishment approval requested",
+      "date": "Sat, 27 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490351729.3394683.12585527799634831706@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00048 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 57,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "53",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 4365a66e2ed1569e] Replenishment approval requested",
+      "date": "Sat, 27 Feb 2027 00:00:00 +0000",
+      "message_id": "<179490351864.3394683.1132020300021632918@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00049 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 59,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "54",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref db75a17d3681d6d6] Replenishment approval requested",
+      "date": "Mon, 01 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490358879.3394683.810945805277539896@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00050 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 59,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "55",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 408e016743ef5dcd] Replenishment approval requested",
+      "date": "Mon, 01 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490359656.3394683.6890987952634552631@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00051 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 60,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "7",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref 3f3aa6ae3753364c] Filler unavailable for service",
+      "date": "Tue, 02 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490360210.3394683.4832114879507882186@norvale.test>",
+      "body": "Filler preventive service due after 3264 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 61,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "56",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 9f9d5212742cbb48] Replenishment approval requested",
+      "date": "Wed, 03 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490363657.3394683.17298861161322417592@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00052 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 61,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "57",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref e4c2e810477cb2e3] Replenishment approval requested",
+      "date": "Wed, 03 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490364426.3394683.9318552506871437327@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00053 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 62,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "58",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref ef3c3d693e9e3f54] Replenishment approval requested",
+      "date": "Thu, 04 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490366895.3394683.3149239230162157901@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00054 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 63,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "59",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 290d65a1697759bf] Replenishment approval requested",
+      "date": "Fri, 05 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490370890.3394683.8125415378148815914@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00055 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 63,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "60",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 581c4962c132e309] Replenishment approval requested",
+      "date": "Fri, 05 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490371033.3394683.9130681038089786366@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00056 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 63,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "61",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 84780bc08f1cdc7c] Replenishment approval requested",
+      "date": "Fri, 05 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490371175.3394683.8067863119016321653@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00057 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 66,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "62",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref df7a2c76b5f1441b] Replenishment approval requested",
+      "date": "Mon, 08 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490380767.3394683.2237655459605584423@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00058 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 66,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "63",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref fee1e134b8b331f5] Replenishment approval requested",
+      "date": "Mon, 08 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490381504.3394683.11136693455679549309@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00059 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 67,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "8",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref 7fa091d0e317d78b] Filler unavailable for service",
+      "date": "Tue, 09 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490381863.3394683.6372360647151666716@norvale.test>",
+      "body": "Filler preventive service due after 3000 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 67,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "64",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 130e5a8d0754c998] Replenishment approval requested",
+      "date": "Tue, 09 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490383975.3394683.10416031046409431998@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00060 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 69,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "65",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 7dc3b7c131d0039f] Replenishment approval requested",
+      "date": "Thu, 11 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490388337.3394683.16012758697832364873@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00061 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 69,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "66",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref c0ccf2d17f9d48fe] Replenishment approval requested",
+      "date": "Thu, 11 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490389063.3394683.13662216274435018510@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00062 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 70,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "67",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 5282d168a51b745c] Replenishment approval requested",
+      "date": "Fri, 12 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490392151.3394683.13034921263861041954@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00063 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 71,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "68",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref b9397e1c492f1d0b] Repeated shortage: master data request",
+      "date": "Sat, 13 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490394396.3394683.15118748276117315563@norvale.test>",
+      "body": "Repeated native inventory shortage for FRG-CIT, observed days [34, 71]. Request reorder level 10. Approval is not implementation.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 71,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "69",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 8a1428edaf8804a5] Replenishment approval requested",
+      "date": "Sat, 13 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490395931.3394683.90194384531511292@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00064 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 71,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "70",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref cbabd409da52aa58] Replenishment approval requested",
+      "date": "Sat, 13 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490396067.3394683.17814453188190869689@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00065 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 74,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "9",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref 01005a4044fc9082] Filler unavailable for service",
+      "date": "Tue, 16 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490403384.3394683.11885932712358254475@norvale.test>",
+      "body": "Filler preventive service due after 3000 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 76,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "71",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 34db9a3c9f3c203e] Replenishment approval requested",
+      "date": "Thu, 18 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490408636.3394683.671885832410113684@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00066 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 76,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "72",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref b517706fd9bc5110] Replenishment approval requested",
+      "date": "Thu, 18 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490409372.3394683.2505703763687456099@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00067 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 77,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "73",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 64461670ae54dc1a] Replenishment approval requested",
+      "date": "Fri, 19 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490412526.3394683.2250016309767243673@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00068 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 77,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "74",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref feda3e2e0e29a6e4] Replenishment approval requested",
+      "date": "Fri, 19 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490413250.3394683.9344322800792485546@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00069 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 80,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "75",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 5e3b08ab6e63ccf2] Replenishment approval requested",
+      "date": "Mon, 22 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490422623.3394683.8756838969828232534@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00070 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 81,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "10",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref 22fca8873e8e7d6e] Filler unavailable for service",
+      "date": "Tue, 23 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490423658.3394683.18256322660028319008@norvale.test>",
+      "body": "Filler preventive service due after 3000 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 83,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "76",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 11c1005d725fecf6] Replenishment approval requested",
+      "date": "Thu, 25 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490428655.3394683.15080205429149949060@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00071 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 84,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "77",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref adf2880f5e50332a] Replenishment approval requested",
+      "date": "Fri, 26 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490433889.3394683.3045030233463684052@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00072 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 84,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "78",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 57d6f641e0483901] Replenishment approval requested",
+      "date": "Fri, 26 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490434654.3394683.14407683918760040327@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00073 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 86,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "79",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref b6c3fb549014a5f9] Replenishment approval requested",
+      "date": "Sun, 28 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490443909.3394683.5462051275453602722@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00074 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 88,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "11",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref c605d07c45eb2037] Filler unavailable for service",
+      "date": "Tue, 30 Mar 2027 00:00:00 +0000",
+      "message_id": "<179490448253.3394683.7143262006851209574@norvale.test>",
+      "body": "Filler preventive service due after 3000 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 90,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "80",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref df3cc86d3a2c7bb4] Replenishment approval requested",
+      "date": "Thu, 01 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490454977.3394683.7183439445029037939@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00075 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 90,
+    "sender": "CFO",
+    "recipient": "CEO",
+    "message": {
+      "uid": "1",
+      "from": "claire.moreau@norvale.test",
+      "to": "henrik.lindholm@norvale.test",
+      "cc": "",
+      "subject": "[Ref 3d0a08e96f89e356] Periodic operating review",
+      "date": "Thu, 01 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490456236.3394683.9792591623759100941@norvale.test>",
+      "body": "Financial records reviewed and found consistent with reported balances. No pending requests require approval or deferment. Recommend continuing regular financial monitoring.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 91,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "81",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 20d20cd5ad509384] Replenishment approval requested",
+      "date": "Fri, 02 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490458986.3394683.12788385268640098981@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00076 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 91,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "82",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref a9b355ac93dada2f] Replenishment approval requested",
+      "date": "Fri, 02 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490459156.3394683.3492094777847379269@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00077 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 95,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "12",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref e95541e203c08725] Filler unavailable for service",
+      "date": "Tue, 06 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490468236.3394683.13173574190270457636@norvale.test>",
+      "body": "Filler preventive service due after 3000 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 95,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "83",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref e1119c59455d4a23] Replenishment approval requested",
+      "date": "Tue, 06 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490471079.3394683.17529358314482976508@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00078 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 95,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "84",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref eed672e75929850f] Replenishment approval requested",
+      "date": "Tue, 06 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490471247.3394683.6715121155871398402@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00079 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 97,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "85",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref c2fdf7f107d0e3dd] Replenishment approval requested",
+      "date": "Thu, 08 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490475831.3394683.14844703309191327430@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00080 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 97,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "86",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 69c36778a3fb9435] Replenishment approval requested",
+      "date": "Thu, 08 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490476639.3394683.273122275782914142@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00081 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 98,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "87",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 645bd3b4ca90dea3] Replenishment approval requested",
+      "date": "Fri, 09 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490480029.3394683.608091705343771359@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00082 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 98,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "88",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 46a2ce7b50a1f4a7] Replenishment approval requested",
+      "date": "Fri, 09 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490480762.3394683.3146385587635765596@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00083 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 100,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "89",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 72282f89ecd62736] Replenishment approval requested",
+      "date": "Sun, 11 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490486964.3394683.16576997733436071759@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00084 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 102,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "13",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref 44369f566e4d0fc7] Filler unavailable for service",
+      "date": "Tue, 13 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490491681.3394683.8896453913882513565@norvale.test>",
+      "body": "Filler preventive service due after 3000 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 104,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "90",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 128ff500eb59b8b1] Replenishment approval requested",
+      "date": "Thu, 15 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490498136.3394683.5443282385885704709@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00085 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 104,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "91",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 2dbde0e61988f904] Replenishment approval requested",
+      "date": "Thu, 15 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490498893.3394683.199828170527758911@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00086 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 104,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "92",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref d8517b2859d50ad3] Replenishment approval requested",
+      "date": "Thu, 15 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490499033.3394683.13476569532245811196@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00087 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 105,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "93",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 83dc73635085611f] Replenishment approval requested",
+      "date": "Fri, 16 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490502436.3394683.12949233304195036257@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00088 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 106,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "94",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 34fcbb37acf29b5e] Replenishment approval requested",
+      "date": "Sat, 17 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490507029.3394683.1392070576441617493@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00089 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 107,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "95",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref fa36938b8b99a3ab] Replenishment approval requested",
+      "date": "Sun, 18 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490510498.3394683.1503802559051527087@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00090 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 108,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "96",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref a84175507a518497] Replenishment approval requested",
+      "date": "Mon, 19 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490514526.3394683.3380465723296326270@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00091 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 109,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "14",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref e2f5698f21c4eba6] Filler unavailable for service",
+      "date": "Tue, 20 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490515582.3394683.9481237430252447647@norvale.test>",
+      "body": "Filler preventive service due after 3000 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 111,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "97",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 1bedfba79a7b6599] Replenishment approval requested",
+      "date": "Thu, 22 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490522676.3394683.129586384229026733@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00092 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 111,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "98",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref e88b58d2978bc022] Replenishment approval requested",
+      "date": "Thu, 22 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490523440.3394683.5064803533647882757@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00093 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 112,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "99",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 1a13e97fcae3396a] Replenishment approval requested",
+      "date": "Fri, 23 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490526133.3394683.8124080333081930802@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00094 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 113,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "100",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 6764377d55d6150e] Replenishment approval requested",
+      "date": "Sat, 24 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490530392.3394683.9014013945538499568@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00095 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 116,
+    "sender": "MAINTENANCE",
+    "recipient": "PLANT_MGR",
+    "message": {
+      "uid": "15",
+      "from": "jan.kowalski@norvale.test",
+      "to": "tomas.lindqvist@norvale.test",
+      "cc": "",
+      "subject": "[Ref 84b20b595772f883] Filler unavailable for service",
+      "date": "Tue, 27 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490537739.3394683.11981082261841716599@norvale.test>",
+      "body": "Filler preventive service due after 3000 produced units. Equipment unavailable until technician restart test.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 118,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "101",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref a68252c84e0800f0] Replenishment approval requested",
+      "date": "Thu, 29 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490543097.3394683.10866065173332906342@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00096 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 118,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "102",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref 42c41e0599c00875] Replenishment approval requested",
+      "date": "Thu, 29 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490543888.3394683.9422361437922726998@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00097 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  },
+  {
+    "day": 118,
+    "sender": "BUYER",
+    "recipient": "SCM_MGR",
+    "message": {
+      "uid": "103",
+      "from": "priya.nair@norvale.test",
+      "to": "vikram.desai@norvale.test",
+      "cc": "",
+      "subject": "[Ref b2fb8647813f874d] Replenishment approval requested",
+      "date": "Thu, 29 Apr 2027 00:00:00 +0000",
+      "message_id": "<179490544044.3394683.1356146587382624602@norvale.test>",
+      "body": "Native purchase PUR-ORD-2027-00098 replenishes released inventory below lead-time plus safety coverage.\r\n",
+      "attachments": []
+    }
+  }
+]

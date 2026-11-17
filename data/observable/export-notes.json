@@ -1,0 +1,8 @@
+{
+  "omissions": [
+    "Private custom_norvale_operation fields",
+    "Payment Entry reference_no and corresponding remarks line (historical internal operation references)",
+    "User authentication fields; Employee personal demographics"
+  ],
+  "dates": "ERP transaction dates are business dates; native creation/modified timestamps are wall-clock dates."
+}

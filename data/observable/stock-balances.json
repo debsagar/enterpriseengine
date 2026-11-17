@@ -1,0 +1,567 @@
+[
+  {
+    "item_code": "BOT750",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "FRG-COC",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30006",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30002",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30014",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30005",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "BOT750",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30014",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 48.0
+  },
+  {
+    "item_code": "SKU-30005",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "CAP28",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30011",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30015",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30011",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 24.0
+  },
+  {
+    "item_code": "SKU-30015",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30016",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30016",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "FRG-ALO",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30017",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30006",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30003",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30010",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30003",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 144.0
+  },
+  {
+    "item_code": "FRG-OCN",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30010",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "PRES",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "OIL",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "EMU",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "FRG-OCN",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "TUB200",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "CAPB",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "NACL",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "LAS",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SLES",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SLES",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 23.144
+  },
+  {
+    "item_code": "LAS",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 67.72
+  },
+  {
+    "item_code": "CAPB",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 27.304
+  },
+  {
+    "item_code": "OIL",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 9.872
+  },
+  {
+    "item_code": "EMU",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 16.936
+  },
+  {
+    "item_code": "CARB",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 7.897
+  },
+  {
+    "item_code": "NACL",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 23.983
+  },
+  {
+    "item_code": "FRG-CIT",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 8.844
+  },
+  {
+    "item_code": "FRG-OCN",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 12.394
+  },
+  {
+    "item_code": "PRES",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 13.761
+  },
+  {
+    "item_code": "FRG-APL",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 5.759
+  },
+  {
+    "item_code": "FRG-LAV",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 11.168
+  },
+  {
+    "item_code": "FRG-ALO",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 5.923
+  },
+  {
+    "item_code": "FRG-COC",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 8.239
+  },
+  {
+    "item_code": "BOT400",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 367.0
+  },
+  {
+    "item_code": "BOT750",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 667.0
+  },
+  {
+    "item_code": "BOT250",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 2090.0
+  },
+  {
+    "item_code": "CAP28",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 2212.0
+  },
+  {
+    "item_code": "TUB200",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 382.0
+  },
+  {
+    "item_code": "SKU-30002",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30001",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30005",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30003",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30004",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30007",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30008",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30006",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30011",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30010",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30012",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30009",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30015",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30014",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30013",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30016",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30017",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "SKU-30018",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 1.0
+  },
+  {
+    "item_code": "WATER",
+    "warehouse": "Raw Materials - NCC",
+    "actual_qty": 87596.256
+  },
+  {
+    "item_code": "SKU-30017",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "BOT400",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30004",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30001",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30009",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "CAPB",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SLES",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "NACL",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30004",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 144.0
+  },
+  {
+    "item_code": "PRES",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "WATER",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "BOT400",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "FRG-CIT",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "CAP28",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "BOT250",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "FRG-ALO",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30001",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "FRG-COC",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "OIL",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "EMU",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30009",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 24.0
+  },
+  {
+    "item_code": "CARB",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "FRG-CIT",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30012",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30008",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "FRG-LAV",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "TUB200",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30012",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "LAS",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30008",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 180.0
+  },
+  {
+    "item_code": "SKU-30002",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 36.0
+  },
+  {
+    "item_code": "FRG-APL",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "BOT250",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "CARB",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30007",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30013",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30018",
+    "warehouse": "Finished Goods - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30007",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30013",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "FRG-APL",
+    "warehouse": "Stores - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "SKU-30018",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  },
+  {
+    "item_code": "FRG-LAV",
+    "warehouse": "Quarantine - NCC",
+    "actual_qty": 0.0
+  }
+]

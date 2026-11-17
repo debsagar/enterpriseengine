@@ -1,0 +1,11 @@
+{
+  "material_conservation": true,
+  "job_card_labor_and_native_links": true,
+  "capacity_and_maintenance": true,
+  "shipment_conservation": true,
+  "paid_allocations": true,
+  "buyer_finance_denial": true,
+  "role_hidden_state_absent": true,
+  "completed_resume_noop": true,
+  "general_ledger_balanced": true
+}
