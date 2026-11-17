@@ -2,12 +2,14 @@
 
 Norvale is a synthetic consumer-care manufacturer whose people perform modeled business work in real software: ERPNext, Gitea Issues, and SMTP/IMAP email. This repository contains the v2 generator and the filtered records from its completed 120-day run, January 1–April 30, 2027.
 
+**Helping with development?** Read [the collaborator handoff](HANDOFF.md) and [the operating-loop diagram and code map](docs/ARCHITECTURE.md). Claude and Codex share [AGENTS.md](AGENTS.md).
+
 **Start with the data.** No Docker, API key, or running service is needed to inspect the delivered run.
 
 - Download/open [the interactive record viewer](docs/data-viewer.html) in a browser: select an order and follow work, shipment, invoice, and payment records; switch to tickets or email.
 - Read [the executed notebook](notebooks/Behavior.ipynb), or download/open [its HTML](notebooks/Behavior.html).
 - Find the complete filtered records in [data/observable](data/observable), with [file hashes](data/manifest.json), [run summary](data/summary.json), and [recorded checks](data/checks.json).
-- See [the operating flow](docs/operating-flow.html) and [generation instructions](docs/GENERATING.md).
+- See [the GitHub-rendered operating loop](docs/ARCHITECTURE.md) and [generation instructions](docs/GENERATING.md).
 
 GitHub displays HTML source; download the repository and open HTML files locally for interaction. The separate [public presentation](https://norvale-company-v2.aswanth-krshna.chatgpt.site) is also available.
 

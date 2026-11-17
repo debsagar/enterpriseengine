@@ -1,3 +1,17 @@
-Project state lives in PROJECT-LOG.jsonl (append-only event log). Replay it at session start via the project-log skill; append events as you work.
+# Instructions for coding agents
 
-Use offline checks from README.md for packaging/code changes. Do not run generation or connect to live services unless requested. Never commit private runs, tokens, raw SQL, mail archives, or environment secrets.
+Read README.md → HANDOFF.md → docs/ARCHITECTURE.md before changing behavior. Read docs/PROVENANCE.md before making claims about the delivered dataset. These instructions apply to this repository; the user's current task takes precedence.
+
+- The objective is a coherent enterprise generating records in real, independently stored applications. Preserve the A–L operating loop; map each change to its blocks, evidence inputs, resulting records and a meaningful check.
+- Extend the existing engine; do not create a second simulation loop, invent substitute application tables, or narrow a whole-company task to a canned single transaction.
+- JEV routes cases; LLMs judge consequential cases; code handles routine work. Preserve role-scoped evidence, authority checks, explicit failures and readback. Hidden regimes and future schedules are private.
+- Do not describe ERP modules as separate MES/CRM applications. They remain missing. Do not claim policy reuse or benchmark quality that the saved results do not show.
+- The delivered data is frozen evidence. Preserve hashes and past failures/corrections. New behavior belongs in a distinct run.
+- No new model-call/spend ceiling without owner instruction; never silently approve on failure. Do not run generation, make paid calls, touch live services, or publish unless the current task authorizes it.
+- Never commit credentials, raw SQL, mail archives, private state/traces/oracles, service volumes or runs/. Public exports must retain useful native links but exclude privileged simulation hints.
+- Keep changes simple: reuse native product features and existing clients. No speculative generic company framework or mandatory nested routers.
+- Notebook inspection stays read-only. Explain generated tables directly underneath their outputs. No unnecessary ZIP deliverables.
+- Run appropriate offline checks from README.md. Report what was actually checked, not just saved historical pass results.
+- Project state lives in PROJECT-LOG.jsonl (append-only). Read relevant recent events and append meaningful changes with evidence paths; do not rewrite history.
+
+For code changes, completion notes should name affected A–L blocks, changed behavior, validation and remaining limits. Update architecture/docs only where the implementation or intended contract changed.
