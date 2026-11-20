@@ -10,6 +10,10 @@ DAY = 1440
 CENT = Decimal("0.01")
 
 
+def sla_key(case, ticket):
+    return "service-sla:" + json.dumps([case, ticket], separators=(",", ":"))
+
+
 class Consumer:
     def __init__(self, config):
         self.config = config
@@ -19,6 +23,8 @@ class Consumer:
                                 source="timesheet", unit="hours", links="timesheet_ids", quantity="hours")
 
     def handle(self, engine, kind, payload):
+        if kind == "obligation_due":
+            return self.sla_due(engine, payload)
         if kind == "policy_review":
             return shared.review_policy(engine, self.config, payload)
         case = payload["case"]
@@ -26,15 +32,16 @@ class Consumer:
             raise ValueError("Expected a nonblank case ID")
         if shared.handle(engine, self.config, kind, payload):
             return
-        if kind in ("ticket", "respond", "timesheet", "reassign", "sla_deadline"):
+        if kind in ("ticket", "respond", "timesheet", "reassign", "eta", "sla_deadline"):
             ticket = payload["ticket"]
             if not isinstance(ticket, str) or not ticket.strip():
                 raise ValueError("Expected a nonblank ticket ID")
         links = engine.state.setdefault("managed_services", {"contracts": {}, "tickets": {}})
-        case = payload["case"]
         if "terms" not in links:
             links["terms"] = {}
             if links["contracts"]:
+                replaying = {op["target_id"] for op in
+                             engine.consumer_write_prefix(engine.event["id"])}
                 for row in engine.export()["records"]:
                     prior_case = row.get("case")
                     if row.get("system") == "erp" and row.get("kind") == "contract" and (
@@ -43,11 +50,13 @@ class Consumer:
                         if "currency" in row:
                             links["terms"][prior_case]["currency"] = row["currency"]
                     if row.get("system") == "tickets" and row.get("kind") == "ticket_response" and (
-                            links["tickets"].get(prior_case, {}).get(row["ticket"]) == row["ticket_id"]):
+                            links["tickets"].get(prior_case, {}).get(row["ticket"]) == row["ticket_id"]
+                            and row["native_id"] not in replaying):
                         links.setdefault("responses", {}).setdefault(prior_case, {})[row["ticket"]] = row["native_id"]
         terms = links["terms"]
         responses = links.setdefault("responses", {}).setdefault(case, {})
         unavailable = links.setdefault("unavailable", {}).setdefault(case, {})
+        role = engine.event["role"]
         if kind == "contract":
             minutes, rate = payload["response_minutes"], payload["rate"]
             if not case or type(minutes) is not int or minutes <= 0:
@@ -65,41 +74,76 @@ class Consumer:
             links["contracts"][case] = shared.native_id(engine.write("erp", "contract", fields))
             terms[case] = {"response_minutes": minutes, "rate": rate, "currency": currency}
         elif kind == "ticket":
-            ticket = payload["ticket"]
             tickets = links["tickets"].setdefault(case, {})
             if not ticket or ticket in tickets:
                 raise ValueError(f"Invalid or duplicate ticket: {ticket}")
             if case not in terms:
                 raise ValueError("Ticket requires confirmed contract terms")
-            tickets[ticket] = shared.native_id(engine.write("tickets", "ticket", {
+            role_owned = role is not None and (
+                role in engine.catalog["roles"] or role in self.config.get("shifts", {}))
+            if role_owned:
+                technician = payload.get("technician", role)
+                self.check_technician(technician)
+            ticket_id = tickets[ticket] = shared.native_id(engine.write("tickets", "ticket", {
                 "case": case, "ticket": ticket, "contract_id": links["contracts"][case]}))
-            key = json.dumps([case, ticket], separators=(",", ":"))
-            engine.schedule("service-deadline:" + key, "sla_deadline",
-                                engine.now + terms[case]["response_minutes"],
+            due = engine.now + terms[case]["response_minutes"]
+            if not role_owned:
+                key = json.dumps([case, ticket], separators=(",", ":"))
+                engine.schedule("service-deadline:" + key, "sla_deadline", due,
                                 priority=1, payload={"case": case, "ticket": ticket})
+            else:
+                key = sla_key(case, ticket)
+                identity = engine.open_obligation(
+                    key, owner=role, due=due, priority=1,
+                    evidence={"case": case, "ticket": ticket, "ticket_id": ticket_id})
+                links.setdefault("sla", {})[key] = {
+                    "id": identity, "owner": role, "technician": technician, "due": due}
         elif kind == "sla_deadline":
-            if ticket not in responses:
+            # Role-free tickets and deadlines already queued by older runs.
+            if sla_key(case, ticket) not in links.get("sla", {}) and ticket not in responses:
                 engine.write("tickets", "sla_breach", {"case": case, "ticket": ticket,
                              "ticket_id": links["tickets"][case][ticket], "due": engine.now})
         elif kind == "staff_unavailable":
             technician = payload["technician"]
-            if not isinstance(technician, str) or not technician.strip():
-                raise ValueError("Expected a technician ID")
+            self.check_technician(technician)
             unavailable[technician] = True
             engine.write("tickets", "staff_unavailable", {"case": case, "technician": technician})
-        elif kind in ("respond", "reassign"):
-            fields = {"case": case, "ticket": ticket, "ticket_id": links["tickets"][case][ticket]}
+        elif kind in ("respond", "reassign", "eta"):
+            issue = {"case": case, "ticket": ticket, "ticket_id": links["tickets"][case][ticket]}
+            if payload.get("ticket_id", issue["ticket_id"]) != issue["ticket_id"]:
+                raise ValueError("Native ticket ID does not match this case and ticket")
             if ticket in responses:
                 return
+            key = sla_key(case, ticket)
+            sla = links.get("sla", {}).get(key)
+            if sla is not None and kind == "reassign":
+                return self.reassign(engine, sla, payload, unavailable)
+            fields = dict(issue)
             technician = payload.get("technician")
+            if sla is not None:
+                if role != sla["owner"]:
+                    raise PermissionError("Ticket action requires its assigned role")
+                if technician is not None and technician != sla["technician"]:
+                    raise PermissionError("Ticket action requires its assigned technician")
+                technician = sla["technician"]
             if technician is not None or kind == "reassign":
-                if not isinstance(technician, str) or not technician.strip():
-                    raise ValueError("Expected a technician ID")
+                self.check_technician(technician)
                 fields["technician"] = technician
                 if technician in unavailable:
                     engine.write("tickets", "response_blocked", {**fields, "reason": "staff_unavailable"})
                     return
-            responses[ticket] = shared.native_id(engine.write("tickets", "ticket_response", fields))
+            if kind == "eta":
+                eta = payload["eta"]
+                if type(eta) is not int or eta < engine.now:
+                    raise ValueError("ETA must be a current or future business minute")
+                engine.write("tickets", "ticket_eta", {**fields, "eta": eta})
+                return
+            if sla is not None and engine.now > sla["due"]:
+                self.record_breach(engine, sla, issue)
+            response = shared.native_id(engine.write("tickets", "ticket_response", fields))
+            if sla is not None:
+                engine.resolve_obligation(sla["id"], evidence={"system": "tickets", "native_id": response})
+            responses[ticket] = response
         elif kind == "timesheet":
             ticket, hours, approved = payload["ticket"], payload["hours"], payload["approved"]
             if type(hours) not in (int, float) or not 0 < hours < float("inf") or type(approved) is not bool:
@@ -115,6 +159,42 @@ class Consumer:
             self.post_payment(engine, case, payload["reference"], links)
         else:
             raise ValueError(f"Unsupported managed-services event: {kind}")
+
+    @staticmethod
+    def check_technician(technician):
+        if not isinstance(technician, str) or not technician.strip():
+            raise ValueError("Expected a technician ID")
+
+    def reassign(self, engine, sla, payload, unavailable):
+        if engine.event["role"] != "manager":
+            raise PermissionError("Reassignment requires the manager role")
+        if sla["technician"] not in unavailable:
+            raise ValueError("Reassignment requires an unavailable assignee")
+        owner = payload["owner"]
+        technician = payload.get("technician", owner)
+        self.check_technician(technician)
+        if technician in unavailable:
+            raise ValueError("Replacement technician is unavailable")
+        if owner == sla["owner"]:
+            raise ValueError("Reassignment requires a different owning role")
+        engine.reassign_obligation(sla["id"], owner=owner, due=sla["due"])
+        sla.update(owner=owner, technician=technician)
+
+    @staticmethod
+    def record_breach(engine, sla, fields):
+        if not sla.get("breached"):
+            engine.write("tickets", "sla_breach", {**fields, "due": sla["due"]})
+            sla["breached"] = True
+
+    def sla_due(self, engine, payload):
+        links = engine.state.get("managed_services", {})
+        sla = links.get("sla", {}).get(payload["key"])
+        if sla is None or sla["id"] != payload.get("id") or engine.now < sla["due"]:
+            return
+        for obligation in engine.obligations():
+            if obligation["id"] == sla["id"]:
+                self.record_breach(engine, sla, obligation["evidence"])
+                return
 
     def currency(self, terms):
         return terms.get("currency", self.config.get("currency", "USD"))
