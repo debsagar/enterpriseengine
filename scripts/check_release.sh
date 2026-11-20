@@ -102,8 +102,11 @@ fi
 if [[ -f ../source/tests/test_managed_services_obligations.py ]]; then
     # The suite's Goals fixture uses TestCase.enterContext (Python 3.11+).
     if "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
-        mkdir -p consumers
+        mkdir -p consumers native norvale/loader
         cp ../source/consumers/{__init__,extraction,managed_services,shared}.py consumers/
+        cp ../source/native/managed_services.py native/
+        cp ../source/norvale/__init__.py norvale/
+        cp ../source/norvale/loader/{__init__,erp_client}.py norvale/loader/
         cp ../source/tests/{test_engine_goals,test_managed_services_obligations}.py .
         tests+=(test_managed_services_obligations)
     else
