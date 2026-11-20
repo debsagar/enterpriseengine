@@ -11,7 +11,9 @@ to `v0.2.0` until the candidate is approved and tagged.
   that in-flight and queued work finish once at their original business times.
 - When the obligation suites and example are present in the candidate checkout,
   the gate also exercises them with the installed wheel. Warehouse and service
-  SLA clients run through their documented pause and resume cutoffs.
+  SLA clients run through their documented pause and resume cutoffs. The
+  managed-services consumer regression suite runs when present on Python 3.12,
+  which supports its unittest fixture.
 
 Run the same gate locally from a checkout of the committed candidate revision.
 This includes a local integration commit containing the engine and client

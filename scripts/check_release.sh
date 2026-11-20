@@ -99,4 +99,15 @@ if [[ -f ../source/examples/obligation_cases.py ]]; then
 else
     printf 'Optional example absent: examples/obligation_cases.py\n'
 fi
+if [[ -f ../source/tests/test_managed_services_obligations.py ]]; then
+    # The suite's Goals fixture uses TestCase.enterContext (Python 3.11+).
+    if "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
+        mkdir -p consumers
+        cp ../source/consumers/{__init__,extraction,managed_services,shared}.py consumers/
+        cp ../source/tests/{test_engine_goals,test_managed_services_obligations}.py .
+        tests+=(test_managed_services_obligations)
+    else
+        printf 'Managed-services obligation suite requires Python 3.11 or newer\n'
+    fi
+fi
 run_installed "$candidate" "$candidate_version" unittest -v "${tests[@]}"
