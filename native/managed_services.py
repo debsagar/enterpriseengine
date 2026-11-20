@@ -12,7 +12,7 @@ EVENT = "custom_service_event"
 TYPES = {
     "erp": {"contract": "Project", "timesheet": "Timesheet",
             "invoice": "Sales Invoice", "payment": "Payment Entry"},
-    "tickets": {"ticket": "Issue", "ticket_response": "Comment", "sla_breach": "Comment",
+    "tickets": {"ticket": "Issue", "ticket_response": "Comment", "ticket_eta": "Comment", "sla_breach": "Comment",
                 "staff_unavailable": "Comment", "response_blocked": "Comment"},
 }
 
@@ -173,10 +173,17 @@ class ServiceTransport:
             target = "Project", name
         else:
             issue = self._get(event["ticket_id"], "Issue")
-            require(json.loads(issue[EVENT])["case"] == case, "Issue belongs to another case")
+            saved = json.loads(issue[EVENT])
+            self._verify(issue, saved)
+            require((saved["case"], saved["ticket"]) == (case, event["ticket"]),
+                    "Issue belongs to another case or ticket")
             target = "Issue", issue["name"]
         return dict(reference_doctype=target[0], reference_name=target[1], comment_type="Comment",
-                    content=" ".join(str(event[field]) for field in ("kind", "technician") if field in event))
+                    content=self._comment(event))
+
+    @staticmethod
+    def _comment(event):
+        return " ".join(str(event[field]) for field in ("kind", "technician", "eta") if field in event)
 
     def _invoice_details(self, event, project, rate, invoice=None):
         ids = event["timesheet_ids"]
@@ -267,5 +274,11 @@ class ServiceTransport:
             require(current <= expected if row["docstatus"] == 1 else
                     current == expected + amount(event["amount"]), "Payment Entry balance mismatch")
         elif "ticket_id" in event:
+            issue = self._get(event["ticket_id"], "Issue")
+            saved = json.loads(issue[EVENT])
+            self._verify(issue, saved)
             require((row["reference_doctype"], row["reference_name"]) ==
-                    ("Issue", event["ticket_id"].split("/", 1)[1]), "Comment issue mismatch")
+                    ("Issue", issue["name"]) and (saved["case"], saved["ticket"]) ==
+                    (event["case"], event["ticket"]),
+                    "Ticket comment or Issue mismatch")
+            require(row.get("content") == self._comment(event), "Ticket comment content mismatch")
