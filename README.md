@@ -27,6 +27,15 @@ For a live run, install the [runtime prerequisites](docs/GENERATING.md), includi
 
 Use the same command and run directory to resume after successful commissioning. The directory holds a private release snapshot and Git revision, scenario, business checkpoint, source settings, and lake archive. Keep it outside version control. If commissioning fails, inspect that run’s `provision.log` and service logs before retrying; the launcher refuses to allocate another stack in its place. Use a release tag or commit for future runs and the original pinned source for an existing run. The published 120-day dataset came from the earlier ERPNext, tickets and mail generator. A new live Q1 run is still subject to native commissioning and verification.
 
+After day 90, generate cutoff-specific extractor questions from the run’s own trace:
+
+```sh
+python3 /absolute/private/path/q1/release/native/build_evidence.py \
+  --run /absolute/private/path/q1/business --cutoff 89 --out /absolute/private/path/q1-grading
+```
+
+Share `public-examples.json` with dataset consumers. Keep `private/reference.json` with the evaluator. Each question’s evidence refers to the software records available at the selected cutoff.
+
 ## What was generated
 
 | Record | Count |
