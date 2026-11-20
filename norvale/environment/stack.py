@@ -48,8 +48,9 @@ class Stack:
             self.clock.start_at(load_time)
         self.log(f"clock placed; simulated now {self.clock.now().isoformat()}")
         self.compose("up", "-d", "db", "redis-cache", "redis-queue", capture_output=True)
-        self._wait(lambda: docker.exec_(self.project, self.file, "db", "mariadb-admin", "-uroot", "-padmin", "ping",
-                                        check=False, capture_output=True).returncode == 0, "database")
+        self._wait(lambda: docker.exec_(self.project, self.file, "db", "sh", "-ec",
+                                        'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb --protocol=tcp -hdb -uroot -e "SELECT 1"',
+                                        check=False, capture_output=True).returncode == 0, "database bootstrap login")
         if not (self.env / "site-created").exists():
             self.log("creating fresh ERPNext site (several minutes)")
             r = self.compose("run", "--rm", "--no-deps", "backend", "bash", "-c", BENCH_SETUP,

@@ -29,6 +29,18 @@ case "$mode" in
     up)
         compose up -d --wait db redis
         if [[ ! -e $runtime/site-created ]]; then
+            # Check the same network origin used by Bench. Socket health can pass during initialization.
+            if ! compose run -T --rm --no-deps --entrypoint sh db -ec '
+                export MYSQL_PWD="$MARIADB_ROOT_PASSWORD"
+                for attempt in $(seq 1 30); do
+                    mariadb --connect-timeout=2 --protocol=tcp -hdb -uroot -e "SELECT 1" >/dev/null && exit 0
+                    sleep 2
+                done
+                exit 1
+            ' > "$runtime/bootstrap-login.log" 2>&1; then
+                echo "QMS MariaDB bootstrap login from the Compose network failed; inspect $runtime/bootstrap-login.log and database grants" >&2
+                exit 1
+            fi
             # Follow norvale/environment/stack.py's Bench bootstrap with isolated services.
             if ! compose run -T --rm --no-deps -e QMS_ADMIN_PASSWORD -e QMS_DB_PASSWORD qms bash -ec '
                 ls -1 apps > sites/apps.txt
