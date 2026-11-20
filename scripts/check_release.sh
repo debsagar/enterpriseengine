@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Example tests also launch Python subprocesses with the staged client as cwd.
+unset PYTHONPATH PYTHONHOME
+
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 work=$(mktemp -d /tmp/enterpriseengine-gate.XXXXXX)
 trap 'rm -rf "$work"' EXIT
