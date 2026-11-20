@@ -31,4 +31,4 @@ Offline check from the repository root:
 python3 scripts/check_expert_inbox.py
 ```
 
-This checks the role dialogue, native-ID contract, replay, visibility cutoff and evidence-based grade through in-memory mail transports. Live authentication and delivery require a provisioned company's mail service.
+This checks the role dialogue, native-ID contract, replay, visibility cutoff and evidence-based grade through in-memory mail transports. An isolated native SMTP/IMAP exercise on simulation day 2027-01-01 used three commissioned employees and four messages. The planner received Jan 2 from Maintenance and Jan 4 from Quality. The private grader accepted Jan 4 with both citations and rejected a missing citation. Reopening the case recovered the same two request IDs and two reply IDs. Native email header folding exposed a leading whitespace discrepancy, which the final implementation reconciles. This exercised the same respondent callable used by management, invoked separately in an opening clock window. A later recurring horizon was outside this check.

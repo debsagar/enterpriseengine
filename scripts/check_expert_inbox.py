@@ -22,7 +22,7 @@ class Mail:
                                "message_id": f"<{uid}@{to[0]}>", "in_reply_to": in_reply_to})
 
     def find_subject(self, subject):
-        return [r for r in self.rows if r["subject"] == subject]
+        return [{**r, "subject": " " + r["subject"]} for r in self.rows if r["subject"] == subject]
 
     def read_mail(self, uid):
         return self.rows[int(uid)-1]

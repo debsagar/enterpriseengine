@@ -41,7 +41,7 @@ class ExpertInbox:
 
     def _read(self, sender, recipient, subject):
         client = self.clients[recipient]
-        rows = [m for m in client.find_subject(subject) if m["subject"] == subject
+        rows = [m for m in client.find_subject(subject) if m["subject"].lstrip(" \t") == subject
                 and m["from"] == self.clients[sender].addr and m["to"] == client.addr]
         if len(rows) > 1:
             raise ValueError("Ambiguous mail evidence")
