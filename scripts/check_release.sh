@@ -77,40 +77,27 @@ run_installed "$upgrade" 0.2.0 check_release_checkpoint seed
 "$upgrade" -I -m pip install --no-index --upgrade "$candidate_wheel"
 run_installed "$upgrade" "$candidate_version" check_release_checkpoint resume
 
-tests=(test_engine_resume_shifts)
-for test_module in test_engine_obligations test_obligation_cases; do
-    if [[ -f "../source/tests/$test_module.py" ]]; then
-        cp "../source/tests/$test_module.py" .
-        tests+=("$test_module")
-    else
-        printf 'Optional suite absent: %s\n' "$test_module"
-    fi
+tests=(test_engine_resume_shifts test_engine_obligations test_obligation_cases)
+cp ../source/tests/{test_engine_obligations,test_obligation_cases}.py .
+cp ../source/examples/obligation_cases.py examples/
+for case in warehouse sla; do
+    for cutoff in 19 27; do
+        printf 'Obligation example (%s, cutoff %s)\n' "$case" "$cutoff"
+        run_installed "$candidate" "$candidate_version" examples.obligation_cases \
+            "$case" --run "$case-run" --until "$cutoff"
+    done
 done
 
-if [[ -f ../source/examples/obligation_cases.py ]]; then
-    cp ../source/examples/obligation_cases.py examples/
-    for case in warehouse sla; do
-        for cutoff in 19 27; do
-            printf 'Obligation example (%s, cutoff %s)\n' "$case" "$cutoff"
-            run_installed "$candidate" "$candidate_version" examples.obligation_cases \
-                "$case" --run "$case-run" --until "$cutoff"
-        done
-    done
+mkdir -p consumers native norvale/loader
+cp ../source/consumers/{__init__,extraction,managed_services,shared}.py consumers/
+cp ../source/native/managed_services.py native/
+cp ../source/norvale/__init__.py norvale/
+cp ../source/norvale/loader/{__init__,erp_client}.py norvale/loader/
+cp ../source/tests/{test_engine_goals,test_managed_services_obligations}.py .
+# The suite's Goals fixture uses TestCase.enterContext (Python 3.11+).
+if "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
+    tests+=(test_managed_services_obligations)
 else
-    printf 'Optional example absent: examples/obligation_cases.py\n'
-fi
-if [[ -f ../source/tests/test_managed_services_obligations.py ]]; then
-    # The suite's Goals fixture uses TestCase.enterContext (Python 3.11+).
-    if "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
-        mkdir -p consumers native norvale/loader
-        cp ../source/consumers/{__init__,extraction,managed_services,shared}.py consumers/
-        cp ../source/native/managed_services.py native/
-        cp ../source/norvale/__init__.py norvale/
-        cp ../source/norvale/loader/{__init__,erp_client}.py norvale/loader/
-        cp ../source/tests/{test_engine_goals,test_managed_services_obligations}.py .
-        tests+=(test_managed_services_obligations)
-    else
-        printf 'Managed-services obligation suite requires Python 3.11 or newer\n'
-    fi
+    printf 'Managed-services obligation suite requires Python 3.11 or newer\n'
 fi
 run_installed "$candidate" "$candidate_version" unittest -v "${tests[@]}"
