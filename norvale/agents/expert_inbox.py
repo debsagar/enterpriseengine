@@ -73,7 +73,9 @@ class ExpertInbox:
     def _request(self, expert, send=False):
         topic = EXPERTS[expert]
         if self.now().date() < self.opened:
-            raise ValueError("Case has not opened")
+            if send:
+                raise ValueError("Case has not opened")
+            return None
         return self._mail("PLANNER", expert, f"{self.prefix} request {expert}",
                           f"What is the earliest available date for {topic} on case {self.case}?", send)
 
