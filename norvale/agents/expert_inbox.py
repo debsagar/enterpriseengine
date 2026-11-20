@@ -39,35 +39,35 @@ class ExpertInbox:
                             "are available? Cite the two expert replies, or report unknown.",
                 "contacts": dict(EXPERTS)}
 
-    def _mail(self, sender, recipient, subject, body, send=False, in_reply_to=None):
+    def _read(self, sender, recipient, subject):
         client = self.clients[recipient]
-        def lookup():
-            rows = [m for m in client.find_subject(subject) if m["subject"] == subject
-                    and m["from"] == self.clients[sender].addr and m["to"] == client.addr]
-            if len(rows) > 1:
-                raise ValueError("Ambiguous mail evidence")
-            if not rows:
-                return None
-            msg = client.read_mail(rows[0]["uid"])
-            if msg["body"].rstrip("\r\n") != body or not msg["message_id"]:
-                raise ValueError("Changed mail evidence")
-            if parsedate_to_datetime(msg["date"]) > self.now():
-                if send:
-                    raise ValueError("Message is outside the business cutoff")
-                return None
+        rows = [m for m in client.find_subject(subject) if m["subject"] == subject
+                and m["from"] == self.clients[sender].addr and m["to"] == client.addr]
+        if len(rows) > 1:
+            raise ValueError("Ambiguous mail evidence")
+        if not rows:
+            return None
+        msg = client.read_mail(rows[0]["uid"])
+        if not msg["message_id"]:
+            raise ValueError("Missing native mail identity")
+        if parsedate_to_datetime(msg["date"]) <= self.now():
             return msg
-        found = lookup()
+        return None
+
+    def _mail(self, sender, recipient, subject, body, send=False, in_reply_to=None):
+        found = self._read(sender, recipient, subject)
         if send and found is None:
             # Claim before SMTP. After an uncertain send only native readback can confirm delivery.
             claim = self.directory / hashlib.sha256(subject.encode()).hexdigest()
             try:
                 claim.touch(exist_ok=False)
-            except FileExistsError as exc:
-                raise RuntimeError("Pending delivery; check the existing send before resending") from exc
-            self.clients[sender].send_mail([client.addr], subject, body, self.now(), in_reply_to=in_reply_to)
-            found = lookup()
-            if found is None:
-                raise RuntimeError("Delivery pending; reconcile mailbox before retry")
+            except FileExistsError:
+                return None
+            self.clients[sender].send_mail([self.clients[recipient].addr], subject, body,
+                                           self.now(), in_reply_to=in_reply_to)
+            found = self._read(sender, recipient, subject)
+        if found and found["body"].rstrip("\r\n") != body:
+            raise ValueError("Changed mail evidence")
         return found
 
     def _request(self, expert, send=False):
@@ -78,15 +78,15 @@ class ExpertInbox:
                           f"What is the earliest available date for {topic} on case {self.case}?", send)
 
     def ask(self, expert):
-        return self._request(expert, send=True)["message_id"]
+        sent = self._request(expert, send=True)
+        return sent["message_id"] if sent else None
 
     def _reply(self, expert, send=False):
         request = self._request(expert)
         if request is None:
             return None
         day = briefing(self.seed, self.case, expert, self.opened)
-        thread = hashlib.sha256(request["message_id"].encode()).hexdigest()[:20]
-        return self._mail(expert, "PLANNER", f"{self.prefix} reply {expert} {thread}",
+        return self._mail(expert, "PLANNER", f"{self.prefix} reply {expert}",
                           f"{EXPERTS[expert]} for {self.case}: {day}.", send,
                           in_reply_to=request["message_id"])
 
@@ -97,15 +97,21 @@ class ExpertInbox:
 
     def inbox(self):
         return [{"expert": expert, "message_id": m["message_id"], "body": m["body"]}
-                for expert in EXPERTS if (m := self._reply(expert))]
+                for expert in EXPERTS
+                if (m := self._read(expert, "PLANNER", f"{self.prefix} reply {expert}"))]
 
     def grade(self, answer, citations):
         """Only the owner calls this. Unavailable evidence warrants an unknown answer."""
-        replies = self.inbox()
-        if len(replies) < len(EXPERTS):
-            return answer == "unknown" and set(citations) <= {m["message_id"] for m in replies}
+        # The evaluator verifies both sides of the interview; the learner sees only its own inbox.
+        delivered = set()
+        for role in EXPERTS:
+            msg = self._reply(role)
+            if msg:
+                delivered.add(msg["message_id"])
+        if len(delivered) < len(EXPERTS):
+            return answer == "unknown" and set(citations) <= delivered
         expected = max(briefing(self.seed, self.case, role, self.opened) for role in EXPERTS)
-        return answer == expected and set(citations) == {m["message_id"] for m in replies}
+        return answer == expected and set(citations) == delivered
 
 
 def open_case(run, case, *, create=False):
