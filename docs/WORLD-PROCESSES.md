@@ -16,7 +16,7 @@ Set `world: true` in a new engine consumer configuration. For real recurring Nor
 
 ## STOCKTAKE provenance
 
-The transition laws and calibrated defaults were adapted from the local STOCKTAKE reproducibility release at `/data/stocktake-release/backend/src/world/`. The matching publish checkout is `/data/stocktake-release-publish` at `5b90dac`. The source archive has no Git metadata. These are the SHA-256 identifiers for the inspected files.
+The transition laws and calibrated defaults were adapted from the local STOCKTAKE reproducibility release at `backend/src/world/`. The matching STOCKTAKE release commit is `5b90dac`. The source archive has no Git metadata. These are the SHA-256 identifiers for the inspected files.
 
 | Source | SHA-256 |
 | --- | --- |

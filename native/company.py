@@ -647,6 +647,27 @@ class Engine:
         self.write('mandate:2027','Note',{'title':'Operating mandates effective 2027-01-01','public':1,'content':json.dumps({'effective_date':'2027-01-01','review_date':'2027-05-01','SCM_MGR':'Approve or reject supplier purchases and item reorder changes using observed evidence; issue scoped purchasing policies.','CFO':'Review finances and revise purchasing policies; no configured spending ceiling.','BUYER':'Observe materials, request purchases; cannot approve own purchase or book stock.','IT_ADMIN':'Implement separately approved item changes after approval date.','PRODUCTION':'Execute authorized operations within available stock and shift capacity.'})})
         self.state.setdefault('ops',{'orders':{},'purchases':{},'production':{},'invoices':{},'maintenance':{},'changes':{},'meter':0,'serviced_meter':0,'shortage_days':{}})
         self.persist()
+        self.seed_opening_orders()
+
+    def seed_opening_orders(self):
+        for index, order in enumerate(self.config.get('opening_orders', []), 1):
+            key = f'opening-order-{index}'
+            sku = next(s for s in self.catalog.skus if s['sku_id'] == order['item'])
+            customer = self.get('customer:' + order['customer'])['name']
+            due = self.dated(order['due_day'])
+            line = dict(item_code=order['item'], qty=order['quantity'], rate=sku['unit_price'],
+                        delivery_date=due, warehouse=self.wh['fg'])
+            doc = self.write(key, 'Sales Order', dict(company=self.company, customer=customer,
+                             transaction_date=self.date(), delivery_date=due, items=[line]), 'SALES', True)
+            row, = doc['items']
+            if (doc['docstatus'] != 1 or doc['customer'] != customer or doc['company'] != self.company
+                    or row['warehouse'] != line['warehouse'] or float(row.get('delivered_qty') or 0) != 0
+                    or row['item_code'] != line['item_code']
+                    or row['qty'] != line['qty'] or row['delivery_date'] != due or row['rate'] != line['rate']):
+                raise ValueError('Opening Sales Order readback differs from scenario')
+            self.state['ops']['orders'][key] = dict(key=key, item=order['item'], qty=line['qty'],
+                                                    rate=line['rate'], customer=order['customer'], day=self.day)
+            self.persist()
 
     def regime(self):
         from regimes import factors

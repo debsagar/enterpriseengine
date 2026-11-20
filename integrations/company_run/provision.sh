@@ -6,7 +6,7 @@ run=$(realpath "${1:?prepared runtime}")
 cd "$run/release"
 [[ -d integrations/company_run && ! -e "$run/services.json" ]]
 df -h "$run"
-export PYTHONPATH=.:native:integrations/lake NORVALE_OFFLINE=1
+export PYTHONPATH=".:native:integrations/lake${PYTHONPATH:+:$PYTHONPATH}" NORVALE_OFFLINE=1
 : "${NORVALE_CLOCK_LIB:?release libfaketime directory required}"
 suffix=$(openssl rand -hex 6)
 mes_project=nvmes-company-$suffix
@@ -41,12 +41,21 @@ PY
 for action in up configure fixture; do bash integrations/qms/provision.sh "$action" "$run/qms"; done
 python3 - "$run/business" <<'PY'
 import os, sys
+from pathlib import Path
 from native.company import initialize, DEFAULT_CONFIG
 from integrations.company_run.timing import DEFAULT_TIMING
-e = initialize(sys.argv[1], dict(DEFAULT_CONFIG, company_authority='integrations.company_run.authority:Authority',
+scenario = Path(sys.argv[1]).parent / "scenario.json"
+settings = {}
+if scenario.exists():
+    from simulate import load_scenario
+    cfg = load_scenario(scenario)
+    settings = {k: cfg[k] for k in ("days", "seed", "opening_orders")}
+config = dict(DEFAULT_CONFIG, company_authority='integrations.company_run.authority:Authority',
     company_timing=DEFAULT_TIMING, days=8, orders_per_day=1, report_every=2,
     **(dict(company_operating=True, supplier_quality=True) if os.environ.get('NORVALE_COMPANY_OPERATING') == '1'
-       else dict(maintenance_units=24, maintenance_days=1))))
+       else dict(maintenance_units=24, maintenance_days=1)))
+config.update(settings)
+e = initialize(sys.argv[1], config)
 e.step('seed')
 PY
 sample=()
