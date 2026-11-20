@@ -721,6 +721,9 @@ class Engine:
             self.mail(key,'MAINTENANCE','PLANT_MGR','Filler unavailable for service',self.get(key)['description'])
 
     def management(self):
+        if (self.run/'private/expert-inbox-v1').is_dir():
+            from norvale.agents.expert_inbox import answer_pending
+            answer_pending(self.run)
         if (self.day+1)%self.config['report_every']:return
         key=f'report:{self.day}'
         period=self.config['report_every']/30
