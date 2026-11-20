@@ -132,6 +132,10 @@ run.extend(opening["id"], roles=opening["roles"], events=opening["events"])
 | Inspection and grading | Inspect journaled calls, responses and readbacks; export confirmed records; implement company-specific extraction questions and private grading. [Runtime reference](engine/README.md) |
 | Operational scope | One controller per local run directory. A staff count models capacity. Individually modeled employees need identities, behavior and permissions. A 2,000-person full-stack deployment remains unqualified. |
 
+The [warehouse shortage and managed services SLA examples](docs/OBLIGATION-CASES.md)
+show how to carry role-owned commitments through a handoff and restart,
+then resolve them with native readback.
+
 ## What a world-model experiment gets back
 
 The company produces source records. The learner gets a filtered view and a question with a cutoff. The evaluator can retain private state, native evidence links and a checker. For example, a correct answer to the expert availability exercise needs the later of two dates **and both native message IDs**. Guessing the date earns no evidence credit. In a shipping exercise, the comparable checks are the shipment quantity, the pinned release version and the time at which the role could observe it.
