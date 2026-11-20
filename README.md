@@ -4,7 +4,7 @@ Run a company on a simulated clock and follow its decisions into real applicatio
 
 ![Illustrated Norvale order moving from demand through planning, production, quality and delivery to the lake](docs/company-clock.gif)
 
-**[Write Norvale in Python](docs/write-norvale.md)** · **[Shared engine](engine/README.md)** · **[Full-company operating loop](docs/COMPANY-LOGIC.md)**
+**[Write Norvale in Python](docs/write-norvale.md)** · **[Shared engine](engine/README.md)** · **[Full-company operating loop](docs/COMPANY-LOGIC.md)** · **[Software APIs, roles and authority](docs/roles-and-software.md)**
 
 ### Try the opening
 

@@ -1,0 +1,18 @@
+{
+  "warehouse-sales": {
+    "adapter": "erpnext-sales",
+    "token_env": "WAREHOUSE_SALES_TOKEN",
+    "employee": {
+      "role": "counter-sales",
+      "user": "counter@warehouse.test"
+    },
+    "erp": {
+      "url": "https://erp.example.test",
+      "site": "warehouse.example.test",
+      "company": "Norvale Consumer Care",
+      "customer": "Demo Retail",
+      "item": "LOTION-2",
+      "warehouse": "Finished Goods - NCC"
+    }
+  }
+}

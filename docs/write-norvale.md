@@ -1,5 +1,7 @@
 # Write Norvale using EnterpriseEngine
 
+For employee identities, API credentials, native permissions and approval handoffs, start with [roles and software](roles-and-software.md).
+
 ## Define the opening
 
 The published starter opens with four customer orders totaling 720 units. This example uses the native Norvale company implementation. Change quantities and due days to change the pressure on its planner. A due day is an offset from the start of the scenario.

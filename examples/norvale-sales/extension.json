@@ -1,0 +1,42 @@
+{
+  "id": "open-warehouse-sales",
+  "systems": {
+    "warehouse-sales": {
+      "connection": "warehouse-sales"
+    }
+  },
+  "roles": {
+    "counter-sales": {
+      "permissions": [
+        "write:warehouse-sales:order"
+      ],
+      "shifts": [
+        [
+          780,
+          840
+        ]
+      ]
+    }
+  },
+  "products": {
+    "new-lotion": {
+      "system": "warehouse-sales",
+      "item": "LOTION-2"
+    }
+  },
+  "events": [
+    {
+      "id": "new-order",
+      "kind": "order",
+      "role": "counter-sales",
+      "at": 2190,
+      "duration": 15,
+      "payload": {
+        "product": "new-lotion",
+        "case": "PO-2",
+        "quantity": 2,
+        "rate": 3
+      }
+    }
+  ]
+}
