@@ -29,12 +29,12 @@ The clock owns *when*. Your handler owns *what should happen*. The adapter owns 
 
 ## Install and use from Python
 
-On Linux or macOS with Python 3.10+, Git and SQLite, create an environment and install the tagged library directly from GitHub:
+Once `v0.3.0` is tagged, use the following commands on Linux or macOS with Python 3.10+, Git and SQLite to install that release from GitHub.
 
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install "enterpriseengine @ git+https://github.com/debsagar/enterpriseengine.git@v0.2.0"
+python -m pip install "enterpriseengine @ git+https://github.com/debsagar/enterpriseengine.git@v0.3.0"
 ```
 
 **Save this as `my_company.py` in your own directory.** The company below has one quality reviewer. Two inspection requests arrive before opening. The handler records what the reviewer discovers and when. It needs neither Docker nor model credentials.
@@ -131,6 +131,10 @@ run.extend(opening["id"], roles=opening["roles"], events=opening["events"])
 | Outside events | Seed private world processes and expose their observable effects to company roles. [World process model](docs/WORLD-PROCESSES.md) |
 | Inspection and grading | Inspect journaled calls, responses and readbacks; export confirmed records; implement company-specific extraction questions and private grading. [Runtime reference](engine/README.md) |
 | Operational scope | One controller per local run directory. A staff count models capacity. Individually modeled employees need identities, behavior and permissions. A 2,000-person full-stack deployment remains unqualified. |
+
+The [warehouse shortage and managed services SLA examples](docs/OBLIGATION-CASES.md)
+show how to carry role-owned commitments through a handoff and restart,
+then resolve them with native readback.
 
 ## What a world-model experiment gets back
 
