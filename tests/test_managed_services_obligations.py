@@ -1,8 +1,9 @@
 """Offline service SLA regressions against Engine and the real consumer."""
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import test_engine_goals as fixtures
+from native.managed_services import ServiceTransport
 
 
 class ManagedServicesObligations(fixtures.Goals):
@@ -25,9 +26,13 @@ class ManagedServicesObligations(fixtures.Goals):
         run, native, _, resume = self.service()
         self.ticket(run)
         self.ticket(run, "C2")
+        self.ticket(run, "C3")
+        self.schedule(run, "respond", 11, key="early-enqueued-response",
+                      role="worker", case="C3", ticket="T")
         run.run(until=1)
         first = self.one(native, "ticket", case="C", ticket="T")
         second = self.one(native, "ticket", case="C2", ticket="T")
+        third = self.one(native, "ticket", case="C3", ticket="T")
         self.schedule(run, "eta", 4, role="worker", case="C", ticket="T", eta=15)
         # Even a response queued after the alarm can meet the deadline.
         self.schedule(run, "respond", 11, role="worker", case="C2", ticket="T")
@@ -38,12 +43,14 @@ class ManagedServicesObligations(fixtures.Goals):
 
         run = resume()
         run.run(until=20)
-        self.one(native, "sla_breach", case="C", ticket_id=first["native_id"], at=11, due=11)
+        breach = self.one(native, "sla_breach", case="C", ticket_id=first["native_id"], at=11, due=11)
         response = self.one(native, "ticket_response", case="C2", ticket_id=second["native_id"], at=11)
-        self.assertFalse(self.rows(native, "sla_breach", case="C2"))
+        self.one(native, "ticket_response", case="C3", ticket_id=third["native_id"], at=11)
+        self.assertEqual(len(self.rows(native, "sla_breach")), 1)
         self.assertIn(("read", "tickets", response["native_id"]), native.calls)
-        self.assertEqual(len([row for row in run.history()
-                              if row["phase"] == "complete" and row["id"].startswith("obligation:")]), 1)
+        write, = [call for call in run.trace()
+                  if call.get("method") == "send" and breach["native_id"] in call["native_ids"]]
+        self.assertEqual(write["event"]["kind"], "obligation_due")
 
     def test_absent_assignee_transfers_and_late_response_replays(self):
         def crash(stage, operation):
@@ -73,7 +80,10 @@ class ManagedServicesObligations(fixtures.Goals):
         run = resume(None)
         run.run(until=30)
         self.one(native, "ticket_eta", ticket_id=ticket["native_id"], technician="B", eta=17)
-        self.one(native, "sla_breach", ticket_id=ticket["native_id"], due=11, at=14)
+        breach = self.one(native, "sla_breach", ticket_id=ticket["native_id"], due=11, at=14)
+        write, = [call for call in run.trace()
+                  if call.get("method") == "send" and breach["native_id"] in call["native_ids"]]
+        self.assertEqual((write["event"]["kind"], write["role"]), ("obligation_due", "relief"))
         response = self.one(native, "ticket_response", ticket_id=ticket["native_id"], technician="B", at=17)
         self.assertEqual(run.state["managed_services"]["responses"]["C"]["T"], response["native_id"])
         self.assertEqual(len([row for row in run.history()
@@ -157,3 +167,39 @@ class ManagedServicesObligations(fixtures.Goals):
         run.run(until=11)
         ticket = self.one(native, "ticket", case="C", ticket="T")
         self.one(native, "sla_breach", ticket_id=ticket["native_id"], due=11, at=11)
+
+    def test_service_transport_links_eta_and_response_to_the_native_issue(self):
+        api = Mock(base="offline", site="offline")
+        docs = {}
+
+        def create(doctype, fields):
+            name = f"{doctype}-{len(docs) + 1}"
+            docs[doctype, name] = dict(fields, name=name, docstatus=0)
+            return docs[doctype, name]
+
+        api.create.side_effect = create
+        api.get.side_effect = lambda doctype, name: docs[doctype, name]
+        api.list.side_effect = lambda doctype, filters, limit: [
+            row for (kind, _), row in docs.items()
+            if kind == doctype and all(row.get(field) == value for field, value in filters.items())
+        ][:limit]
+        transport = ServiceTransport(api, api, namespace="test", company="Example",
+                                     customer="Client", item="Support", cash_account="Cash",
+                                     epoch="2027-01-01")
+        _, _, _, reopen = self.service()
+        run = reopen(transport=transport)
+        self.schedule(run, "contract", 0, case="C", response_minutes=10, rate=10)
+        self.schedule(run, "ticket", 1, case="C", ticket="T")
+        self.schedule(run, "eta", 2, case="C", ticket="T", eta=4)
+        self.schedule(run, "respond", 4, case="C", ticket="T")
+        run.run(until=11)
+        issue, = [name for kind, name in docs if kind == "Issue"]
+        eta, response = [row for (kind, _), row in docs.items() if kind == "Comment"]
+        self.assertEqual(eta["content"], "ticket_eta 4")
+        self.assertEqual(eta["reference_name"], issue)
+        self.assertEqual(response["reference_name"], issue)
+        response_id = f"Comment/{response['name']}"
+        self.assertEqual(transport.read("tickets", response_id)["ticket_id"], f"Issue/{issue}")
+        response["reference_name"] = "wrong-issue"
+        with self.assertRaisesRegex(ValueError, "Ticket comment or Issue mismatch"):
+            transport.read("tickets", response_id)

@@ -79,8 +79,7 @@ class Consumer:
                 raise ValueError(f"Invalid or duplicate ticket: {ticket}")
             if case not in terms:
                 raise ValueError("Ticket requires confirmed contract terms")
-            role_owned = role is not None and (
-                role in engine.catalog["roles"] or role in self.config.get("shifts", {}))
+            role_owned = role is not None and role in engine.catalog["roles"]
             if role_owned:
                 technician = payload.get("technician", role)
                 self.check_technician(technician)
