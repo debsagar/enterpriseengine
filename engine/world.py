@@ -1,11 +1,12 @@
 """Weekly exogenous processes and the calendar boundary for deliveries.
 
-Transition laws adapted from the local STOCKTAKE reproducibility release.
-See docs/WORLD-PROCESSES.md for source hashes and adaptation details.
+See docs/WORLD-PROCESSES.md for the STOCKTAKE reference and source hashes.
 """
 from copy import deepcopy
 from hashlib import sha256
 from random import Random
+
+from ._extension import name
 
 WEEK = 7 * 1440
 TICK = "_world_tick"
@@ -41,6 +42,16 @@ def validate(config):
             or type(fixture.get("transit_delay_minutes", 0)) is not int
             or fixture.get("transit_delay_minutes", 0) < 0):
         raise ValueError("Invalid world fixture")
+    if "world_demand" in config:
+        demand = config["world_demand"]
+        if (not config.get("world") or not isinstance(demand, dict)
+                or set(demand) != {"version", "roles"}
+                or type(demand["version"]) is not int or demand["version"] != 1):
+            raise ValueError("world_demand requires world: true, version: 1 and roles")
+        roles = demand["roles"]
+        if (not isinstance(roles, list) or not roles or not all(map(name, roles))
+                or len(roles) != len(set(roles))):
+            raise ValueError("world_demand roles must be a nonempty list of distinct role names")
 
 
 def stream(seed, factor, at):
@@ -97,6 +108,49 @@ def reliability(previous, rng):
     return dict(state=next_state, age=age)
 
 
+def demand_v1(previous, seed, at):
+    """Advance one weekly demand sample using separate transition and noise streams."""
+    regime, age = "normal", 0
+    if previous is not None:
+        current = previous["regime"]
+        age = previous["age"] + 1
+        coin = stream(seed, "demand-v1-regime", at).random()
+        if current == "normal":
+            if coin < .03:
+                regime = "promo_spike"
+            elif coin < .045:
+                regime = "seasonal_lift"
+            elif coin < .05:
+                regime = "structural_decline"
+        elif current == "promo_spike" and age < 4:
+            regime = current
+        elif current == "seasonal_lift" and age < 8 and coin <= .85:
+            regime = current
+        elif current == "structural_decline" and coin < .97:
+            regime = current
+        if regime != current:
+            age = 0
+
+    mean = {"normal": 20, "promo_spike": 26, "seasonal_lift": 30,
+            "structural_decline": 14}[regime]
+    if regime == "seasonal_lift" and age == 0:
+        mean = 26
+    pos = stream(seed, "demand-v1-realized", at).gauss(mean, 4)
+    forecast = stream(seed, "demand-v1-forecast", at).gauss(mean, 6)
+    return dict(regime=regime, age=age, mean=mean,
+                pos_units=max(0, round(pos)), demand_forecast=max(0, round(forecast)))
+
+
+def demand_observations(state, config, role, cutoff):
+    if role not in config.get("world_demand", {}).get("roles", ()):
+        return []
+    return [
+        dict(at=row["at"], pos_units=row["demand"]["pos_units"],
+             demand_forecast=row["demand"]["demand_forecast"])
+        for row in state.get("_world", ()) if row["at"] <= cutoff and "demand" in row
+    ]
+
+
 def truth(state, config, cutoff):
     rows = [row for row in state.get("_world", []) if row["at"] <= cutoff]
     envelope = {"world": deepcopy(rows)}
@@ -116,7 +170,10 @@ def tick(engine):
     lane = disruption(prior.get("disruption"), stream(engine.seed, "disruption", at),
                       engine.config.get("world_fixture", {}).get("initial_disruption", "calm"))
     supplier = reliability(prior.get("supplier_reliability"), stream(engine.seed, "supplier", at))
-    rows.append(dict(at=at, disruption=lane, supplier_reliability=supplier))
+    sample = dict(at=at, disruption=lane, supplier_reliability=supplier)
+    if "world_demand" in engine.config:
+        sample["demand"] = demand_v1(prior.get("demand"), engine.seed, at)
+    rows.append(sample)
     state = lane["event_state"]
     band = "warning" if state == "false_alarm" or (state == "disruption" and lane["event_age"] == 0) else state
     fields = {"text": BULLETINS[band]}
