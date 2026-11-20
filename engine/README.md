@@ -69,40 +69,81 @@ resume automatically.
 
 ## Track employee obligations
 
-Role-bearing handlers can use these methods. The scheduled role determines
-access. Each mutation commits with the handler's completion and returns
-`None`.
+Obligation calls require the scheduled acting role to be registered in the
+engine's role catalog. Base `config["roles"]`, roles admitted through
+`run.extend`, and legacy `config["shifts"]` all count. Existing scheduling
+rules for role-free events and events with other role strings still apply.
 
-- `run.open_obligation(key, *, owner, due, evidence)` opens a run-unique,
-  nonblank string key for the acting role. Opening evidence is JSON context
-  carried through a handoff. Repeating the current terms succeeds without
-  scheduling another reminder. Conflicting terms raise `ValueError`.
-- `run.handoff_obligation(key, *, owner, due)` lets the current owner
-  transfer an open obligation to another role or update its deadline.
-  Repeating the same owner and deadline leaves the reminder as it was.
-- `run.resolve_obligation(key, *, evidence)` lets the current owner close
-  an obligation using `{"system": system_id, "native_id": native_record_id}`.
-  The record must already have confirmed native readback from `run.write`
-  or `run.confirm`, be dated through the current minute, and be visible to
-  the role. This includes a readback made by the current handler, subject
-  to the record's role filter. The handler decides whether the evidence
-  substantively satisfies the obligation. Repeating the same resolution
-  succeeds. The key stays reserved after resolution.
-- `run.obligations()` returns a detached list of the acting role's open
-  obligations in key order, each with `key`, `owner`, `due` and `evidence`.
-  Access outside role-bearing handlers and mutations of keys owned by
-  another role raise `PermissionError`.
+- `run.open_obligation(key, *, owner, due, evidence, priority=0)` opens an
+  obligation for the acting role and returns its stable string ID. The
+  nonblank short key is scoped to the opening role. Store the returned ID
+  for subsequent calls. Replaying the same opening terms returns the same
+  ID after handoff or resolution and leaves the current owner, deadline
+  and alarm alone. Different opening terms for that role and key raise
+  `ValueError`.
+- `run.handoff_obligation(obligation_id, *, owner, due)` lets the current
+  owner transfer an open obligation or change its deadline. The destination
+  must be registered. The original owner loses access after transfer.
+- `run.reassign_obligation(obligation_id, *, owner, due)` permits a
+  registered acting role with the explicit permission
+  `obligation:reassign:<current_owner>` to transfer it. Permissions are
+  checked against the current owner at the time of the call. This grant
+  confers no listing or resolution authority. The consumer decides whether
+  reassignment is justified and can pass the existing due to preserve an
+  SLA. The destination must be registered.
+- `run.resolve_obligation(obligation_id, *, evidence)` lets the current
+  owner close it using `{"system": system_id, "native_id": native_record_id}`.
+  The evidence must be visible through the current business minute and
+  come from a verified `run.write` or `run.confirm`. A readback returned to
+  this handler is eligible, including when replay reuses its journaled
+  result. An earlier handler's confirmation is eligible after that event
+  is terminal and subject to the system and record visibility rules.
+  The consumer decides whether it satisfies the obligation. Repeating an
+  identical resolution succeeds without adding another audit entry.
+- `run.obligations()` returns detached open entries for the acting role in
+  short-key order. Each entry has `id`, `key`, `owner`, `due`, and
+  `evidence`. The ID stays stable through transfers, including when the new
+  owner already has another obligation with the same short key. Calls
+  that target a case require its ID. Missing and inaccessible case IDs
+  both raise `PermissionError`.
 
-`due` is an absolute, nonnegative integer business minute. The engine
-dispatches `consumer.handle(run, "obligation_due", {"key": key})` as the
-owning role on the first shift minute at or after the deadline and the
-minute of assignment. The stored deadline remains the supplied minute.
-The reminder leaves the obligation open. A changed assignment or deadline
-supersedes the previous reminder, and resolution cancels any pending
-reminder. After restart, an interrupted handler replays with its original
-event identity and the existing native-write recovery rules. A reminder
-can defer completion once its native writes are reconciled, so a later
-handoff can supersede it cleanly.
+`due` is an absolute nonnegative business minute. The engine dispatches
+`consumer.handle(run, "obligation_due", {"id": obligation_id, "key": key})`
+as the assigned role on the first shift minute at or after the deadline
+and assignment. The stored due remains the supplied minute. The alarm is
+one-shot. Completion leaves the case open and changing the owner or due
+arms a new alarm at the original priority. Repeating the same assignment
+and deadline leaves the alarm as it was. A lower priority number runs
+first at the same minute. For example, `priority=1` lets priority-0
+responses at the deadline resolve before the alarm dispatches.
+
+Opening, transfer, resolution and any alarm changes commit with the
+handler. An interruption rolls those edits back, and replay retains the
+same dispatch identity and reuses confirmed native readbacks. Deferral
+keeps the original alarm identity and retries the handler the next
+business day. Alarm writes must be replayed and confirmed before deferral
+can yield the queue. A change of owner, deadline, or resolution discards
+an unstarted alarm. A started alarm that has deferred becomes terminal
+with history phase `superseded` at the change minute. Its confirmed records
+remain in `export()` and become eligible for extraction from that minute.
+Export reports confirmed native records immediately, including records
+whose handler is still pending. A deferred alarm's handler state and
+follow-up work are rolled back.
+
+The owner-only `run.private_truth(as_of=...)` exposes committed
+`obligation_history` keyed by ID. It records opens, handoffs, reassignments
+and resolutions, including the acting role, business minute and dispatch
+ID. Opening evidence is JSON context. Transfers log previous and new
+terms. Resolution links its cited native reference to the readback event
+and operation. The checkpoint and evaluator view remain private. The
+engine does not project lifecycle metadata into native exports,
+observations or extractor questions.
+
+Older checkpoints retain their case and pending alarm. The stored owner
+and due become the opening namespace and due for those records, and the
+old alarm priority is zero. The older format lacks earlier lifecycle
+entries. Consumers upgrading must use the new ID contract and register
+roles for obligation calls.
 
 ## Extend an existing run
 

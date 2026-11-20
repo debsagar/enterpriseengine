@@ -141,6 +141,7 @@ class Engine:
         self._db.execute("CREATE INDEX IF NOT EXISTS writes_by_system ON writes(json_extract(data, '$.system'))")
         checkpoint = self._checkpoint
         if "queue" not in checkpoint:
+            self._index_terminal_history()
             return
         db = self._db
         db.execute("CREATE TABLE event_ids (id TEXT PRIMARY KEY, sequence INTEGER)")
@@ -149,6 +150,7 @@ class Engine:
         db.execute("CREATE INDEX queue_order ON queue (minute, priority, sequence)")
         db.execute("CREATE INDEX queue_role ON queue (role)")
         db.execute("CREATE TABLE history (id INTEGER PRIMARY KEY, entry TEXT NOT NULL)")
+        self._index_terminal_history()
         db.execute("CREATE TABLE IF NOT EXISTS decisions (operation INTEGER PRIMARY KEY, "
                    "event_id TEXT UNIQUE NOT NULL, data TEXT NOT NULL)")
         for edge in checkpoint["queue"]:
@@ -169,6 +171,12 @@ class Engine:
             }
         db.execute("UPDATE checkpoint SET data = ? WHERE id = 1", (_json(migrated),))
         self._restore(migrated)
+
+    def _index_terminal_history(self):
+        self._db.execute(
+            "CREATE INDEX IF NOT EXISTS terminal_history ON history(json_extract(entry, '$.id')) "
+            "WHERE json_extract(entry, '$.phase') IN ('complete', 'superseded')"
+        )
 
     @contextmanager
     def _lock(self, filename, *, blocking=True):
@@ -200,7 +208,15 @@ class Engine:
         self.now = checkpoint["now"]
         self._sequence = checkpoint["sequence"]
         self._staff_available = deepcopy(checkpoint.get("staff_available", {}))
-        self._obligations = deepcopy(checkpoint.get("obligations", {}))
+        self._obligations = {}
+        for key, saved in checkpoint.get("obligations", {}).items():
+            obligation = deepcopy(saved)
+            if "id" not in obligation:
+                # Old checkpoints stored only a global short key and the current owner.
+                obligation.update(id=_json([key]), origin=obligation["owner"],
+                                  opening_due=obligation["due"], priority=0)
+            self._obligations[obligation["id"]] = obligation
+        self._superseded_reminders = set()
         self._pending.clear()
         self.state.clear()
         self.state.update(checkpoint["state"])
@@ -330,6 +346,11 @@ class Engine:
             for id, queued in self._pending.items():
                 db.execute("INSERT INTO event_ids VALUES (?, ?)", (_json(id), queued[2]))
                 self._insert_edge(queued)
+            for sequence in sorted(self._superseded_reminders):
+                row = db.execute("SELECT edge FROM queue WHERE sequence = ?", (sequence,)).fetchone()
+                if row:
+                    db.execute("DELETE FROM queue WHERE sequence = ?", (sequence,))
+                    self._record_supersession(json.loads(row[0]), checkpoint)
             if history is not None:
                 cursor = db.execute("INSERT INTO history (entry) VALUES (?)", (_json(history),))
                 checkpoint["history_end"] = cursor.lastrowid
@@ -337,6 +358,13 @@ class Engine:
             db.execute("UPDATE checkpoint SET data = ? WHERE id = 1", (data,))
         self._checkpoint = json.loads(data)
         self._pending.clear()
+        self._superseded_reminders.clear()
+
+    def _record_supersession(self, edge, checkpoint):
+        if edge[3] in (1, 3):
+            entry = {"id": edge[4], "phase": "superseded", "at": self.now}
+            cursor = self._db.execute("INSERT INTO history (entry) VALUES (?)", (_json(entry),))
+            checkpoint["history_end"] = cursor.lastrowid
 
     def _shift_start(self, at, role=None):
         """Return the first on-shift minute at or after at, without scheduling."""
@@ -503,10 +531,14 @@ class Engine:
     def _step(self, edge):
         at, priority, seq, phase, id, kind, payload, duration, role, other_at, *reminder = edge
         if reminder:
-            obligation = self._obligations.get(payload["key"])
+            obligation_id = _json([payload["key"]]) if reminder[0] is True else reminder[0]
+            obligation = self._obligations.get(obligation_id)
             if obligation is None or obligation["reminder"] != seq:
-                self._save(remove=seq)
+                # A legacy checkpoint can still have an obsolete edge in its queue.
+                terminal = {"id": id, "phase": "superseded", "at": self.now}
+                self._save(remove=seq, history=terminal if phase in (1, 3) else None)
                 return
+            payload = {**payload, "id": obligation_id}
         self.now = at
         if phase == 2:
             # Admit staffed work in arrival order, including any earlier bookings.
@@ -533,6 +565,7 @@ class Engine:
         self.event = dict(id=id, sequence=seq, kind=kind, role=role, duration=duration,
                           at=self.event_started_at, priority=priority)
         self._write_index = self._provider_index = self._observation_index = 0
+        self._active_readbacks = set()
         try:
             if kind in (world.TICK, world.CHECK, world.ARRIVAL):
                 world.handle(self, kind, deepcopy(payload))
@@ -542,7 +575,8 @@ class Engine:
                 self._check_writes()
         except DeferCompletion:
             if reminder:
-                # A later handoff can supersede a deferred reminder.
+                # A deferred alarm can be superseded. A partial native write
+                # must first be recovered under this event's original identity.
                 self._check_writes()
             at = self.now
             timestamps = (self.event_started_at, self._completion_at)
@@ -564,63 +598,102 @@ class Engine:
                 (self._checkpoint["history_end"],))]
 
     def _obligation_role(self):
-        if self._active is None or not name(self._active_role):
-            raise PermissionError("Obligations require a role-bearing event handler")
+        if self._active is None or self._active_role not in self._catalog["roles"]:
+            raise PermissionError("Obligations require an event handler with a registered role")
         return self._active_role
 
-    def _owned_obligation(self, key):
+    def _authorized_obligation(self, obligation_id, *, reassign=False):
         role = self._obligation_role()
-        if not name(key):
-            raise ValueError("Obligation key must be a nonblank string")
-        obligation = self._obligations.get(key)
-        if obligation is None or obligation["owner"] != role:
-            raise PermissionError("Obligation is unavailable to the active role")
-        return obligation
+        if not name(obligation_id):
+            raise ValueError("Obligation ID must be a nonblank string")
+        obligation = self._obligations.get(obligation_id)
+        if obligation is not None:
+            owner = obligation["owner"]
+            allowed = (f"obligation:reassign:{owner}" in self._scopes(role)
+                       if reassign else owner == role)
+            if allowed:
+                return obligation
+        raise PermissionError("Obligation is unavailable to the active role")
+
+    def _cancel_obligation_reminder(self, obligation):
+        if obligation["reminder"] is not None:
+            self._superseded_reminders.add(obligation["reminder"])
+            obligation["reminder"] = None
+
+    def _audit_obligation(self, obligation, action, **details):
+        obligation.setdefault("history", []).append(
+            dict(action=action, at=self.now, role=self._active_role, event=self._active_id, **details)
+        )
 
     def _set_obligation_deadline(self, obligation, owner, due):
-        key = obligation["key"]
         event_id = f"obligation:{self._sequence}"
         while self.has_event(event_id):
             event_id += ":"
         edge = self._scheduled_edge(event_id, "obligation_due", max(self.now, due),
-                                    payload={"key": key}, role=owner)
+                                    payload={"key": obligation["key"], "id": obligation["id"]},
+                                    priority=obligation["priority"], role=owner)
         # Only engine-generated edges carry this marker. Older and consumer-
         # scheduled events keep their ordinary shape, even with the same kind.
-        reminder = self._enqueue((*edge, True))
+        reminder = self._enqueue((*edge, obligation["id"]))
+        self._cancel_obligation_reminder(obligation)
         obligation.update(owner=owner, due=due, reminder=reminder)
 
-    def open_obligation(self, key, *, owner, due, evidence):
-        """Open a durable obligation as the owning role."""
+    def open_obligation(self, key, *, owner, due, evidence, priority=0):
+        """Open a durable obligation as the owning role and return its stable ID."""
         if self._obligation_role() != owner:
             raise PermissionError("Only the owning role can open its obligation")
         if not name(key):
             raise ValueError("Obligation key must be a nonblank string")
         if type(due) is not int or due < 0:
             raise ValueError("Due must be a nonnegative integer minute")
+        if type(priority) is not int:
+            raise ValueError("Reminder priority must be an integer")
         validate_json(evidence)
         evidence = json.loads(_json(evidence))
-        if key in self._obligations:
-            existing = self._owned_obligation(key)
-            if existing["due"] != due or _json(existing["evidence"]) != _json(evidence):
-                raise ValueError("Obligation key already has different terms")
-            return
-        obligation = dict(key=key, evidence=evidence, resolution=None)
+        obligation_id = _json([owner, key])
+        existing = self._obligations.get(obligation_id)
+        if existing is None:
+            legacy = self._obligations.get(_json([key]))
+            if legacy is not None and legacy["origin"] == owner:
+                existing = legacy
+        if existing is not None:
+            if (existing["opening_due"] != due or existing["priority"] != priority
+                    or _json(existing["evidence"]) != _json(evidence)):
+                raise ValueError("Obligation key already has different terms from opening")
+            return existing["id"]
+        obligation = dict(id=obligation_id, key=key, origin=owner, opening_due=due,
+                          priority=priority, evidence=evidence, resolution=None, reminder=None)
         self._set_obligation_deadline(obligation, owner, due)
-        self._obligations[key] = obligation
+        self._audit_obligation(obligation, "open", owner=owner, due=due, priority=priority,
+                               evidence=evidence)
+        self._obligations[obligation_id] = obligation
+        return obligation_id
 
-    def handoff_obligation(self, key, *, owner, due):
-        """Transfer or reschedule the active role's open obligation."""
-        obligation = self._owned_obligation(key)
+    def handoff_obligation(self, obligation_id, *, owner, due):
+        """Transfer or reschedule an obligation owned by the active role."""
+        self._transfer_obligation(self._authorized_obligation(obligation_id), owner, due, "handoff")
+
+    def reassign_obligation(self, obligation_id, *, owner, due):
+        """Transfer an obligation with an explicit grant for its current owner."""
+        self._transfer_obligation(self._authorized_obligation(obligation_id, reassign=True),
+                                  owner, due, "reassign")
+
+    def _transfer_obligation(self, obligation, owner, due, action):
         if obligation["resolution"] is not None:
             raise ValueError("Cannot hand off a resolved obligation")
-        if type(due) is not int or due < 0 or not name(owner):
-            raise ValueError("Obligations require an owner and a nonnegative integer due minute")
+        if not name(owner) or owner not in self._catalog["roles"]:
+            raise ValueError("Obligation owner must be a registered role")
+        if type(due) is not int or due < 0:
+            raise ValueError("Due must be a nonnegative integer minute")
         if (owner, due) != (obligation["owner"], obligation["due"]):
+            previous_owner, previous_due = obligation["owner"], obligation["due"]
             self._set_obligation_deadline(obligation, owner, due)
+            self._audit_obligation(obligation, action, previous_owner=previous_owner,
+                                   previous_due=previous_due, owner=owner, due=due)
 
-    def resolve_obligation(self, key, *, evidence):
-        """Close the active role's obligation with a confirmed native record reference."""
-        obligation = self._owned_obligation(key)
+    def resolve_obligation(self, obligation_id, *, evidence):
+        """Close an owned obligation with a confirmed native record reference."""
+        obligation = self._authorized_obligation(obligation_id)
         if (not isinstance(evidence, dict) or set(evidence) != {"system", "native_id"}
                 or not all(map(name, evidence.values()))):
             raise ValueError("Resolution evidence requires system and native_id")
@@ -628,16 +701,20 @@ class Engine:
             if obligation["resolution"] != evidence:
                 raise ValueError("Obligation already has different resolution evidence")
             return
-        if not self._confirmed_obligation_evidence(**evidence):
+        operation = self._confirmed_obligation_evidence(**evidence)
+        if operation is None:
             raise ValueError("Resolution requires visible, confirmed native evidence")
-        obligation.update(resolution=dict(evidence), reminder=None)
+        obligation["resolution"] = dict(evidence)
+        self._audit_obligation(obligation, "resolve", evidence=obligation["resolution"],
+                               evidence_event=operation["event"]["id"], operation=operation["retry_id"])
+        self._cancel_obligation_reminder(obligation)
 
     def obligations(self):
         """Return detached snapshots of the active role's open obligations."""
         role = self._obligation_role()
         return [
-            deepcopy({field: obligation[field] for field in ("key", "owner", "due", "evidence")})
-            for key, obligation in sorted(self._obligations.items())
+            deepcopy({field: obligation[field] for field in ("id", "key", "owner", "due", "evidence")})
+            for obligation in sorted(self._obligations.values(), key=lambda row: (row["key"], row["id"]))
             if obligation["owner"] == role and obligation["resolution"] is None
         ]
 
@@ -671,17 +748,20 @@ class Engine:
         base_visible, selected = self._observation_scopes(role)
         system_visible = system in selected or (base_visible and system not in self._added["systems"])
         rows = self._db.execute(
-            "SELECT data FROM writes WHERE json_extract(data, '$.system') = ? "
-            "AND json_extract(data, '$.target_id') = ? AND json_extract(data, '$.status') = 'confirmed'",
+            "SELECT data, EXISTS(SELECT 1 FROM history "
+            "WHERE json_extract(entry, '$.id') = json_extract(writes.data, '$.event.id') "
+            "AND json_extract(entry, '$.phase') IN ('complete', 'superseded')) "
+            "FROM writes WHERE json_extract(data, '$.system') = ? "
+            "AND json_extract(data, '$.target_id') = ? AND json_extract(data, '$.status') = 'confirmed' "
+            "ORDER BY rowid DESC",
             (system, native_id),
         )
-        operations = (json.loads(data) for data, in rows)
-        active_prefix = f"write-{self._active}-"
-        return any(
-            (system_visible or operation["retry_id"].startswith(active_prefix))
-            and self._visible_record(operation["record"], role, self.now)
-            for operation in operations
-        )
+        for data, terminal in rows:
+            operation = json.loads(data)
+            if ((operation["retry_id"] in self._active_readbacks or (terminal and system_visible))
+                    and self._visible_record(operation["record"], role, self.now)):
+                return operation
+        return None
 
     def observe(self, role, *, as_of):
         """Read transport records visible to a role at the given business minute."""
@@ -721,7 +801,8 @@ class Engine:
         return deepcopy(rows)
 
     def _trace_event(self):
-        return {**self.event, "completed_at": self.now}
+        return {**self.event, "id": self._active_id, "sequence": self._active, "role": self._active_role,
+                "completed_at": self.now}
 
     def call_provider(self, tier, prompt, tools):
         if self._active is None or tier not in {"jev", "model"}:
@@ -820,15 +901,16 @@ class Engine:
             grade = getattr(self._consumer, "grade_extraction", None)
             if grade is None:
                 return (), {}, checkpoint, cutoff
-            completed = {
+            terminal = {
                 entry["id"] for data, in db.execute(
                     "SELECT entry FROM history WHERE id <= ? ORDER BY id", (checkpoint["history_end"],))
-                if (entry := json.loads(data))["phase"] == "complete" and entry["at"] <= cutoff
+                if (entry := json.loads(data))["phase"] in ("complete", "superseded")
+                and entry["at"] <= cutoff
             }
             records = [
                 operation["record"] for data, in db.execute("SELECT data FROM writes ORDER BY rowid")
                 if (operation := json.loads(data))["status"] == "confirmed"
-                and operation.get("event", {}).get("id") in completed and operation["record"]["at"] <= cutoff
+                and operation.get("event", {}).get("id") in terminal and operation["record"]["at"] <= cutoff
             ]
         questions, answers = grade(records, f"business minute {cutoff}")
         return questions, answers, checkpoint, cutoff
@@ -841,7 +923,15 @@ class Engine:
     def private_truth(self, *, as_of=None):
         """Owner-only evaluator state through the requested cutoff."""
         _, answers, checkpoint, cutoff = self._extractor_snapshot(as_of)
-        return {**world.truth(checkpoint["state"], self.config, cutoff), "answers": answers}
+        truth = {**world.truth(checkpoint["state"], self.config, cutoff), "answers": answers}
+        obligations = {}
+        for obligation_id, obligation in checkpoint.get("obligations", {}).items():
+            entries = [entry for entry in obligation.get("history", ()) if entry["at"] <= cutoff]
+            if entries:
+                obligations[obligation_id] = {"key": obligation["key"], "entries": entries}
+        if obligations:
+            truth["obligation_history"] = obligations
+        return truth
 
     def export(self):
         """Export the native records confirmed by this engine, in write order."""
@@ -907,7 +997,7 @@ class Engine:
         if row is None:
             operation = {
                 "retry_id": retry_id, "system": system, "action": document,
-                "event": {**self.event, "completed_at": self._completion_at},
+                "event": {**self._trace_event(), "completed_at": self._completion_at},
                 "source_version": sha256(encoded.encode()).hexdigest(),
                 "evidence": document, "target_id": None, "status": "pending",
                 "next_attempt": self.now,
@@ -923,6 +1013,7 @@ class Engine:
                     or _json(operation["action"]) != encoded):
                 raise RuntimeError(f"Handler replay changed write {retry_id}")
             if operation["status"] == "confirmed":
+                self._active_readbacks.add(retry_id)
                 return operation["record"]
             target = native_id if native_id is not None else self._api(transport, operation, "find", retry_id)
 
@@ -945,10 +1036,11 @@ class Engine:
         for key, value in (("native_id", target), ("system", system)):
             if record.setdefault(key, value) != value:
                 raise RuntimeError(f"Native readback {key} mismatch for {system}/{target}")
-        operation.setdefault("event", {**self.event, "completed_at": self._completion_at})
+        operation.setdefault("event", {**self._trace_event(), "completed_at": self._completion_at})
         operation.update(target_id=target, record=record)
         self._notify("after_readback", operation)
         operation.update(status="confirmed", next_attempt=None)
         self._save_operation(operation)
         self._notify("result_persisted", operation)
+        self._active_readbacks.add(retry_id)
         return deepcopy(record)
