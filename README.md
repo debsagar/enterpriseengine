@@ -1,4 +1,21 @@
-# Norvale — Phase 1 data generation v2
+# EnterpriseEngine
+
+Run a company on a simulated clock and follow its decisions into real application records. Norvale, the included manufacturer, connects ERPNext, InvenTree PLM, Odoo Manufacturing, an independent quality site, communications and a versioned Delta lake.
+
+![Illustrated Norvale order moving from demand through planning, production, quality and delivery to the lake](docs/company-clock.gif)
+
+**[Write Norvale in Python](docs/write-norvale.md)** · **[Shared engine](engine/README.md)** · **[Full-company operating loop](docs/COMPANY-LOGIC.md)**
+
+### Try the opening
+
+```sh
+python3 examples/norvale.py > my-norvale.json
+python3 simulate.py --scenario my-norvale.json --run /data/enterprise/runs/my-norvale --plan
+```
+
+This prints the 90-day opening plan locally. The animation illustrates a possible order history. Actual orders can compete for material, fail inspection or remain open. The clock advances to scheduled work, roles act on visible evidence, native applications record the outcome, and the lake collects versions independently. Follow a specific order by its record links while the company continues operating.
+
+## Historical Norvale dataset
 
 Norvale is a synthetic consumer-care manufacturer whose people perform modeled business work in real software: ERPNext, Gitea Issues, and SMTP/IMAP email. This repository contains the v2 generator and the filtered records from its completed 120-day run, January 1–April 30, 2027.
 
