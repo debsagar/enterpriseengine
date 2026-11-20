@@ -200,6 +200,7 @@ class Engine:
         self.now = checkpoint["now"]
         self._sequence = checkpoint["sequence"]
         self._staff_available = deepcopy(checkpoint.get("staff_available", {}))
+        self._obligations = deepcopy(checkpoint.get("obligations", {}))
         self._pending.clear()
         self.state.clear()
         self.state.update(checkpoint["state"])
@@ -301,7 +302,7 @@ class Engine:
                 raise
 
     def _insert_edge(self, edge):
-        at, priority, sequence, _, _, _, _, _, role, _ = edge
+        at, priority, sequence, _, _, _, _, _, role, _ = edge[:10]
         self._db.execute("INSERT INTO queue VALUES (?, ?, ?, ?, ?)",
                          (sequence, _order_key(at), _order_key(priority), _json(role), _json(edge)))
 
@@ -312,6 +313,8 @@ class Engine:
             checkpoint["staff_available"] = self._staff_available
         if self._extensions:
             checkpoint["extensions"] = self._extensions
+        if self._obligations:
+            checkpoint["obligations"] = self._obligations
         # Hold no SQLite write transaction while a handler records its
         # independent native write intents and decisions.
         db = self._db
@@ -498,7 +501,13 @@ class Engine:
                         raise
 
     def _step(self, edge):
-        self.now, priority, seq, phase, id, kind, payload, duration, role, other_at = edge
+        at, priority, seq, phase, id, kind, payload, duration, role, other_at, *reminder = edge
+        if reminder:
+            obligation = self._obligations.get(payload["key"])
+            if obligation is None or obligation["reminder"] != seq:
+                self._save(remove=seq)
+                return
+        self.now = at
         if phase == 2:
             # Admit staffed work in arrival order, including any earlier bookings.
             at, other_at = self._book_staff(self.now, duration, role)
@@ -509,9 +518,13 @@ class Engine:
             phase = 0
         if phase == 0:
             self._save(remove=seq,
-                       edge=(other_at, priority, seq, 1, id, kind, payload, duration, role, self.now),
+                       edge=(other_at, priority, seq, 1, id, kind, payload, duration, role,
+                             self.now, *reminder),
                        history={"id": id, "phase": "start", "at": self.now})
             return
+        if reminder:
+            # A failed or deferred handler rolls this back with its other edits.
+            obligation["reminder"] = None
         self._active = seq
         self._active_id = id
         self._active_role = role
@@ -528,12 +541,15 @@ class Engine:
             if kind != "noop":
                 self._check_writes()
         except DeferCompletion:
+            if reminder:
+                # A later handoff can supersede a deferred reminder.
+                self._check_writes()
             at = self.now
             timestamps = (self.event_started_at, self._completion_at)
             self._restore(self._checkpoint)
             self.now = at
             self._save(remove=seq, edge=(at + DAY, priority, seq, 3, id, kind, payload,
-                                         duration, role, timestamps))
+                                         duration, role, timestamps, *reminder))
             return
         finally:
             self._active = self._active_id = self._active_role = None
@@ -546,6 +562,84 @@ class Engine:
             return [json.loads(entry) for entry, in db.execute(
                 "SELECT entry FROM history WHERE id <= ? ORDER BY id",
                 (self._checkpoint["history_end"],))]
+
+    def _obligation_role(self):
+        if self._active is None or not name(self._active_role):
+            raise PermissionError("Obligations require a role-bearing event handler")
+        return self._active_role
+
+    def _owned_obligation(self, key):
+        role = self._obligation_role()
+        if not name(key):
+            raise ValueError("Obligation key must be a nonblank string")
+        obligation = self._obligations.get(key)
+        if obligation is None or obligation["owner"] != role:
+            raise PermissionError("Obligation is unavailable to the active role")
+        return obligation
+
+    def _set_obligation_deadline(self, obligation, owner, due):
+        key = obligation["key"]
+        event_id = f"obligation:{self._sequence}"
+        while self.has_event(event_id):
+            event_id += ":"
+        edge = self._scheduled_edge(event_id, "obligation_due", max(self.now, due),
+                                    payload={"key": key}, role=owner)
+        # Only engine-generated edges carry this marker. Older and consumer-
+        # scheduled events keep their ordinary shape, even with the same kind.
+        reminder = self._enqueue((*edge, True))
+        obligation.update(owner=owner, due=due, reminder=reminder)
+
+    def open_obligation(self, key, *, owner, due, evidence):
+        """Open a durable obligation as the owning role."""
+        if self._obligation_role() != owner:
+            raise PermissionError("Only the owning role can open its obligation")
+        if not name(key):
+            raise ValueError("Obligation key must be a nonblank string")
+        if type(due) is not int or due < 0:
+            raise ValueError("Due must be a nonnegative integer minute")
+        validate_json(evidence)
+        evidence = json.loads(_json(evidence))
+        if key in self._obligations:
+            existing = self._owned_obligation(key)
+            if existing["due"] != due or _json(existing["evidence"]) != _json(evidence):
+                raise ValueError("Obligation key already has different terms")
+            return
+        obligation = dict(key=key, evidence=evidence, resolution=None)
+        self._set_obligation_deadline(obligation, owner, due)
+        self._obligations[key] = obligation
+
+    def handoff_obligation(self, key, *, owner, due):
+        """Transfer or reschedule the active role's open obligation."""
+        obligation = self._owned_obligation(key)
+        if obligation["resolution"] is not None:
+            raise ValueError("Cannot hand off a resolved obligation")
+        if type(due) is not int or due < 0 or not name(owner):
+            raise ValueError("Obligations require an owner and a nonnegative integer due minute")
+        if (owner, due) != (obligation["owner"], obligation["due"]):
+            self._set_obligation_deadline(obligation, owner, due)
+
+    def resolve_obligation(self, key, *, evidence):
+        """Close the active role's obligation with a confirmed native record reference."""
+        obligation = self._owned_obligation(key)
+        if (not isinstance(evidence, dict) or set(evidence) != {"system", "native_id"}
+                or not all(map(name, evidence.values()))):
+            raise ValueError("Resolution evidence requires system and native_id")
+        if obligation["resolution"] is not None:
+            if obligation["resolution"] != evidence:
+                raise ValueError("Obligation already has different resolution evidence")
+            return
+        if not self._confirmed_obligation_evidence(**evidence):
+            raise ValueError("Resolution requires visible, confirmed native evidence")
+        obligation.update(resolution=dict(evidence), reminder=None)
+
+    def obligations(self):
+        """Return detached snapshots of the active role's open obligations."""
+        role = self._obligation_role()
+        return [
+            deepcopy({field: obligation[field] for field in ("key", "owner", "due", "evidence")})
+            for key, obligation in sorted(self._obligations.items())
+            if obligation["owner"] == role and obligation["resolution"] is None
+        ]
 
     def _transport(self, system):
         spec = self._added["systems"].get(system)
@@ -562,6 +656,33 @@ class Engine:
         scopes = self._catalog["roles"].get(role, {}).get("permissions")
         return scopes if isinstance(scopes, list) else []
 
+    def _observation_scopes(self, role):
+        scopes = self._scopes(role)
+        return (role not in self._added["roles"] or "observe" in scopes,
+                {scope.removeprefix("observe:") for scope in scopes
+                 if isinstance(scope, str) and scope.startswith("observe:")})
+
+    def _visible_record(self, row, role, as_of):
+        return row["at"] <= as_of and (
+            "roles" not in row or (isinstance(row["roles"], list) and role in row["roles"]))
+
+    def _confirmed_obligation_evidence(self, system, native_id):
+        role = self._active_role
+        base_visible, selected = self._observation_scopes(role)
+        system_visible = system in selected or (base_visible and system not in self._added["systems"])
+        rows = self._db.execute(
+            "SELECT data FROM writes WHERE json_extract(data, '$.system') = ? "
+            "AND json_extract(data, '$.target_id') = ? AND json_extract(data, '$.status') = 'confirmed'",
+            (system, native_id),
+        )
+        operations = (json.loads(data) for data, in rows)
+        active_prefix = f"write-{self._active}-"
+        return any(
+            (system_visible or operation["retry_id"].startswith(active_prefix))
+            and self._visible_record(operation["record"], role, self.now)
+            for operation in operations
+        )
+
     def observe(self, role, *, as_of):
         """Read transport records visible to a role at the given business minute."""
         if type(as_of) is not int or as_of < 0:
@@ -571,16 +692,12 @@ class Engine:
                 raise ValueError("Observation requires the active event role")
             if as_of > self.now:
                 raise ValueError("An active event cannot observe future records")
-        scopes = self._scopes(role)
-        base_visible = role not in self._added["roles"] or "observe" in scopes
-        selected = {scope.removeprefix("observe:") for scope in scopes
-                    if isinstance(scope, str) and scope.startswith("observe:")}
+        base_visible, selected = self._observation_scopes(role)
         added_systems = self._added["systems"]
 
         def visible(transport, allowed):
             return [row for row in transport.records()
-                    if allowed(row) and row["at"] <= as_of
-                    and ("roles" not in row or (isinstance(row["roles"], list) and role in row["roles"]))]
+                    if allowed(row) and self._visible_record(row, role, as_of)]
 
         def read(system, transport, allowed):
             if self._active is None:

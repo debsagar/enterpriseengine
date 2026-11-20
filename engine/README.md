@@ -67,6 +67,43 @@ resume automatically.
   The optional `boundary(stage, operation)` hook exposes intent, send,
   readback and result checkpoints to diagnostics and crash tests.
 
+## Track employee obligations
+
+Role-bearing handlers can use these methods. The scheduled role determines
+access. Each mutation commits with the handler's completion and returns
+`None`.
+
+- `run.open_obligation(key, *, owner, due, evidence)` opens a run-unique,
+  nonblank string key for the acting role. Opening evidence is JSON context
+  carried through a handoff. Repeating the current terms succeeds without
+  scheduling another reminder. Conflicting terms raise `ValueError`.
+- `run.handoff_obligation(key, *, owner, due)` lets the current owner
+  transfer an open obligation to another role or update its deadline.
+  Repeating the same owner and deadline leaves the reminder as it was.
+- `run.resolve_obligation(key, *, evidence)` lets the current owner close
+  an obligation using `{"system": system_id, "native_id": native_record_id}`.
+  The record must already have confirmed native readback from `run.write`
+  or `run.confirm`, be dated through the current minute, and be visible to
+  the role. This includes a readback made by the current handler, subject
+  to the record's role filter. The handler decides whether the evidence
+  substantively satisfies the obligation. Repeating the same resolution
+  succeeds. The key stays reserved after resolution.
+- `run.obligations()` returns a detached list of the acting role's open
+  obligations in key order, each with `key`, `owner`, `due` and `evidence`.
+  Access outside role-bearing handlers and mutations of keys owned by
+  another role raise `PermissionError`.
+
+`due` is an absolute, nonnegative integer business minute. The engine
+dispatches `consumer.handle(run, "obligation_due", {"key": key})` as the
+owning role on the first shift minute at or after the deadline and the
+minute of assignment. The stored deadline remains the supplied minute.
+The reminder leaves the obligation open. A changed assignment or deadline
+supersedes the previous reminder, and resolution cancels any pending
+reminder. After restart, an interrupted handler replays with its original
+event identity and the existing native-write recovery rules. A reminder
+can defer completion once its native writes are reconciled, so a later
+handoff can supersede it cleanly.
+
 ## Extend an existing run
 
 `run.extend(extension_id, *, systems=..., roles=..., products=..., events=...)`
