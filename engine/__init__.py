@@ -765,13 +765,7 @@ class Engine:
 
     def observe(self, role, *, as_of):
         """Read transport records visible to a role at the given business minute."""
-        if type(as_of) is not int or as_of < 0:
-            raise ValueError("as_of must be a nonnegative integer minute")
-        if self._active is not None:
-            if role is None or role != self._active_role:
-                raise ValueError("Observation requires the active event role")
-            if as_of > self.now:
-                raise ValueError("An active event cannot observe future records")
+        self._check_observation(role, as_of)
         base_visible, selected = self._observation_scopes(role)
         added_systems = self._added["systems"]
 
@@ -799,6 +793,20 @@ class Engine:
                 rows.extend(read(system, self._transport(system),
                                  lambda row: row.get("system", system) == system))
         return deepcopy(rows)
+
+    def observe_demand(self, role, *, as_of):
+        """Return committed demand readings visible to the role by as_of."""
+        self._check_observation(role, as_of)
+        return world.demand_observations(self._checkpoint["state"], self.config, role, as_of)
+
+    def _check_observation(self, role, as_of):
+        if type(as_of) is not int or as_of < 0:
+            raise ValueError("as_of must be a nonnegative integer minute")
+        if self._active is not None:
+            if role is None or role != self._active_role:
+                raise ValueError("Observation requires the active event role")
+            if as_of > self.now:
+                raise ValueError("An active event cannot observe future records")
 
     def _trace_event(self):
         return {**self.event, "id": self._active_id, "sequence": self._active, "role": self._active_role,

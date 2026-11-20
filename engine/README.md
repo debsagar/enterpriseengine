@@ -42,6 +42,8 @@ resume automatically.
   minutes spanned shift gaps. An omitted `roles` field makes a row visible to
   every role. When present, `roles` must be a list of allowed role IDs.
   Historical values require dated versions in the adapter's query surface. Outside a handler, callers are responsible for the role and cutoff.
+  A consumer that enables weekly demand reads realized POS and forecast via
+  `run.observe_demand(role, as_of=minute)`. [Demand configuration and privacy](../docs/WORLD-PROCESSES.md#opt-in-to-weekly-demand)
 - **E — Consumer state and decisions.** `consumer.handle(run, kind, payload)`
   runs at completion, except for `noop`. `run.state` holds JSON data with
   string keys. Its edits and follow-on events commit with the completion edge.
