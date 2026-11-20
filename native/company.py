@@ -40,7 +40,8 @@ def provision(run=ACTIVE_RUN):
         return c
     compose_mod.build=build
     ids=[{'id':r['role_id'], 'mail':r['email'].replace('.example','.test'), 'chat':r['role_id'].lower()} for r in ROLES]
-    try:stack.up(ids, datetime(2027,1,1,tzinfo=timezone.utc))
+    port = int(os.environ["NORVALE_ERP_PORT"]) if os.environ.get("NORVALE_ERP_PORT") else None
+    try:stack.up(ids, datetime(2027,1,1,tzinfo=timezone.utc), frontend_port=port)
     finally:compose_mod.build=original
     return stack
 

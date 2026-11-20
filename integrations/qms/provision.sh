@@ -16,6 +16,7 @@ if [[ $mode == up && ! -e $runtime/docker.env ]]; then
         printf 'COMPOSE_PROJECT_NAME=norvale-qms-%s\n' "$(openssl rand -hex 8)"
         printf 'QMS_DB_PASSWORD=%s\n' "$(openssl rand -hex 32)"
         printf 'QMS_ADMIN_PASSWORD=%s\n' "$(openssl rand -hex 32)"
+        printf 'QMS_PORT=%s\n' "$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')"
         printf 'QMS_IMAGE=%s\n' "${QMS_IMAGE:-frappe/erpnext:v15.124.1}"
     } > "$runtime/docker.env"
 fi
