@@ -86,6 +86,11 @@ class ManagedServicesObligations(fixtures.Goals):
         self.assertEqual((write["event"]["kind"], write["role"]), ("obligation_due", "relief"))
         response = self.one(native, "ticket_response", ticket_id=ticket["native_id"], technician="B", at=17)
         self.assertEqual(run.state["managed_services"]["responses"]["C"]["T"], response["native_id"])
+        audit, = run.private_truth()["obligation_history"].values()
+        self.assertEqual([(row["action"], row["role"]) for row in audit["entries"]],
+                         [("open", "worker"), ("reassign", "manager"), ("resolve", "relief")])
+        self.assertEqual(audit["entries"][-1]["evidence"],
+                         {"system": "tickets", "native_id": response["native_id"]})
         self.assertEqual(len([row for row in run.history()
                               if row["id"] == "respond" and row["phase"] == "complete"]), 1)
 
