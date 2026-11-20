@@ -1,19 +1,6 @@
 # Durable engine runtime
 
-From the release root, import `Engine` from `engine`. For the staged package,
-add `engine_build` to the import path from outside the release root.
-
-```python
-from time import monotonic
-
-from engine import Engine
-
-run = Engine(run_directory, consumer, seed=41, native=transport,
-             providers=providers, monotonic=monotonic)
-run.schedule("clock-check", "noop", 540, payload={}, duration=15)
-run.run(until=555)
-assert run.history()[-1] == {"id": "clock-check", "phase": "complete", "at": 555}
-```
+Install the [Python library](../README.md#install-and-use-from-python) and import `Engine` from `enterpriseengine`. The root README has a complete working company you can paste into a new file. Use the [architecture guide](../docs/ENGINE-ARCHITECTURE.md) for the event flow and the [input reference](../docs/ENGINE-INPUTS.md) for the Python and JSON contracts.
 
 Resume against the same directory and native records with the original seed,
 configuration and consumer identity. Identity includes the consumer class's
@@ -170,7 +157,7 @@ object or the CLI when another thread owns the controller.
 
 ## Offline checks
 
-Run from the release root after applying the patch.
+Run from the repository root.
 
 ```sh
 python3 -m unittest discover -s tests -p test_engine_extension.py -v

@@ -15,3 +15,8 @@ env-cache/
 .ipynb_checkpoints/
 
 **/private/expert-inbox-v1/
+
+# Python distribution artifacts
+/build/
+/dist/
+*.egg-info/

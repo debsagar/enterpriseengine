@@ -1,0 +1,10 @@
+{
+  "id": "opening-v1",
+  "roles": {
+    "reviewer": {"shifts": [[540, 1020]], "staff": 1}
+  },
+  "events": [
+    {"id": "review-A", "kind": "review", "at": 525, "duration": 10, "role": "reviewer", "payload": {"case": "A"}},
+    {"id": "review-B", "kind": "review", "at": 525, "duration": 10, "role": "reviewer", "payload": {"case": "B"}}
+  ]
+}

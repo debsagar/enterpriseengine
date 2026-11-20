@@ -1,122 +1,149 @@
 # EnterpriseEngine
 
-Run a company on a simulated clock and follow its decisions into real application records. Norvale, the included manufacturer, connects ERPNext, InvenTree PLM, Odoo Manufacturing, an independent quality site, communications and a versioned Delta lake.
+**How do you test an enterprise agent when you can’t give it the enterprise’s real history?** A shipment table can tell you that a lot moved. To judge whether the warehouse *should have moved it*, you also need the quality approval that was current at dispatch, the lot it covered, who had release authority, and what the warehouse could see at that minute. Live company data is often private, scattered across applications, or missing that history altogether.
 
-![Illustrated Norvale order moving from demand through planning, production, quality and delivery to the lake](docs/company-clock.gif)
+EnterpriseEngine is a Python library for creating those histories in a controlled company. You supply an opening state, roles, working hours, external events and rules for acting. The engine advances business time, runs those rules and persists the consequences. Connect native software when an action needs an independently verifiable record. An investigator can then work from the observable evidence while an evaluator keeps the answer and its provenance private.
 
-**[Write Norvale in Python](docs/write-norvale.md)** · **[Shared engine](engine/README.md)** · **[Full-company operating loop](docs/COMPANY-LOGIC.md)** · **[Software APIs, roles and authority](docs/roles-and-software.md)**
+**What would that let you test?** In one isolated quality workflow a lot measured **7.2** against a **5.0–6.0** specification. After rework, a new inspection measured **5.5**. The analyst still lacked release authority. The approver released 100 units and later revoked that release. An agent answering “can we ship?” must recover *which inspection, which signer and which point in time*. A second exercise puts two facts in separate expert mailboxes. The planner must ask both people and cite their replies to justify the earliest feasible date. [Native quality qualification](integrations/qms/README.md) · [Expert exercise and checker](docs/EXPERT-INBOX.md)
 
-### Try the opening
+## How the engine works
 
-```sh
-python3 examples/norvale.py > my-norvale.json
-python3 simulate.py --scenario my-norvale.json --run /data/enterprise/runs/my-norvale --plan
+```mermaid
+flowchart TD
+    Host["Your Python host: seed, company handler, adapters and run directory"] --> Clock
+    Input["Opening JSON or a later extension: roles, products, systems and events"] --> Clock
+    Clock["Durable event queue: choose next minute, apply shifts and book staff"] --> Handler["Company handler runs at completion"]
+    Handler --> Decide["Use visible evidence and company rules; optionally call JEV or a model"]
+    Decide --> Save["Commit state and any follow-up events"]
+    Decide -->|external action| Gate["Check role scope and company approval rules"]
+    Gate --> Write["Journal intent → call application API → read back native record"]
+    Write --> Save
+    Save --> Clock
+    Write --> Trace["Private operation journal, viewer and metrics"]
+    Write <-->|"request and native readback"| Apps["ERP, MES, QMS or another connected application"]
+    Apps --> Lake["Optional company integration: scoped readers → versioned Delta lake"]
 ```
 
-This prints the 90-day opening plan locally. The animation illustrates a possible order history. Actual orders can compete for material, fail inspection or remain open. The clock advances to scheduled work, roles act on visible evidence, native applications record the outcome, and the lake collects versions independently. Follow a specific order by its record links while the company continues operating.
+The clock owns *when*. Your handler owns *what should happen*. The adapter owns *how to perform and verify it in a particular application*. A database commit, an employee’s permission to approve a purchase, and the date that approval becomes effective are three different facts. [Engine architecture and recovery](docs/ENGINE-ARCHITECTURE.md)
 
-## Historical Norvale dataset
+## Install and use from Python
 
-Norvale is a synthetic consumer-care manufacturer whose people perform modeled business work in real software: ERPNext, Gitea Issues, and SMTP/IMAP email. This repository contains the v2 generator and the filtered records from its completed 120-day run, January 1–April 30, 2027.
-
-**Helping with development?** Read [the collaborator handoff](HANDOFF.md) and [the operating-loop diagram and code map](docs/ARCHITECTURE.md). Claude and Codex share [AGENTS.md](AGENTS.md).
-
-**Start with the data.** No Docker, API key, or running service is needed to inspect the delivered run.
-
-- Download/open [the interactive record viewer](docs/data-viewer.html) in a browser: select an order and follow work, shipment, invoice, and payment records; switch to tickets or email.
-- Read [the executed notebook](notebooks/Behavior.ipynb), or download/open [its HTML](notebooks/Behavior.html).
-- Find the complete filtered records in [data/observable](data/observable), with [file hashes](data/manifest.json), [run summary](data/summary.json), and [recorded checks](data/checks.json).
-- See [the GitHub-rendered operating loop](docs/ARCHITECTURE.md) and [generation instructions](docs/GENERATING.md).
-
-GitHub displays HTML source; download the repository and open HTML files locally for interaction. The separate [public presentation](https://norvale-company-v2.aswanth-krshna.chatgpt.site) is also available.
-
-## Run the native company
-
-Validate the scenario and inspect the opening orders without starting any services:
+On Linux or macOS with Python 3.10+, Git and SQLite, create an environment and install the tagged library directly from GitHub:
 
 ```sh
-python3 simulate.py --scenario scenarios/norvale-q1.json --run /absolute/path/to/q1 --plan
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install "enterpriseengine @ git+https://github.com/debsagar/enterpriseengine.git@v0.2.0"
 ```
 
-The starter scenario covers January 1 through March 31, 2027. Four submitted customer orders (720 units) enter the ordinary planning queue before day-one demand. Change the seed, dates relative to opening day, customers, SKUs or quantities in the versioned JSON.
+**Save this as `my_company.py` in your own directory.** The company below has one quality reviewer. Two inspection requests arrive before opening. The handler records what the reviewer discovers and when. It needs neither Docker nor model credentials.
 
-For a live run, install the [runtime prerequisites](docs/GENERATING.md), including cached service images, the shared clock library and [Delta dependencies](integrations/lake/requirements.txt). Set `NORVALE_CLOCK_LIB`, `TYPESAFE_API_KEY` and either `OPENAI_API_KEY` or `OPENROUTER_API_KEY`. Remove `--plan` to provision **one** private stack, seed ERPNext, and run the ordinary company with InvenTree PLM, Odoo MES, separate QMS, scheduled Delta ingestion and live decision routing. This command creates containers and can incur provider charges.
+```python
+from time import monotonic
+from enterpriseengine import Engine
 
-Use the same command and run directory to resume after successful commissioning. The directory holds a private release snapshot and Git revision, scenario, business checkpoint, source settings, and lake archive. Keep it outside version control. If commissioning fails, inspect that run’s `provision.log` and service logs before retrying; the launcher refuses to allocate another stack in its place. Use a release tag or commit for future runs and the original pinned source for an existing run. The published 120-day dataset came from the earlier ERPNext, tickets and mail generator. A new live Q1 run is still subject to native commissioning and verification.
 
-### Pause, resume and restore a company
+class QualityDesk:
+    config = {}
 
-Use the same runtime path throughout. These commands select existing containers by the run’s Compose file and project labels. They work independently of provider credentials. Finish or interrupt the generator before stopping its services.
+    def handle(self, run, kind, payload):
+        if kind != "inspect":
+            raise ValueError(kind)
+        sample = payload["ph"]
+        result = "in range" if 5.0 <= sample <= 6.0 else "out of range"
+        run.state.setdefault("inspections", {})[payload["lot"]] = [run.now, result]
+
+
+company = Engine("quality-run", QualityDesk(), seed=42, native=None,
+                 providers=None, monotonic=monotonic)
+company.extend(
+    "opening-v1",
+    roles={"analyst": {"shifts": [[540, 1020]], "staff": 1}},
+    events=[
+        {"id": "sample-A", "kind": "inspect", "at": 525, "duration": 10,
+         "role": "analyst", "payload": {"lot": "A", "ph": 7.2}},
+        {"id": "sample-B", "kind": "inspect", "at": 525, "duration": 10,
+         "role": "analyst", "payload": {"lot": "B", "ph": 5.5}},
+    ],
+)
+company.run(until=560)
+print(company.state["inspections"])
+```
+
+Run `python my_company.py`. The result is `{'A': [550, 'out of range'], 'B': [560, 'in range']}`. The first result arrives at 09:10 and the second at 09:20. Run it again and the same two results are recovered. This small company models measurements only. The native example above adds the separate QA decision, permissions, physical stock and independent records.
+
+## Write an opening in JSON
+
+From a Linux or other supported POSIX checkout with Python 3.10+ and SQLite, run the following. This example uses the standard library and needs no accounts or services.
 
 ```sh
-python3 simulate.py --run /absolute/private/path/q1 --services status
-python3 simulate.py --run /absolute/private/path/q1 --services stop
-python3 simulate.py --run /absolute/private/path/q1 --services start
+git clone https://github.com/debsagar/enterpriseengine.git
+cd enterpriseengine
+python3 -m examples.first_run --run ./runs/desk --until 550
+python3 -m examples.first_run --run ./runs/desk --until 560
 ```
 
-Stop keeps the containers, networks and volumes. Start brings up the existing database and Redis containers first. Check application readiness before resuming the same scenario command. Newly commissioned runs keep fixed loopback ports for ERP, QMS, MES and PLM. Older runs may have ephemeral addresses; verify them against their commissioned bindings after restarting.
+The first command that runs the engine completes A at 09:10. The second reopens the same checkpoint and completes B at 09:20. Its output is:
 
-For a recoverable version checkpoint, stop the controller and its containers at a confirmed business phase, then back up the private runtime directory **and all named volumes for its four Compose projects** at that same point. Protect the backups as credentials. Restore the matching volumes, networks, runtime path, source revision and image versions together on an isolated host and verify native IDs, balances and lake watermarks before resuming. Reverting Git alone leaves the databases and schema at their later versions.
-
-After day 90, generate cutoff-specific extractor questions from the run’s own trace:
-
-```sh
-python3 /absolute/private/path/q1/release/native/build_evidence.py \
-  --run /absolute/private/path/q1/business --cutoff 89 --out /absolute/private/path/q1-grading
+```json
+[{"case": "A", "start": 540, "finish": 550}, {"case": "B", "start": 550, "finish": 560}]
 ```
 
-Share `public-examples.json` with dataset consumers. Keep `private/reference.json` with the evaluator. Each question’s evidence refers to the software records available at the selected cutoff.
+### 1. Describe the opening work in JSON
 
-## What was generated
+The file below is the complete input to the example. Minutes are offsets from the clock origin. Minute 525 is 08:45 and the shift opens at minute 540. The `kind` string selects a behavior you implement. The `payload` belongs to that behavior.
 
-| Record | Count |
-| --- | ---: |
-| Sales orders | 258 |
-| Work orders / job cards | 328 / 328 |
-| Delivery notes / sales invoices | 321 / 321 |
-| Payment entries | 405 |
-| Purchase orders | 98 |
-| Business maintenance issues | 15 |
-| Delivered message records | 119 |
-
-Sales records customer demand; planners authorize work; production posts job-card labor and output; QA releases stock; warehouse ships; finance bills and records payment. Buyers request supply-chain approval; maintenance uses a separate issue service.
-
-These are synthetic activities posted into actual applications. They are not empirical observations of a real company. At cutoff, 50,016 units had been ordered, 47,148 produced, and 46,548 shipped. Open demand is retained.
-
-## Repository map
-
-| Path | Purpose |
-| --- | --- |
-| `generate.py`, `native/` | Native generation, integrations, routing, validation, artifact builders |
-| `norvale/` | Required service provisioning and client support, included locally |
-| `walkthrough/engine.py` | Inherited catalog and 19-role definitions used by v2; not the old walkthrough |
-| `data/observable/` | Filtered native business records intended for inspection |
-| `data/{summary,checks,config,manifest}.json` | Recorded run results, checks, configuration and integrity hashes |
-| `docs/`, `notebooks/` | Human entry points and read-only inspection |
-| `scripts/` | Offline viewer/data verification |
-
-## Data boundaries
-
-ERPNext stores records in **MariaDB**. Gitea Issues uses its own **SQLite** database. Email lives in **mail files** and is exchanged through SMTP/IMAP. JSON exports in this repository are snapshots of those separate systems; they are not a combined application database or a restorable service backup.
-
-`native-records.json` maps doctype → native ID → document, including child rows. Stock and general-ledger exports are separate. `tickets.json` and `mail.json` contain application readbacks. Synthetic people and `.test` email addresses are intentional business data. Native IDs and cross-system references remain available for joins.
-
-Raw ERP SQL, authentication fields, service tokens, mail archives, Docker volumes, private controller state, and execution traces are excluded. Historical v1 runs, smoke trajectories, local checkpoints, and unrelated projects are excluded too. The full original local evidence remains preserved separately.
-
-## Validation and limits
-
-Run the offline checks from the repository root:
-
-```sh
-python3 scripts/check_data.py
-python3 native/check_core.py
-python3 native/check_routing.py
-python3 native/check_retry.py
-python3 generate.py --help
+```json
+{
+  "id": "opening-v1",
+  "roles": {"reviewer": {"shifts": [[540, 1020]], "staff": 1}},
+  "events": [
+    {"id": "review-A", "kind": "review", "at": 525, "duration": 10, "role": "reviewer", "payload": {"case": "A"}},
+    {"id": "review-B", "kind": "review", "at": 525, "duration": 10, "role": "reviewer", "payload": {"case": "B"}}
+  ]
+}
 ```
 
-The completed run recorded nine passing checks, including native links/labor, material and shipment conservation, payment allocations, role permissions, resume behavior, and ledger balance. Those results are saved evidence; the offline checks above do not rerun live-service verification.
+Try changing `staff` to `2` in a copy of the JSON. Pass it with `--opening your-file.json` and use a **fresh run directory**. Both reviews then finish at 09:10. In an existing run, replaying the same opening ID with changed contents is rejected. [Opening file](examples/first-run/opening.json) · [Field reference and runtime additions](docs/ENGINE-INPUTS.md)
 
-This is a generation prototype, not a completed extraction benchmark. Regimes and labor are modeled; QA readings are nominal; payroll is aggregate. Production may run on weekends. Through February 3, policy-unmatched cases incorrectly bypassed JEV; this was corrected February 4 without rewriting history. JEV covers selected role decisions, not every operational API. The run recorded 70 JEV calls and 105 model decisions, with no standing-policy executions. See [limitations and provenance](docs/PROVENANCE.md).
+Load that JSON in your host with ordinary Python:
 
-Optional agent interview exercise: [Expert inbox and evidence-based grading](docs/EXPERT-INBOX.md).
+```python
+import json
+from pathlib import Path
+
+opening = json.loads(Path("examples/first-run/opening.json").read_text())
+# run is an Engine whose handler implements the "review" action.
+run.extend(opening["id"], roles=opening["roles"], events=opening["events"])
+```
+
+[Complete JSON-driven host](examples/first_run.py) · [Constructor, event and catalog fields](docs/ENGINE-INPUTS.md)
+
+## Features and boundaries
+
+| Capability | What it lets you do |
+|---|---|
+| Business time | Model work across shifts, staff contention, unattended time and simultaneous events. Provider latency does not advance business time. |
+| Durable execution | Pause at a cutoff, reopen the same directory, and recover pending work with its original operation identity. |
+| Runtime additions | Atomically add roles, products, supported software connections and future work. Existing catalog entries are immutable. |
+| Role-scoped decisions | Read evidence as of a business minute. Use deterministic rules for routine work and optionally call JEV or a model for judgment. The host commissions native identities and the company defines approval authority. |
+| Outside events | Seed private world processes and expose their observable effects to company roles. [World process model](docs/WORLD-PROCESSES.md) |
+| Inspection and grading | Inspect journaled calls, responses and readbacks; export confirmed records; implement company-specific extraction questions and private grading. [Runtime reference](engine/README.md) |
+| Operational scope | One controller per local run directory. A staff count models capacity. Individually modeled employees need identities, behavior and permissions. A 2,000-person full-stack deployment remains unqualified. |
+
+## What a world-model experiment gets back
+
+The company produces source records. The learner gets a filtered view and a question with a cutoff. The evaluator can retain private state, native evidence links and a checker. For example, a correct answer to the expert availability exercise needs the later of two dates **and both native message IDs**. Guessing the date earns no evidence credit. In a shipping exercise, the comparable checks are the shipment quantity, the pinned release version and the time at which the role could observe it.
+
+This gives a world-model team a controlled place to test reconstruction and decision support. The simulator’s rules are authored assumptions. Learning an ontology automatically from an arbitrary enterprise, predicting the real outcome of a policy change, or formally proving every possible workflow requires additional work. The historical dataset and isolated native qualifications have distinct coverage. [Dataset provenance](docs/PROVENANCE.md) · [Architecture and replay boundaries](docs/ENGINE-ARCHITECTURE.md)
+
+## Worked application: Norvale
+
+Norvale models a manufacturer with engineering, production, quality, warehouse and finance roles. Follow how those roles use ERPNext, InvenTree, Odoo, a separate QMS and scheduled Delta readers. The generic desk example above and the full-company launcher use different input formats.
+
+![Illustrated path of a Norvale customer order through the native applications](docs/company-clock.gif)
+
+- [Write the Norvale scenario in Python](docs/write-norvale.md)
+- [Connect employee identities, software APIs and approval authority](docs/roles-and-software.md)
+- [Operate the full company and inspect the historical dataset](NORVALE.md)
+- [Norvale operating-loop architecture](docs/ARCHITECTURE.md)
