@@ -1,5 +1,6 @@
 # EnterpriseEngine
 
+[Release workflow and repository ownership](MAINTAINING.md)
 **How do you test an enterprise agent when you can’t give it the enterprise’s real history?** A shipment table can tell you that a lot moved. To judge whether the warehouse *should have moved it*, you also need the quality approval that was current at dispatch, the lot it covered, who had release authority, and what the warehouse could see at that minute. Live company data is often private, scattered across applications, or missing that history altogether.
 
 EnterpriseEngine is a Python library for creating those histories in a controlled company. You supply an opening state, roles, working hours, external events and rules for acting. The engine advances business time, runs those rules and persists the consequences. Connect native software when an action needs an independently verifiable record. An investigator can then work from the observable evidence while an evaluator keeps the answer and its provenance private.

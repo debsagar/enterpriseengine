@@ -1,0 +1,10 @@
+# From a company requirement to a released engine
+
+EnterpriseEngine owns reusable simulation behavior and the installable Python package. Norvale owns the deployed company, software mappings, scenarios and frozen datasets. EnterpriseKnowledge indexes the research and decisions that led here.
+
+Start a company behavior change by identifying the engine capability it relies on. If that contract changes, implement and test it here first. Exercise shared behavior with both consumers, build the wheel, install it into a clean environment and run the public example. Update the package version and publish an immutable matching Git tag. A pure scenario change can use an existing published contract.
+
+Then update Norvale's engine lock to the tested commit, carry the corresponding runtime snapshot, implement the company adaptation and exercise its normal entry point. An already commissioned company records its engine version and keeps its own checkpoint. Before an upgrade, identify the last working company revision, data snapshot and destination service versions; test compatibility on a copy. Reverting code alone cannot reverse a submitted ERP record or database migration.
+
+- [Norvale runtime and dataset repository](https://github.com/debsagar/norvale)
+- [Historical research index](https://github.com/debsagar/enterpriseknowledge/blob/main/INDEX.md)
