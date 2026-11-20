@@ -10,6 +10,8 @@ from enterpriseengine import Engine
 class CaseDesk:
     """The business handler checks what a role can see before citing a record."""
 
+    resolution_checks = ((18, "verified"), (24, "verified"), (27, "verified"))
+
     def handle(self, run, kind, payload):
         key = payload["key"]
         role = run.event["role"]
@@ -18,38 +20,59 @@ class CaseDesk:
             facts.append(dict(kind=kind, role=role, at=run.now, obligations=run.obligations()))
             return
         if kind == "obligation_due":
-            facts.append(dict(kind=kind, key=key, role=role, at=run.now))
+            facts.append(dict(kind=kind, key=key, obligation_id=payload["id"], role=role, at=run.now))
             return
+        if kind in ("check", "handoff"):
+            obligation_id = run.state.get("case_ids", {}).get(key)
+            current = next((row for row in run.obligations() if row["id"] == obligation_id), None)
+        if kind == "check":
+            attempt = dict(key=key, role=role, at=run.now, event_id=run.event["id"])
+            if current is None:
+                closed = any(row["kind"] == "resolved" and row["key"] == key
+                             and row["role"] == role for row in facts)
+                facts.append(dict(kind="already_resolved" if closed else "pending", **attempt))
+                return
 
         record = next((row for row in run.observe(role, as_of=run.now)
                        if row["native_id"] == payload["record"] and row["system"] == self.system
                        and row["case"] == key), None)
         if kind == "handoff":
+            if current is None:
+                raise PermissionError("Handoff requires a case owned by the active role")
             if record is None or record["kind"] != "eta":
                 raise ValueError("Handoff requires a visible ETA for this case")
-            current = next(row for row in run.obligations() if row["key"] == key)
             due = self.handoff_due(record["eta"], current["due"])
-            run.handoff_obligation(key, owner=self.followup_owner, due=due)
+            run.handoff_obligation(obligation_id, owner=self.followup_owner, due=due)
             facts.append(dict(kind="eta", key=key, role=role, at=run.now, eta=record["eta"]))
         elif kind == "open":
             if record is None or record["kind"] != self.opening_kind:
                 raise ValueError("Opening requires visible native case evidence")
-            run.open_obligation(key, owner=role, due=record["due"],
-                                evidence=self.confirm(run, record))
+            self.open_case(run, role, record)
         elif kind == "check":
-            if record is None or not self.verified_resolution(record):
-                facts.append(dict(kind="pending", key=key, role=role, at=run.now))
+            confirmed = self.resolution(run, record) if record is not None else None
+            if confirmed is None:
+                facts.append(dict(kind="pending", **attempt))
                 return
-            run.resolve_obligation(key, evidence=self.confirm(run, record))
-            facts.append(dict(kind="resolved", key=key, role=role, at=run.now,
-                              native_id=record["native_id"]))
+            run.resolve_obligation(obligation_id, evidence=self.reference(confirmed))
+            facts.append(dict(kind="resolved", native_id=confirmed["native_id"], **attempt))
         else:
             raise ValueError(f"Unknown case action: {kind}")
 
+    def open_case(self, run, role, record):
+        confirmed = self.confirm(run, record)
+        key = confirmed["case"]
+        run.state.setdefault("case_ids", {})[key] = run.open_obligation(
+            key, owner=role, due=confirmed["due"], evidence=self.reference(confirmed),
+        )
+        return confirmed
+
+    @staticmethod
+    def reference(record):
+        return {"system": record["system"], "native_id": record["native_id"]}
+
     def confirm(self, run, record):
         fields = {key: value for key, value in record.items() if key not in ("system", "native_id", "kind")}
-        confirmed = run.confirm(self.system, record["kind"], record["native_id"], fields)
-        return {"system": self.system, "native_id": confirmed["native_id"]}
+        return run.confirm(self.system, record["kind"], record["native_id"], fields)
 
     def fixture_record(self, key, suffix, kind, at, **fields):
         return dict(system=self.system, native_id=f"{key}-{suffix}", case=key, kind=kind, at=at, **fields)
@@ -81,8 +104,8 @@ class CaseDesk:
             add(key, "check", 17, self.followup_owner, "eta")
         add(self.keys[0], "inspect", 13, self.initial_owner)
         add(self.keys[0], "inspect", 13, self.followup_owner)
-        add(self.keys[0], "check", 18, self.followup_owner, "verified")
-        add(self.keys[0], "check", 24, self.followup_owner, "verified")
+        for at, suffix in self.resolution_checks:
+            add(self.keys[0], "check", at, self.followup_owner, suffix)
         add(self.keys[1], "check", 24, self.followup_owner, "partial")
         add(self.keys[0], "inspect", 27, self.followup_owner)
         return events
@@ -92,19 +115,52 @@ class WarehouseShortage(CaseDesk):
     keys = ("shortage-A", "shortage-B")
     system = "warehouse"
     opening_kind = "pick_shortage"
-    opening_fields = {"units_missing": 8, "due": 20}
+    scope = ("item", "lot", "unit")
+    stock = {"item": "packing-carton", "lot": "CT-42", "unit": "each"}
+    opening_fields = {**stock, "units_missing": 12, "due": 20}
     resolution_kind = "receiving_scan"
-    resolution_fields = {"units_accepted": 8, "available_to_pick": True}
-    partial_fields = {"units_accepted": 3, "available_to_pick": True}
+    resolution_fields = {**stock, "units_accepted": 8, "available_to_pick": True}
+    partial_fields = {**stock, "units_accepted": 3, "available_to_pick": True}
+    resolution_checks = ((18, "verified"), (24, "verified"), (25, "final"), (27, "final"))
     initial_owner, followup_owner = "picker", "receiving"
     config = {"roles": {role: {} for role in (initial_owner, followup_owner)}}
 
     def handoff_due(self, eta, current_due):
         return eta + 2
 
-    def verified_resolution(self, record):
-        return (record["kind"] == self.resolution_kind and record["available_to_pick"]
-                and record["units_accepted"] >= self.opening_fields["units_missing"])
+    def open_case(self, run, role, record):
+        if (type(record.get("units_missing")) is not int or record["units_missing"] <= 0
+                or any(not isinstance(record.get(field), str) or not record[field].strip()
+                       for field in self.scope)):
+            raise ValueError("A shortage requires a positive unit count and item, lot and unit")
+        confirmed = super().open_case(run, role, record)
+        run.state.setdefault("warehouse_shortages", {}).setdefault(
+            confirmed["case"],
+            {**{field: confirmed[field] for field in self.scope},
+             "units_missing": confirmed["units_missing"], "receipts": {}},
+        )
+
+    def resolution(self, run, record):
+        shortage = run.state.get("warehouse_shortages", {}).get(record["case"])
+        units = record.get("units_accepted")
+        if (shortage is None or record["kind"] != self.resolution_kind
+                or any(record.get(field) != shortage[field] for field in self.scope)
+                or record.get("available_to_pick") is not True
+                or type(units) is not int or units <= 0
+                or record["native_id"] in shortage["receipts"]):
+            return None
+
+        confirmed = self.confirm(run, record)
+        shortage["receipts"][confirmed["native_id"]] = confirmed["units_accepted"]
+        if sum(shortage["receipts"].values()) >= shortage["units_missing"]:
+            return confirmed
+        return None
+
+    def native_records(self):
+        yield from super().native_records()
+        yield self.fixture_record(self.keys[0], "final", self.resolution_kind, 25,
+                                  roles=[self.followup_owner],
+                                  **(self.resolution_fields | {"units_accepted": 4}))
 
 
 class ManagedServicesSLA(CaseDesk):
@@ -121,9 +177,11 @@ class ManagedServicesSLA(CaseDesk):
     def handoff_due(self, eta, current_due):
         return current_due
 
-    def verified_resolution(self, record):
-        return (record["kind"] == self.resolution_kind and record["reachable"]
-                and record["transaction_ok"])
+    def resolution(self, run, record):
+        if (record["kind"] == self.resolution_kind and record.get("reachable") is True
+                and record.get("transaction_ok") is True):
+            return self.confirm(run, record)
+        return None
 
 
 class FixtureRecords:
