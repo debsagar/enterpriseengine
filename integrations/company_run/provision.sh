@@ -39,7 +39,7 @@ Path(path).write_text(json.dumps(dict(mes_project=mes, mes_url='http://127.0.0.1
                                      plm_project=plm, plm_url='http://127.0.0.1:'+pp)))
 PY
 for action in up configure fixture; do bash integrations/qms/provision.sh "$action" "$run/qms"; done
-python3 - "$run/business" <<'PY'
+NORVALE_ERP_PORT=$(port) python3 - "$run/business" <<'PY'
 import os, sys
 from pathlib import Path
 from native.company import initialize, DEFAULT_CONFIG

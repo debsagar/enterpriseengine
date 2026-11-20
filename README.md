@@ -27,6 +27,20 @@ For a live run, install the [runtime prerequisites](docs/GENERATING.md), includi
 
 Use the same command and run directory to resume after successful commissioning. The directory holds a private release snapshot and Git revision, scenario, business checkpoint, source settings, and lake archive. Keep it outside version control. If commissioning fails, inspect that run’s `provision.log` and service logs before retrying; the launcher refuses to allocate another stack in its place. Use a release tag or commit for future runs and the original pinned source for an existing run. The published 120-day dataset came from the earlier ERPNext, tickets and mail generator. A new live Q1 run is still subject to native commissioning and verification.
 
+### Pause, resume and restore a company
+
+Use the same runtime path throughout. These commands select existing containers by the run’s Compose file and project labels. They work independently of provider credentials. Finish or interrupt the generator before stopping its services.
+
+```sh
+python3 simulate.py --run /absolute/private/path/q1 --services status
+python3 simulate.py --run /absolute/private/path/q1 --services stop
+python3 simulate.py --run /absolute/private/path/q1 --services start
+```
+
+Stop keeps the containers, networks and volumes. Start brings up the existing database and Redis containers first. Check application readiness before resuming the same scenario command. Newly commissioned runs keep fixed loopback ports for ERP, QMS, MES and PLM. Older runs may have ephemeral addresses; verify them against their commissioned bindings after restarting.
+
+For a recoverable version checkpoint, stop the controller and its containers at a confirmed business phase, then back up the private runtime directory **and all named volumes for its four Compose projects** at that same point. Protect the backups as credentials. Restore the matching volumes, networks, runtime path, source revision and image versions together on an isolated host and verify native IDs, balances and lake watermarks before resuming. Reverting Git alone leaves the databases and schema at their later versions.
+
 After day 90, generate cutoff-specific extractor questions from the run’s own trace:
 
 ```sh

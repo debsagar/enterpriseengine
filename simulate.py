@@ -40,13 +40,28 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--scenario", type=Path, default=ROOT / "scenarios/norvale-q1.json")
     p.add_argument("--run", type=Path, required=True)
-    p.add_argument("--plan", action="store_true", help="Validate inputs and print the setup without starting services")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--services", choices=("status", "stop", "start"), help="Operate existing containers for this run")
+    mode.add_argument("--plan", action="store_true", help="Validate inputs and print the setup without starting services")
     a = p.parse_args()
     runtime = a.run.resolve()
     try:
-        cfg = load_scenario(a.scenario)
         if runtime.is_relative_to(ROOT) or ROOT.is_relative_to(runtime):
             raise ValueError("Choose a private run directory outside the checkout")
+        if a.services:
+            from integrations.company_run.services import manage
+            launcher_run = (runtime / "scenario.json").is_file() and (runtime / "revision").is_file()
+            commissioned = (runtime / "services.json").is_file() and (runtime / "business/config.json").is_file()
+            if not (launcher_run or commissioned):
+                raise ValueError("Choose an existing simulation run")
+            with (runtime / "simulate.lock").open("a") as lock:
+                if a.services != "status":
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                rows = manage(runtime, a.services)
+                if a.services == "status":
+                    print(json.dumps(rows, indent=2))
+            return
+        cfg = load_scenario(a.scenario)
         if a.plan:
             print(json.dumps(dict(scenario=cfg, run=str(runtime), mode="live", archive=str(runtime / "lake")), indent=2))
             return
