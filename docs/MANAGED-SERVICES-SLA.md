@@ -19,6 +19,11 @@ The alarm runs at the first eligible minute for the owner and writes a breach
 against the Issue if the obligation is open. A late response records the
 breach if the alarm has yet to run. The breach records the original due minute.
 
+The transport verifies both the Issue link and the persisted Comment content,
+including the ETA minute. If the content differs from the write intent, the
+event stays pending. Once the native comment is corrected, a retry verifies
+the existing Comment using the original operation key.
+
 Saved deadlines and tickets opened without a registered role keep the existing
 `sla_deadline` and `reassign` behavior. Register roles in the opening to use
 obligation ownership. A response closes the response obligation. The separate

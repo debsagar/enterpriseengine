@@ -173,14 +173,18 @@ class ManagedServicesObligations(fixtures.Goals):
         ticket = self.one(native, "ticket", case="C", ticket="T")
         self.one(native, "sla_breach", ticket_id=ticket["native_id"], due=11, at=11)
 
-    def test_service_transport_links_eta_and_response_to_the_native_issue(self):
+    def service_transport(self, *, corrupt_content=None):
         api = Mock(base="offline", site="offline")
         docs = {}
 
         def create(doctype, fields):
             name = f"{doctype}-{len(docs) + 1}"
-            docs[doctype, name] = dict(fields, name=name, docstatus=0)
-            return docs[doctype, name]
+            created = dict(fields, name=name, docstatus=0)
+            docs[doctype, name] = dict(created)
+            if doctype == "Comment" and corrupt_content is not None:
+                # The create response can echo the intent while readback sees what was stored.
+                docs[doctype, name]["content"] = corrupt_content
+            return created
 
         api.create.side_effect = create
         api.get.side_effect = lambda doctype, name: docs[doctype, name]
@@ -191,6 +195,10 @@ class ManagedServicesObligations(fixtures.Goals):
         transport = ServiceTransport(api, api, namespace="test", company="Example",
                                      customer="Client", item="Support", cash_account="Cash",
                                      epoch="2027-01-01")
+        return transport, docs
+
+    def test_service_transport_links_eta_and_response_to_the_native_issue(self):
+        transport, docs = self.service_transport()
         _, _, _, reopen = self.service()
         run = reopen(transport=transport)
         self.schedule(run, "contract", 0, case="C", response_minutes=10, rate=10)
@@ -208,3 +216,38 @@ class ManagedServicesObligations(fixtures.Goals):
         response["reference_name"] = "wrong-issue"
         with self.assertRaisesRegex(ValueError, "Ticket comment or Issue mismatch"):
             transport.read("tickets", response_id)
+
+    def test_service_transport_rejects_corrupt_content_until_native_comment_is_repaired(self):
+        for action, payload, corrupt, expected in (
+            ("eta", {"eta": 16}, "ticket_eta A 999", "ticket_eta A 16"),
+            ("respond", {}, "Internal note only", "ticket_response A"),
+        ):
+            with self.subTest(action=action):
+                transport, docs = self.service_transport(corrupt_content=corrupt)
+                run, _, _, reopen = self.service()
+                self.ticket(run)
+                self.schedule(run, action, 3, role="worker", case="C", ticket="T", **payload)
+                for _ in range(2):
+                    run = reopen(transport=transport)
+                    with self.assertRaisesRegex(ValueError, "Ticket comment content mismatch"):
+                        run.run(until=3)
+                    self.assertFalse(run.state["managed_services"]["responses"]["C"])
+                    audit, = run.private_truth()["obligation_history"].values()
+                    self.assertEqual([row["action"] for row in audit["entries"]], ["open"])
+                    self.assertEqual([row["kind"] for row in run.export()["records"]], ["contract", "ticket"])
+
+                comment, = [row for (kind, _), row in docs.items() if kind == "Comment"]
+                comment["content"] = expected
+                run = reopen(transport=transport)
+                run.run(until=3)
+                self.assertEqual(sum(kind == "Comment" for kind, _ in docs), 1)
+                record = run.export()["records"][-1]
+                self.assertEqual(record["native_id"], f"Comment/{comment['name']}")
+                audit, = run.private_truth()["obligation_history"].values()
+                if action == "eta":
+                    self.assertEqual(record["eta"], 16)
+                    self.assertEqual([row["action"] for row in audit["entries"]], ["open"])
+                else:
+                    self.assertEqual(audit["entries"][-1]["action"], "resolve")
+                    self.assertEqual(audit["entries"][-1]["evidence"],
+                                     {"system": "tickets", "native_id": record["native_id"]})

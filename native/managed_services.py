@@ -281,3 +281,4 @@ class ServiceTransport:
                     ("Issue", issue["name"]) and (saved["case"], saved["ticket"]) ==
                     (event["case"], event["ticket"]),
                     "Ticket comment or Issue mismatch")
+            require(row.get("content") == self._comment(event), "Ticket comment content mismatch")
