@@ -450,6 +450,28 @@ class SwarmTest(unittest.TestCase):
         fake.runner().poll()
         self.assertEqual([number for number, *_ in fake.worker_runs], [1, 2])
 
+    def test_bare_closed_pr_requires_merge(self):
+        runner = self.fake.runner()
+        item = {"body": "### Dependencies\n- #150"}
+        dependency = {"state": "closed", "state_reason": "completed", "pull_request": {"merged_at": None}}
+        with patch.object(runner, "api", return_value=dependency):
+            self.assertTrue(runner.pending_dependencies(item))
+            dependency["pull_request"]["merged_at"] = "now"
+            self.assertFalse(runner.pending_dependencies(item))
+
+    def test_foreign_claim_keeps_original_scope_in_status_and_scheduler(self):
+        fake = self.fake
+        fake.issue(46, swarm.ACTIVE, body="### File scope\n- docs/")
+        fake.runner("other").claim(fake.issues[46], "swarm/issue-46")
+        fake.issues[46]["body"] = ""
+        fake.issue(1, swarm.READY, body="### File scope\n- docs/a.md")
+        runner = fake.runner()
+        runner.poll()
+        self.assertFalse(fake.worker_runs)
+        status = subprocess.check_output([sys.executable, swarm.__file__, "author", "--status",
+                                          "--state-dir", str(runner.state)], text=True)
+        self.assertEqual(json.loads(status), {"issue": 46, "scope": ["docs"], "stage": "foreign-claim"})
+
     def test_foreign_legacy_ref_reserves_a_slot_before_label_update(self):
         fake = self.fake
         fake.issue(46, swarm.READY)
@@ -503,7 +525,7 @@ class SwarmTest(unittest.TestCase):
         self.assertEqual(sum(call[:3] == ("git", "worktree", "add") for call in fake.calls), 1)
 
         fake.pulls[100].update(state="closed", merged_at="now", merged_by={"login": "maintainer"})
-        fake.issues[1]["state"] = "closed"
+        fake.issues[1].update(state="closed", state_reason="completed")
         restart = fake.runner()
         restart.poll()
         terminal = [e for e in restart.journal.events[1] if e["event"] == "terminal"]

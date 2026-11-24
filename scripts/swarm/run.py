@@ -284,7 +284,7 @@ class Journal:
         return terminal if claim and terminal and terminal["run"] == claim.get("run") else None
 
     def status(self):
-        return [{"issue": issue, "run": claim["run"],
+        local = [{"issue": issue, "run": claim["run"],
                  "stage": events[-1]["event"], "since": claim["ts"],
                  "runner": claim["runner"], "scope": claim.get("scope", []),
                  "status": events[-1].get("status"),
@@ -292,6 +292,9 @@ class Journal:
                 for issue, events in sorted(self.events.items())
                 if (claim := self.last(issue, "claim")) and claim.get("run")
                 and not self.terminal(issue)]
+
+        foreign = self.last(0, "foreign-slots") or {}
+        return sorted(local + foreign.get("slots", []), key=lambda row: row["issue"])
 
     def last(self, issue, kind):
         return next((e for e in reversed(self.events.get(issue, [])) if e["event"] == kind), None)
@@ -436,8 +439,12 @@ class Client:
             except ToolError:
                 pending.append(f"{repo}#{number} (unavailable)")
                 continue
-            done = (dependency["merged_at"] if kind == "pulls" else
-                    dependency["state"] == "closed" and dependency.get("state_reason") != "not_planned")
+            if kind == "pulls":
+                done = dependency.get("merged_at")
+            elif "pull_request" in dependency:
+                done = dependency["pull_request"].get("merged_at")
+            else:
+                done = dependency["state"] == "closed" and dependency.get("state_reason") == "completed"
             if not done:
                 pending.append(f"{repo}#{number}")
         return pending
@@ -719,11 +726,13 @@ class Runner(Client):
         identity = {"actor": "agent", "issue": f"#{number}", "base": base,
                     "provider": "OpenAI", "model": model, "effort": effort,
                     "run": token, "runner": self.runner_sha, "reviewer": REVIEWER_MODEL}
+        scope = file_scope(item)
         sha = self.git("commit-tree", f"{base}^{{tree}}", "-p", base, "-m",
-                       provenance.commit_message(f"Swarm claim #{number} by {self.worker}", identity))
+                       provenance.commit_message(f"Swarm claim #{number} by {self.worker}", identity)
+                       + "\nClaim-Scope: " + (" ".join(scope) or "Unknown"))
         self.journal.add(number, "claim", sha=sha, worker=self.worker, host=socket.gethostname(),
                          base=base, run=token, runner=self.runner_sha, model=model, effort=effort,
-                         reviewer=REVIEWER_MODEL, scope=file_scope(item))
+                         reviewer=REVIEWER_MODEL, scope=scope)
         self.attempt_record(number, "provenance", **self.record(number), claim=sha, worker=self.worker)
         return self.push_claim(number, ref, sha)
 
@@ -1101,9 +1110,12 @@ class Runner(Client):
                         self.block(issue, blocked["reason"])
                     elif BLOCKED in labels(issue):
                         self.journal.finish(number, "operator-blocked")
-        active = {record["issue"]: record["scope"] for record in self.journal.status()}
+        active = {record["issue"]: record["scope"] for record in self.journal.status()
+                  if record["stage"] != "foreign-claim"}
         refs = self.git("ls-remote", "--refs", "origin", "refs/heads/swarm/issue-*")
-        remote_claims = {int(number) for number in re.findall(r"refs/heads/swarm/issue-(\d+)$", refs, re.M)}
+        remote_claims = {int(number): sha for sha, number in re.findall(
+            r"^(\w+)\s+refs/heads/swarm/issue-(\d+)$", refs, re.M)}
+        foreign = []
         for item in items:
             number = item["number"]
             state = labels(item)
@@ -1111,7 +1123,19 @@ class Runner(Client):
             claim = self.journal.last(number, "claim")
             if (not claim or not claim.get("run")) and (
                     ACTIVE in state or (number in remote_claims and BLOCKED not in state)):
-                active[number] = []
+                scope = file_scope(item)  # Legacy claim without pinned scope metadata.
+                if number in remote_claims:
+                    head = remote_claims[number]
+                    self.git("fetch", "--no-tags", "--no-write-fetch-head", "origin", head)
+                    pinned = self.git("log", "-1", "--first-parent", f"--grep=^Swarm claim #{number} by ",
+                                      "--format=%(trailers:key=Claim-Scope,valueonly)", head, "^origin/dev")
+                    if pinned:
+                        scope = scope_paths(pinned.split())
+                active[number] = scope
+                foreign.append({"issue": number, "stage": "foreign-claim", "scope": scope})
+        previous = self.journal.last(0, "foreign-slots") or {}
+        if not self.dry and foreign != previous.get("slots", []):
+            self.journal.add(0, "foreign-slots", slots=foreign)
         with ThreadPoolExecutor(max_workers=WORKER_SLOTS) as workers:
             futures = {}
             for item in sorted(items, key=lambda issue: issue["number"]):
