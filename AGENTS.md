@@ -1,5 +1,7 @@
 # Instructions for coding agents
 
+Read [SPEC.md](SPEC.md) and [DECISIONS.md](DECISIONS.md) before any work. Every issue and PR cites a requirement ID (R1–R20).
+
 Read README.md → docs/HANDOFF.md → docs/ARCHITECTURE.md before changing behavior. Read docs/PROVENANCE.md before making claims about the delivered dataset. These instructions apply to this repository; the user's current task takes precedence.
 
 - The objective is a coherent enterprise generating records in real, independently stored applications. Preserve the A–L operating loop; map each change to its blocks, evidence inputs, resulting records and a meaningful check.
