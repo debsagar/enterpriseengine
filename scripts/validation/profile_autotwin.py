@@ -125,14 +125,14 @@ def verify_sources(root, manifest):
             raise ValueError(f"Source pin mismatch: {relative}")
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--autotwin-root", type=Path, required=True,
                         help="AutoTwin checkout containing data/")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     root = args.autotwin_root / "data"
-    manifest = json.loads(MANIFEST.read_text())
     try:
+        manifest = json.loads(MANIFEST.read_text())
         verify_sources(root, manifest)
         for relative, reference in manifest["references"].items():
             if profile(root / relative) != reference["profile"]:

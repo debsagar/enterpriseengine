@@ -1,11 +1,15 @@
 """Offline acceptance tests for the AutoTwin reference profiles."""
 
+from contextlib import redirect_stderr, redirect_stdout
 import gzip
+from io import StringIO
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
+from scripts.validation import profile_autotwin
 from scripts.validation.profile_autotwin import MANIFEST, profile, source_pin, verify_sources
 
 
@@ -92,6 +96,41 @@ class TestV1Profiles(unittest.TestCase):
             copy.write_bytes(changed)
             with self.assertRaisesRegex(ValueError, "Source pin mismatch: benchmark/"):
                 verify_sources(root, lock)
+
+    def test_cli_verifies_local_checkout_and_rejects_stale_profile(self):
+        relative = "sales/om/orders.xes"
+        fixture = self.manifest["references"][relative]["fixture"]
+        fixture_path = MANIFEST.parent / fixture["path"]
+        reference = {"source": fixture["source"], "profile": profile(fixture_path)}
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "data" / relative
+            source.parent.mkdir(parents=True)
+            source.write_bytes(fixture_path.read_bytes())
+            manifest = root / "manifest.json"
+            lock = {"references": {relative: reference}}
+            manifest.write_text(json.dumps(lock))
+            with patch.object(profile_autotwin, "MANIFEST", manifest):
+                with redirect_stdout(StringIO()) as output:
+                    profile_autotwin.main(["--autotwin-root", str(root)])
+                self.assertEqual(output.getvalue(), f"Verified {relative}\n")
+
+                reference["profile"]["cases"] += 1
+                manifest.write_text(json.dumps(lock))
+                with redirect_stderr(StringIO()) as error, self.assertRaises(SystemExit) as failure:
+                    profile_autotwin.main(["--autotwin-root", str(root)])
+                self.assertEqual(failure.exception.code, 1)
+                self.assertEqual(error.getvalue(), f"Profile mismatch: {relative}\n")
+
+                original = source.read_bytes()
+                changed = original.replace(b"example-1", b"example-3", 1)
+                self.assertNotEqual(changed, original)
+                self.assertEqual(len(changed), len(original))
+                source.write_bytes(changed)
+                with redirect_stderr(StringIO()) as error, self.assertRaises(SystemExit) as failure:
+                    profile_autotwin.main(["--autotwin-root", str(root)])
+                self.assertEqual(failure.exception.code, 1)
+                self.assertEqual(error.getvalue(), f"Source pin mismatch: {relative}\n")
 
     def test_gzip_namespace_lifecycle_and_ties(self):
         log = b"""<log xmlns="http://www.xes-standard.org/">

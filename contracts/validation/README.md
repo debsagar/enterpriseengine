@@ -16,8 +16,15 @@ python3 scripts/validation/profile_autotwin.py --autotwin-root /path/to/autotwin
 ```
 
 The command checks every byte pin before parsing and fails on a changed source
-or profile. CI uses only the bundled fixtures and manifest. No input files are
-downloaded or written by the profiler.
+or profile. The profiler opens its inputs read-only.
+
+Run the same fixture suite CI discovers from the repository root. It uses
+the bundled files and a temporary checkout to exercise the CLI's success
+and mismatch paths.
+
+```sh
+uv run python -m unittest discover -s contracts -p 'test_v1_profiles.py' -v
+```
 
 The profile uses one case per unique trace `concept:name`. Each event's
 ordering time is its explicit `start_timestamp` when present and its
