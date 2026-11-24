@@ -164,20 +164,13 @@ class Fake:
             if "acceptance_output" in payload:
                 self.review_calls.append((number, model, effort))
                 return self.model_reply({"passed": True, "findings": "Fallback reviewed."})
-            if "required_commands" in payload:
-                assert model == "gpt-6.2-sol" and sandbox == swarm.DEFAULT_SANDBOX
-                self.validation_runs.append((number, sha, list(payload["required_commands"])))
+            if "command_results" in payload and "candidate" not in payload:
+                commands = [entry["command"] for entry in payload["command_results"]]
+                self.validation_runs.append((number, sha, commands))
                 if number and self.validation_hook:
                     self.validation_hook(number, cwd)
-                assert " ".join(swarm.SETUP) not in payload["required_commands"]
-                events = [json.dumps({"type": "item.completed", "item": {
-                    "type": "command_execution", "command": command,
-                    "exit_code": 0,
-                }}) for command in payload["required_commands"]]
-                events.append(json.dumps({"type": "item.completed", "item": {"type": "command_execution",
-                                    "command": " ".join(swarm.SETUP), "exit_code": 1}}))
-                _, result = self.model_reply({"passed": True, "command": "", "output": "Checks passed."})
-                return 0, "\n".join([*events, result])
+                assert " ".join(swarm.SETUP) not in commands
+                return self.model_reply({"passed": True, "command": "", "output": "Checks passed."})
             if "merge_report" in payload:
                 assert model == "gpt-6.2-sol" and sandbox == swarm.DEFAULT_SANDBOX
                 return self.model_reply({"summary": "Implemented the scoped change."})
@@ -334,7 +327,13 @@ class Fake:
 
 
 class SwarmTest(unittest.TestCase):
+    real_command_result = Swarm.command_result
+
     def setUp(self):
+        fake_commands = patch.object(Swarm, "command_result", side_effect=lambda command, path:
+                                     {"command": command, "exit_code": 0, "output": "ok"})
+        self.commands = fake_commands.start()
+        self.addCleanup(fake_commands.stop)
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.fake = Fake(Path(directory.name))
@@ -482,6 +481,7 @@ class SwarmTest(unittest.TestCase):
               "body": "Fixes #1", "merged_at": None}
         fake.pulls[100] = pr
         self.assertTrue(runner.pending_dependencies(item))
+        pr["body"] = "Resolves #1"
         pr["merged_at"] = "now"
         self.assertFalse(runner.pending_dependencies(item))
         pr["body"] = "Closes #10"
@@ -503,15 +503,62 @@ class SwarmTest(unittest.TestCase):
     def test_advisory_is_deduplicated_and_passes(self):
         fake = self.fake
         self.ready_prs(1)
-        finding = {"title": "Improve wording", "evidence": "Ambiguous message", "impact": "Affects operators"}
+        finding = {"title": "Improve wording", "evidence": "R3 and R12 ambiguous message", "impact": "Affects operators"}
         fake.findings["advisory_findings"] = [finding]
         fake.findings["advisory_findings"].append(finding)
         fake.runner(role=Swarm).poll()
         self.assertIn('"verdict": "PASS"', fake.comments[100][-1]["body"])
-        self.assertTrue(any("Non-blocking: #2" in c["body"] for c in fake.comments[100]))
+        self.assertTrue(any("Non-blocking: Improve wording" in c["body"] for c in fake.comments[100]))
         self.assertEqual(set(fake.issues), {1, 2})
         self.assertIn(swarm.READY, swarm.labels(fake.issues[2]))
+        self.assertIn("Requirements: R3, R12", fake.issues[2]["body"])
         self.assertIn(finding["impact"], fake.issues[2]["body"])
+
+    def test_multiline_command_blocks(self):
+        for body in ("### Acceptance\n```sh\ntrue\nfalse\n```", "Command\n\n    true\n    false\n",
+                     "Command\n\n```bash\ntrue\nfalse\n```"):
+            self.assertEqual(swarm.accepted_commands(body), ["true", "false"])
+
+    def test_required_command_failure_overrides_model_pass(self):
+        self.ready_prs(1)
+        self.commands.side_effect = lambda command, path: {"command": command, "exit_code": 7, "output": "failed"}
+        self.fake.runner(role=Swarm).poll()
+        self.assertIn('"verdict": "FAIL"', self.fake.comments[100][-1]["body"])
+
+    def test_command_result_runs_inside_snapshot_and_captures_stderr(self):
+        runner = self.fake.runner(role=Swarm)
+        command = "pwd >&2; exit 7"
+        with patch("roles.OFFLINE", (command,)):
+            result = SwarmTest.real_command_result(runner, command, self.fake.root)
+        self.assertEqual((result["exit_code"], result["output"]), (7, str(self.fake.root)))
+
+    def test_advisory_error_after_publication(self):
+        self.ready_prs(1)
+        self.fake.findings["advisory_findings"] = [{"title": "Style", "evidence": "example", "impact": "clarity"}]
+        def fail(*args):
+            self.assertIn('"verdict": "PASS"', self.fake.comments[100][-1]["body"])
+            raise swarm.ToolError("unavailable")
+        with patch.object(Swarm, "advisory_issue", side_effect=fail) as filing:
+            self.fake.runner(role=Swarm).poll()
+            filing.assert_called_once()
+
+    def test_advisory_defaults_to_pr_requirement(self):
+        self.ready_prs(1)
+        self.fake.pulls[100]["body"] += "\nRequirements: R8"
+        self.fake.findings["advisory_findings"] = [{"title": "Style", "evidence": "example", "impact": "clarity"}]
+        self.fake.runner(role=Swarm).poll()
+        self.assertIn("Requirements: R8", self.fake.issues[2]["body"])
+
+    def test_dependency_followup_errors_are_pending(self):
+        runner = self.fake.runner(dry=True)
+        item = {"body": "### Dependencies\n- #1"}
+        closed = {"state": "closed", "state_reason": "completed"}
+        for closure_fails in (True, False):
+            response = (0, '{"data":{"repository":{"issue":{"timelineItems":{"nodes":[]}}}}}')
+            with patch.object(runner, "api", side_effect=[closed, swarm.ToolError("merged lookup")]), patch.object(
+                    runner, "call", side_effect=swarm.ToolError("closure lookup") if closure_fails else None,
+                    return_value=response):
+                self.assertIn("(unavailable)", runner.pending_dependencies(item)[0])
 
     def test_verified_spec_violation_outside_acceptance_blocks(self):
         fake = self.fake

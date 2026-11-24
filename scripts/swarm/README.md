@@ -114,6 +114,10 @@ can flag changes from another process. They cannot observe reads or constrain
 network access. Keep the runner on the designated host, use the shared
 `debsagar` GitHub identity and provide cached offline dependencies. Hosts with
 working Codex sandboxing can opt into `--sandbox workspace-write`.
+After setup the harness runs each required command in the snapshot with a
+ten-minute timeout and records its exit code and redacted output tail. Custom
+commands from issue or PR text use the workspace sandbox even on full-access
+hosts. A sandbox startup failure counts as a failed command.
 
 ## Provenance
 

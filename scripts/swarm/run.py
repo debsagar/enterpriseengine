@@ -69,15 +69,22 @@ def accepted_commands(body):
     if section:
         fenced = re.findall(r"```[\w-]*\n(.*?)```", section[1], re.S)
         if fenced:
-            return [command.strip() for command in fenced if command.strip()]
+            return [command.strip() for block in fenced for command in block.splitlines() if command.strip()]
     inline = re.search(r"(?im)^(?:Acceptance(?: test command)?\s*:\s*)?`([^`\n]+)`", section[1] if section else body)
     if inline:
         return [inline[1]]
     if section:
         return [line.strip() for line in section[1].splitlines()
                 if re.match(r"^\s*(?:(?:uv|python[\d.]*|bash|pytest|npm|make)\s|\./)", line)]
-    evidence = re.search(r"(?m)^Command\s*\n\n    (\S.+)$", body)
-    return [evidence[1]] if evidence else []
+    evidence = re.search(r"(?m)^Command[ \t]*\n\s*?`{3}[\w-]*\n([\s\S]*?)^`{3}", body)
+    if not evidence:
+        evidence = re.search(r"(?m)^Command[ \t]*\n\n((?:    [^\n]+(?:\n|$))+)", body)
+    return [line.strip() for line in evidence[1].splitlines() if line.strip()] if evidence else []
+
+
+def closing_issues(body, repo):
+    return [int(number) for number in re.findall(
+        rf"\b(?:closes|fixes|resolves)\s+(?:{re.escape(repo)})?#([1-9][0-9]*)\b", body, re.I)]
 
 
 def command_key(command):
@@ -441,38 +448,38 @@ class Client:
         for repo, kind, number in sorted(refs):
             try:
                 dependency = self.api(f"repos/{repo}/{kind}/{number}")
-            except ToolError:
+                if kind == "pulls":
+                    done = dependency.get("merged_at")
+                elif "pull_request" in dependency:
+                    done = dependency["pull_request"].get("merged_at")
+                else:
+                    done = dependency["state"] == "closed" and dependency.get("state_reason") == "completed"
+                    if done:
+                        owner, name = repo.split("/")
+                        query = """query($owner:String!,$name:String!,$number:Int!) {
+                          repository(owner:$owner,name:$name) { issue(number:$number) {
+                            timelineItems(last:1,itemTypes:[CLOSED_EVENT]) { nodes {
+                              ... on ClosedEvent { closer { __typename ... on PullRequest { merged baseRefName } } }
+                            } }
+                          } }
+                        }"""
+                        _, output = self.call(["gh", "api", "graphql", "-f", f"query={query}",
+                                               "-f", f"owner={owner}", "-f", f"name={name}",
+                                               "-F", f"number={number}"])
+                        nodes = json.loads(output)["data"]["repository"]["issue"]["timelineItems"]["nodes"]
+                        closer = (nodes[-1].get("closer") or {}) if nodes else {}
+                        done = (closer.get("__typename") == "PullRequest" and closer.get("merged") is True
+                                and closer.get("baseRefName") == "dev")
+                        if not done:
+                            endpoint = f"repos/{repo}/pulls?state=closed&base=dev&per_page=100"
+                            done = any(pr.get("merged_at") and (
+                                pr["head"]["ref"] == f"swarm/issue-{number}" or number in closing_issues(pr.get("body") or "", repo)
+                            ) for page in self.api(endpoint, pages=True) for pr in page)
+                        human |= not done
+            except (ToolError, ValueError, KeyError, TypeError) as error:
+                print(f"Dependency {repo}#{number} unavailable ({type(error).__name__})", file=sys.stderr)
                 pending.append(f"{repo}#{number} (unavailable)")
                 continue
-            if kind == "pulls":
-                done = dependency.get("merged_at")
-            elif "pull_request" in dependency:
-                done = dependency["pull_request"].get("merged_at")
-            else:
-                done = dependency["state"] == "closed" and dependency.get("state_reason") == "completed"
-                if done:
-                    owner, name = repo.split("/")
-                    query = """query($owner:String!,$name:String!,$number:Int!) {
-                      repository(owner:$owner,name:$name) { issue(number:$number) {
-                        timelineItems(last:1,itemTypes:[CLOSED_EVENT]) { nodes {
-                          ... on ClosedEvent { closer { __typename ... on PullRequest { merged baseRefName } } }
-                        } }
-                      } }
-                    }"""
-                    _, output = self.call(["gh", "api", "graphql", "-f", f"query={query}",
-                                           "-f", f"owner={owner}", "-f", f"name={name}",
-                                           "-F", f"number={number}"])
-                    nodes = json.loads(output)["data"]["repository"]["issue"]["timelineItems"]["nodes"]
-                    closer = (nodes[-1].get("closer") or {}) if nodes else {}
-                    done = (closer.get("__typename") == "PullRequest" and closer.get("merged") is True
-                            and closer.get("baseRefName") == "dev")
-                    if not done:
-                        endpoint = f"repos/{repo}/pulls?state=closed&base=dev&per_page=100"
-                        keyword = re.compile(rf"\b(?:closes|fixes)\s+#{number}\b", re.I)
-                        done = any(pr.get("merged_at") and (
-                            pr["head"]["ref"] == f"swarm/issue-{number}" or keyword.search(pr.get("body") or "")
-                        ) for page in self.api(endpoint, pages=True) for pr in page)
-                    human |= not done
             if not done:
                 pending.append(f"{repo}#{number}")
         if human and not self.dry:
