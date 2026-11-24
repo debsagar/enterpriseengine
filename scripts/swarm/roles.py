@@ -64,9 +64,9 @@ def author_model(pr):
 
 def eligible_reviewers(author):
     # Luna is in the overall priority list but never reviews; retired 6.2 Sol/Astra entries keep legacy PR eligibility.
-    priorities = (CLAUDE_REVIEWER, FALLBACK_REVIEWER, "gpt-6.2-astra", "gpt-6-luna")
+    priorities = (CLAUDE_REVIEWER, FALLBACK_REVIEWER, "gpt-6-luna")
     eligible = {
-        "gpt-6.2-sol": {CLAUDE_REVIEWER, "gpt-6.2-astra", FALLBACK_REVIEWER},
+        "gpt-6.2-sol": {CLAUDE_REVIEWER, FALLBACK_REVIEWER},
         "gpt-6.2-astra": {CLAUDE_REVIEWER},
         "gpt-6-luna": {CLAUDE_REVIEWER, FALLBACK_REVIEWER},
         "gpt-5.6-terra": {CLAUDE_REVIEWER},
