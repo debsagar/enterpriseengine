@@ -29,12 +29,12 @@ The clock owns *when*. Your handler owns *what should happen*. The adapter owns 
 
 ## Install and use from Python
 
-Once `v0.3.0` is tagged, use the following commands on Linux or macOS with Python 3.10+, Git and SQLite to install that release from GitHub.
+Use the following commands on Linux or macOS with Python 3.10+, Git, SQLite and uv to install the current development build.
 
 ```sh
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install "enterpriseengine @ git+https://github.com/debsagar/enterpriseengine.git@v0.3.0#subdirectory=packages/engine"
+git clone --branch dev https://github.com/debsagar/enterpriseengine.git
+(cd enterpriseengine && uv sync --locked --all-packages)
+. enterpriseengine/.venv/bin/activate
 ```
 
 **Save this as `my_company.py` in your own directory.** The company below has one quality reviewer. Two inspection requests arrive before opening. The handler records what the reviewer discovers and when. It needs neither Docker nor model credentials.

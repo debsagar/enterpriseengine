@@ -86,6 +86,14 @@ class Engine:
         if not isinstance(self.config, dict):
             raise ValueError("Consumer configuration must be a dictionary")
         world.validate(self.config)
+        self._world_process = getattr(consumer, "world_process", None)
+        if self._world_process is not None:
+            if not self.config.get("world"):
+                raise ValueError("A world process requires world: true")
+            self._world_process.validate(self.config)
+        process_class = type(self._world_process)
+        self._world_process_identity = ([process_class.__module__, process_class.__qualname__]
+                                        if self._world_process is not None else None)
         self._calendars = _calendars(self.config)
         cls = type(consumer)
         identity = getattr(consumer, "resume_identity", None)
@@ -110,7 +118,7 @@ class Engine:
             db.execute("CREATE TABLE IF NOT EXISTS writes (id TEXT PRIMARY KEY, data TEXT)")
             initial = {"consumer": self._consumer_identity, "now": start, "sequence": 0,
                        "queue": [], "history": [], "state": {}, "seed": seed,
-                       "config": self.config}
+                       "config": self.config, "world_process": self._world_process_identity}
             created = db.execute("INSERT OR IGNORE INTO checkpoint VALUES (1, ?)", (_json(initial),)).rowcount
             db.execute("CREATE TABLE IF NOT EXISTS extension_admission (id INTEGER PRIMARY KEY, standalone INTEGER NOT NULL)")
             # Only the owning runtime may enroll a checkpoint for offline commands.
@@ -205,6 +213,9 @@ class Engine:
         if (checkpoint["seed"] != self.seed
                 or _json(checkpoint["config"]) != _json(self.config)):
             raise ValueError("Resume requires the original seed and configuration")
+        if checkpoint.get("world_process") != self._world_process_identity:
+            raise ValueError("Resume requires the original world process")
+        self._world_samples = deepcopy(checkpoint.get("world_samples", []))
         self.now = checkpoint["now"]
         self._sequence = checkpoint["sequence"]
         self._staff_available = deepcopy(checkpoint.get("staff_available", {}))
@@ -276,6 +287,7 @@ class Engine:
             checkpoint = self._load()
             if from_command:
                 self._consumer_identity = checkpoint.get("consumer")
+                self._world_process_identity = checkpoint.get("world_process")
                 self.seed = checkpoint["seed"]
                 self.config = checkpoint["config"]
             if from_command or checkpoint != self._checkpoint:
@@ -325,6 +337,8 @@ class Engine:
     def _save(self, *, remove=None, edge=None, history=None):
         checkpoint = {**self._checkpoint, "now": self.now, "sequence": self._sequence,
                       "state": self.state, "revision": self._checkpoint["revision"] + 1}
+        if self._world_samples:
+            checkpoint["world_samples"] = self._world_samples
         if self._staff_available:
             checkpoint["staff_available"] = self._staff_available
         if self._extensions:
@@ -765,13 +779,7 @@ class Engine:
 
     def observe(self, role, *, as_of):
         """Read transport records visible to a role at the given business minute."""
-        if type(as_of) is not int or as_of < 0:
-            raise ValueError("as_of must be a nonnegative integer minute")
-        if self._active is not None:
-            if role is None or role != self._active_role:
-                raise ValueError("Observation requires the active event role")
-            if as_of > self.now:
-                raise ValueError("An active event cannot observe future records")
+        self._check_observation(role, as_of)
         base_visible, selected = self._observation_scopes(role)
         added_systems = self._added["systems"]
 
@@ -799,6 +807,24 @@ class Engine:
                 rows.extend(read(system, self._transport(system),
                                  lambda row: row.get("system", system) == system))
         return deepcopy(rows)
+
+    def observe_world(self, role, *, as_of):
+        """Read committed, role-scoped observations from the installed world process."""
+        self._check_observation(role, as_of)
+        if self._world_process is None:
+            return []
+        rows = [row for row in self._checkpoint.get("world_samples", ())
+                if row["at"] <= as_of]
+        return self._world_process.observe(deepcopy(rows), self._checkpoint["config"], role, as_of)
+
+    def _check_observation(self, role, as_of):
+        if type(as_of) is not int or as_of < 0:
+            raise ValueError("as_of must be a nonnegative integer minute")
+        if self._active is not None:
+            if role is None or role != self._active_role:
+                raise ValueError("Observation requires the active event role")
+            if as_of > self.now:
+                raise ValueError("An active event cannot observe future records")
 
     def _trace_event(self):
         return {**self.event, "id": self._active_id, "sequence": self._active, "role": self._active_role,
@@ -924,6 +950,9 @@ class Engine:
         """Owner-only evaluator state through the requested cutoff."""
         _, answers, checkpoint, cutoff = self._extractor_snapshot(as_of)
         truth = {**world.truth(checkpoint["state"], self.config, cutoff), "answers": answers}
+        if self._world_process is not None:
+            for row, sample in zip(truth["world"], checkpoint.get("world_samples", ())):
+                row["process"] = deepcopy(sample)
         obligations = {}
         for obligation_id, obligation in checkpoint.get("obligations", {}).items():
             entries = [entry for entry in obligation.get("history", ()) if entry["at"] <= cutoff]
