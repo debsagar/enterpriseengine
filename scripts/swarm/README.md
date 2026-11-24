@@ -77,8 +77,8 @@ read rebase and repair decisions. Use one designated host for the merger.
 
 ## Author and reviewer routing
 
-The issue agent assigns `size:small` or `size:large`. Small issues use Sol
-medium. Large and unlabelled issues default to Astra medium, and can specify
+The issue agent assigns `size:small` or `size:large`. Small issues use Luna
+(gpt-6-luna) medium. Large and unlabelled issues default to Terra (gpt-5.6-terra) medium, and can specify
 a line such as `Reasoning effort: high`. The runner pins model and effort at
 claim time so retries retain the original commit and PR provenance.
 
@@ -89,10 +89,10 @@ fresh validation pass. A separate reviewer reads the spec, decisions, issue, dif
 acceptance results. The CLI runs Claude Opus 5.5 at low effort, with
 restricted read-only tools. Claude attempts are bounded to 30 seconds each,
 with two retries after 2 and 4 seconds for quota, rate-limit, authentication
-and CLI availability failures. When Opus is unavailable, Sol authors may
-use Astra medium. Astra authors require Opus, so Swarm applies
+and CLI availability failures. When Opus is unavailable, Luna authors may
+use Terra medium. Terra authors require Opus, so Swarm applies
 `awaiting-review`, retries on each poll and clears the label when a review
-verdict is recorded. Sol is ineligible to review. Verdicts include model,
+verdict is recorded. Luna is ineligible to review. PRs authored by the retired 6.2 Sol/Astra keep their original reviewer rules. Verdicts include model,
 effort, run ID, head and fallback reason when applicable. Swarm comments and
 merger reports flag fallback reviews.
 
