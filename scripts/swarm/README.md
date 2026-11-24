@@ -87,7 +87,7 @@ the Author. Each claimed PR uses an isolated checkout and records its head
 and dev base. Swarm runs acceptance commands and verifies findings in a
 fresh validation pass. A separate reviewer reads the spec, decisions, issue, diff and
 acceptance results. The CLI runs Claude Opus 5.5 at low effort, with
-restricted read-only tools. Claude attempts are bounded to 30 seconds each,
+restricted read-only tools. Claude attempts are bounded to 10 minutes each,
 with two retries after 2 and 4 seconds for quota, rate-limit, authentication
 and CLI availability failures. When Opus is unavailable, Luna authors may
 use Terra medium. Terra authors require Opus, so Swarm applies

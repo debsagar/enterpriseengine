@@ -41,7 +41,7 @@ CLAUDE_REVIEWER = "claude-opus-5-5"
 FALLBACK_REVIEWER = "gpt-5.6-terra"
 SMALL, LARGE = "size:small", "size:large"
 AWAITING_REVIEW = "awaiting-review"
-CLAUDE_TIMEOUT = 30
+CLAUDE_TIMEOUT = 600  # Opus reviews of large diffs routinely exceed 30 s; 30 s caused spurious fallbacks.
 PROTECTED = Path("/data/enterprise")
 PACKAGE_CHECKS = {
     "Installed wheel (Python 3.10)", "Installed wheel (Python 3.12)", "Offline workspace tests"
