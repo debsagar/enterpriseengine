@@ -12,17 +12,18 @@ from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 import provenance
-from run import (ACTIVE, AWAITING_REVIEW, BLOCKED, CLAUDE_REVIEWER, FALLBACK_REVIEWER, HUMAN,
+from run import (ACTIVE, FILE_SCOPE, AWAITING_REVIEW, BLOCKED, CLAUDE_REVIEWER, FALLBACK_REVIEWER, HUMAN,
                  LARGE, MODELS, REPO, SMALL,
                  TASK_RULES, VERDICT_CONTEXTS, WORKER_SCHEMA,
                  Client, Journal, JobError, ToolError, append_record, dependencies, labels,
-                 redact, role_record, safe_evidence)
+                 redact, role_record, safe_evidence, scope_paths)
 
 
 NORVALE = ("uv run --no-sync --offline python scripts/norvale_dry_run.py --days 30 "
            "--compare contracts/baselines/norvale-dry-run.json")
 OFFLINE = (
     "uv run --no-sync --offline python scripts/check_imports.py",
+    "uv run --no-sync --offline python -m unittest discover -s scripts/swarm/tests",
     "uv run --no-sync --offline python -m unittest discover -s packages/engine/tests",
     "uv run --no-sync --offline python -m unittest discover -s contracts",
     "uv run --no-sync --offline python -m unittest discover -s packages/environments/src/environments/norvale/integrations -t packages/environments/src",
@@ -280,7 +281,13 @@ class Swarm(Role):
                 return
             ran = {command_key(item.get("command", "")): item.get("exit_code") for item in report["commands"]}
             if ran.get(command_key(required[0])) != 0:
-                self.event("deferred", head=head, base=base, reason="Locked offline workspace setup did not pass.")
+                reason = "Locked offline workspace setup did not pass."
+                if not pr:
+                    if self.dev() == base:
+                        self.report_regression(required[:1], ran, "Infrastructure failure. " + reason)
+                    self.event("infra-failure", head=head, base=base, reason=reason)
+                else:
+                    self.event("deferred", head=head, base=base, reason=reason)
                 return
             missing = [command for command in required if command_key(command) not in ran]
             failed = [command for command in required
@@ -335,7 +342,7 @@ class Swarm(Role):
                     return
         self.api(f"{self.repo}/issues", method="POST", data={
             "title": f"Offline dev validation failed ({key})",
-            "body": f"{marker}\n\nDev `{self.identity['base']}`\n\n{details.replace('<!--', '&lt;!--')}\n\n"
+            "body": f"{marker}\n\nRequirements: R19\n\nDev `{self.identity['base']}`\n\n{details.replace('<!--', '&lt;!--')}\n\n"
                     + provenance.block(self.identity),
         })
 
@@ -452,6 +459,13 @@ class Reviewer(Role):
                 self.remove_label(number, AWAITING_REVIEW)
 
 
+class RebaseConflict(JobError):
+    def __init__(self, paths):
+        self.paths = paths
+        super().__init__("Automatic rebase conflicted on: " + ", ".join(paths)
+                         + ". Resolve against current dev on the source branch.")
+
+
 class Merger(Role):
     role = "merger"
 
@@ -460,11 +474,11 @@ class Merger(Role):
         if not last or any(last.get(key) != value for key, value in {"status": status, **fields}.items()):
             self.event("decision", status=status, **fields)
 
-    def bounce(self, head, base, reason, *, repair=False):
+    def bounce(self, head, base, reason, *, repair=False, conflicts=None):
         key = sha256(reason.encode()).hexdigest()[:12]
         marker = f"<!-- swarm-bounce:{head}:{base}:{key} -->"
         self.comment(self.number, marker, f"Returned to the author at `{head}`. {reason}")
-        self.event("bounce", head=head, base=base, reason=reason, repair=repair)
+        self.event("bounce", head=head, base=base, reason=reason, repair=repair, conflicts=conflicts)
         self.event("release", status="bounced")
 
     def gate(self, pr, head, base):
@@ -510,7 +524,11 @@ class Merger(Role):
                                  "rebase", "--no-autosquash", "--reapply-cherry-picks",
                                  "--empty=keep", "--exec", amend, base], cwd=path, allowed=(0, 1))
             if code:
-                raise JobError("Automatic rebase failed. Resolve the conflict on the source branch.")
+                unmerged = self.git("diff", "--name-only", "--diff-filter=U", cwd=path)
+                if unmerged:
+                    paths = safe_evidence(unmerged, 3500).splitlines()
+                    raise RebaseConflict(paths or ["[paths omitted]"])
+                raise JobError("Automatic rebase failed without unmerged paths. Inspect the source branch.")
             rewritten = self.git("rev-parse", "HEAD", cwd=path)
             current = self.pr(self.number)
             if self.held(current) or not self.current(current, head, base):
@@ -615,6 +633,9 @@ class Merger(Role):
         try:
             if self.rebase(pr, head, base):
                 return
+        except RebaseConflict as error:
+            self.bounce(head, base, str(error), repair=True, conflicts=error.paths)
+            return
         except JobError as error:
             self.bounce(head, base, str(error))
             return
@@ -659,7 +680,7 @@ class Merger(Role):
 
 ISSUE_PLAN = {
     "size": {"type": "string", "enum": ["small", "large"]},
-    **{key: {"type": "string"} for key in ("duplicate", "impact", "prerequisites")},
+    **{key: {"type": "string"} for key in ("duplicate", "impact", "prerequisites", "scope")},
     "classification": {"type": "string", "enum": ["match", "similar", "distinct"]},
 }
 IMPACT = re.compile(r"(?im)^### Downstream impact\s*\n.*?(?=^#{1,6}[ \t]|\Z)", re.S)
@@ -806,7 +827,10 @@ class Issues(Role):
                           "issue number (#N) as duplicate, otherwise empty. "
                           "Return impact as plain text describing affected issues/components and why an isolated "
                           "fix would affect them. Return prerequisites as a comma-separated list of #N, "
-                          "only actual open blocked-before dependencies, or empty. Do not edit or delegate.",
+                          "only actual open blocked-before dependencies, or empty. Return scope as "
+                          "newline-separated repo-relative file or directory paths (packages use their "
+                          "directory paths). Return an empty scope if any affected paths are uncertain. "
+                          "Do not edit or delegate.",
                           {"number": number, "body": body, "title": item["title"], "issues": summaries},
                           ISSUE_PLAN)
         current = self.issue(number)
@@ -838,10 +862,14 @@ class Issues(Role):
         block = f"### Downstream impact\n\n{impact}\n\n"
         updated = (IMPACT.sub(lambda _: block, updated, count=1) if IMPACT.search(updated)
                    else updated.rstrip() + "\n\n" + block).rstrip()
+        paths = scope_paths(plan["scope"].splitlines())
+        scope = "### File scope\n\n" + ("\n".join(f"- {path}" for path in paths) if paths else "Unknown")
+        updated = (FILE_SCOPE.sub(lambda _: scope + "\n\n", updated, count=1)
+                   if FILE_SCOPE.search(updated) else updated.rstrip() + "\n\n" + scope).rstrip()
         if updated != body:
             self.write_body(item, updated)
             self.comment(number, "<!-- swarm-impact:" + sha256(updated.encode()).hexdigest()[:16] + " -->",
-                         "Updated downstream impact and structured prerequisites.")
+                         "Updated downstream impact, file scope and structured prerequisites.")
         if (plan["classification"] == "match" and target in neighbors and target < number
                 and self.dedupe(item, neighbors[target], items)):
             return

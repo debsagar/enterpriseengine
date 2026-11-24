@@ -14,9 +14,9 @@ Then update Norvale's engine lock to the tested commit, carry the corresponding 
 | Subcommand | Model | Responsibility |
 | --- | --- | --- |
 | `swarm` | `gpt-6.2-sol` | Runs offline dev checks, PR acceptance tests, and the Norvale #39 baseline when tracked. Checks PRs against requirements and verifies findings in a fresh pass before posting a verdict. Files or updates findings on issues and comments on PRs. |
-| `author` | Sol medium for `size:small`, Astra medium by default otherwise | Claims eligible issues and opens or repairs one `dev` PR per issue. Pins the author model and effort in the claim and owns source edits and PR creation. |
+| `author` | Sol medium for `size:small`, Astra medium by default otherwise | Runs up to three scope-compatible claims and opens or repairs one `dev` PR per issue. Pins the author model and effort in the claim and owns source edits and PR creation. |
 | `merger` | `gpt-6.2-sol` | Applies deterministic integration gates to one PR at a time and summarizes completed merges. Rebases onto current `dev`, adds provenance trailers, and requires green CI and both exact-head verdicts before rebase-merging. Skips `awaiting-review`. |
-| `issues` | `gpt-6.2-astra` | Classifies matches, similar issues and distinct issues, closes confirmed duplicates with reciprocal links, and records downstream impact and structured prerequisites, and assigns one size label. |
+| `issues` | `gpt-6.2-astra` | Classifies matches, similar issues and distinct issues, closes confirmed duplicates with reciprocal links, and records downstream impact, file scope and structured prerequisites, and assigns one size label. |
 
 The human orchestrator owns the processes. On the designated Linux host,
 authenticate `gh` as `debsagar` for all roles and configure the Claude CLI
@@ -53,7 +53,12 @@ python3 /data/enterprise/swarm-runner/scripts/swarm/run.py issues --loop --runne
 Stop a role with Ctrl-C in its terminal. Use `--once --runner-sha "$runner_sha"`
 for a single poll, `--once --dry-run` for a read-only preview, or `--status`
 to inspect the latest journal entries. Stop all roles before switching the
-pinned checkout. Drain or reconcile old Author claims before switching revisions.
+pinned checkout. Use the same state root and worktrees after the switch.
+Drain work that still needs the old Author with its recorded runner SHA
+before switching. Open PRs can remain in flight. The new Author lists and
+reserves older claims and reconciles their merges. If an older claim still
+needs work, its status shows the runner SHA required to resume. Stop the
+new Author before resuming the old pin under the same host lock.
 
 The queue is ordered by PR number and retains its active PR across restarts.
 For `ml-review` PRs it adds `needs-human` and pauses at that PR. The owner can

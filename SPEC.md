@@ -58,7 +58,11 @@ Its data must stand up to comparison with public real-world event logs.
 - **R19 [O]** Agents develop the repo under the single `debsagar` GitHub account.
   The owner reviews only model behaviour.
   - **Swarm** (gpt-6.2-sol) tests, validates and files issues.
-  - **Author** alone writes code and opens PRs. `size:small` uses gpt-6.2-sol
+  - **Author** workers write code and open PRs, with up to three active
+    claims. Prerequisites must be complete and declared paths or package
+    directories must be disjoint from all active claims. Unknown scope
+    overlaps all scopes except work confined to `docs/`.
+    `size:small` uses gpt-6.2-sol
     at medium effort. `size:large` and unlabelled issues use gpt-6.2-astra
     at medium effort unless the issue specifies another effort.
   - **Reviewer** uses Claude Opus 5.5 at low effort with read-only tools.
@@ -75,7 +79,7 @@ Its data must stand up to comparison with public real-world event logs.
     current PR head. Verdict comments bind role, model, effort, run ID,
     fallback reason when applicable, and head SHA to the status and provenance.
   - **Issue agent** (gpt-6.2-astra) assigns each issue exactly one size label,
-    merges duplicates and maps downstream impact.
+    merges duplicates and records downstream impact, prerequisites and file scope.
 - **R20 [O]** One repo, `debsagar/enterpriseengine`. All work goes to `dev` through PRs carrying provenance and citing at least one requirement ID.
 
 ## 4. Invariants
