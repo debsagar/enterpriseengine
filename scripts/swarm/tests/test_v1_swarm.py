@@ -465,6 +465,23 @@ class SwarmTest(unittest.TestCase):
         fake.runner().poll()
         self.assertEqual([number for number, *_ in fake.worker_runs], [1, 2])
 
+    def test_author_stop_during_prepare_claims_nothing(self):
+        fake = self.fake
+        fake.issue(1, swarm.READY, body="### File scope\n- result-1.txt")
+        author = fake.runner()
+        stopping = Event()
+        author.stopping = stopping.is_set
+        occupied = author.occupied
+
+        def stop_then_check(*args, **kwargs):
+            stopping.set()  # signal lands after poll's check, before the claim
+            return occupied(*args, **kwargs)
+
+        with patch.object(author, "occupied", side_effect=stop_then_check):
+            author.poll()
+        self.assertIsNone(author.journal.last(1, "claim"))
+        self.assertEqual(fake.worker_runs, [])
+
     def test_manual_completion_holds_dependent_once(self):
         fake = self.fake
         fake.issue(1, state="closed")

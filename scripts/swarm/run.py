@@ -1093,6 +1093,8 @@ class Runner(Client):
             print(f"#{number}: skip occupied worktree", flush=True)
             return
 
+        if self.stopping():
+            return  # Shutdown began during preparation: claim nothing new.
         try:
             remote = self.claim(issue, branch, resume_only=bool(pr), pull=pr)
         except JobError as error:
