@@ -3,6 +3,8 @@ from copy import deepcopy
 from contextlib import closing
 from dataclasses import dataclass, field
 import json
+
+from engine.versioning import stamp
 import sqlite3
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -160,7 +162,7 @@ class OrdinaryPlanningTest(TestCase):
         save(run/'env/endpoints.json', endpoints)
         config = dict(DEFAULT_CONFIG, company_operating=True, company_timing=DEFAULT_TIMING,
                       company_authority='integrations.company_run.authority:Authority', capacity_units=20)
-        save(run/'config.json', config)
+        save(run/'config.json', {**stamp(), **config})
         product = dict(family=1, publication=1, published=True, hold_location_id=9, quality_method='QA-1',
                        mapping=mapping(Engine.company, 1, 1, 2, 3, 4, 5, 6))
         receiver = dict(url='http://mes.test', db='mes', source_id='test-mes',
@@ -173,7 +175,7 @@ class OrdinaryPlanningTest(TestCase):
             mes=receiver, operator=dict(receiver, login='operator', password='operator'),
             qms_reader=dict(url='http://qms.test', api_key='reader', api_secret='reader'),
             qms_approver='qa', specifications=specs))
-        save(run/'state.json', dict(day=3, completed=[], docs={}, physical={},
+        save(run/'state.json', dict(**stamp(), day=3, completed=[], docs={}, physical={},
                                   ops=dict(orders={}, maintenance={}, shortage_days={}, changes={})))
 
         def erp_endpoint(base, site, token):

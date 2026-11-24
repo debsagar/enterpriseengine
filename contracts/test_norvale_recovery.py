@@ -61,7 +61,7 @@ class RecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             engine.run = Path(directory)
             path = engine.run/'state.json'
-            path.write_text(json.dumps(dict(engine.state, completed=['today'])))
+            path.write_text(json.dumps(dict(engine.state, **stamp(), completed=['today'])))
             saved = path.read_bytes()
             with patch.object(engine, 'run_phase') as dispatch:
                 engine.through(0)

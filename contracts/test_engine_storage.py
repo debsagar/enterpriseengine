@@ -9,6 +9,7 @@ from time import monotonic
 import unittest
 
 from engine import Engine
+from engine.versioning import stamp
 from engine.__main__ import main
 from environments.norvale.native.production_profiles import ADAPTER, registered
 from packages.engine.tests.test_engine_resume_shifts import Consumer, open_engine
@@ -16,7 +17,7 @@ from test_engine_goals import Native
 
 
 class Storage(unittest.TestCase):
-    def test_legacy_inflight_native_write_and_catalog_for_both_consumers(self):
+    def test_inflight_native_write_and_catalog_for_both_consumers(self):
         for name, kind, fields in (
             ("norvale", "order", {"quantity": 1, "rate": 2}),
             ("managed_services", "contract", {"response_minutes": 5, "rate": 2}),
@@ -49,6 +50,7 @@ class Storage(unittest.TestCase):
                                ("booked", "start", 3), ("pending", "start", 3),
                            ]]
                 checkpoint = {
+                    **stamp(),
                     "consumer": [f"consumers.{name}", "Consumer", None],
                     "seed": 41, "config": {}, "now": 3, "sequence": 3,
                     "history": history, "state": {"prior": ["value"]},
