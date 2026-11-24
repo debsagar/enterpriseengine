@@ -437,6 +437,7 @@ class Client:
         if manual:
             return ["manual or unspecified prerequisites"]
         pending = []
+        human = False
         for repo, kind, number in sorted(refs):
             try:
                 dependency = self.api(f"repos/{repo}/{kind}/{number}")
@@ -449,8 +450,26 @@ class Client:
                 done = dependency["pull_request"].get("merged_at")
             else:
                 done = dependency["state"] == "closed" and dependency.get("state_reason") == "completed"
+                if done:
+                    owner, name = repo.split("/")
+                    query = """query($owner:String!,$name:String!,$number:Int!) {
+                      repository(owner:$owner,name:$name) { issue(number:$number) {
+                        timelineItems(last:1,itemTypes:[CLOSED_EVENT]) { nodes {
+                          ... on ClosedEvent { closer { __typename ... on PullRequest { merged } } }
+                        } }
+                      } }
+                    }"""
+                    _, output = self.call(["gh", "api", "graphql", "-f", f"query={query}",
+                                           "-f", f"owner={owner}", "-f", f"name={name}",
+                                           "-F", f"number={number}"])
+                    nodes = json.loads(output)["data"]["repository"]["issue"]["timelineItems"]["nodes"]
+                    closer = (nodes[-1].get("closer") or {}) if nodes else {}
+                    done = closer.get("__typename") == "PullRequest" and closer.get("merged") is True
+                    human |= not done
             if not done:
                 pending.append(f"{repo}#{number}")
+        if human and not self.dry:
+            self.change_labels(item, add=HUMAN)
         return pending
 
     def checkout_status(self, path):
@@ -542,9 +561,15 @@ class Client:
             if not isinstance(result, dict) or set(result) != set(fields):
                 return None
             for key, field in fields.items():
-                expected = bool if field["type"] == "boolean" else str
+                expected = {"boolean": bool, "string": str, "array": list}[field["type"]]
                 if type(result[key]) is not expected or ("enum" in field and result[key] not in field["enum"]):
                     return None
+                if expected is list:
+                    keys = field["items"]["required"]
+                    if any(not isinstance(entry, dict) or set(entry) != set(keys)
+                           or any(not isinstance(entry[k], str) or not entry[k].strip() for k in keys)
+                           for entry in result[key]):
+                        return None
             if tested:
                 result["commands"] = commands
             return result
@@ -1130,7 +1155,7 @@ class Runner(Client):
             if (not claim or not claim.get("run")) and (
                     ACTIVE in state or (number in remote_claims and BLOCKED not in state)):
                 scope = []  # A mutable issue cannot establish a legacy claim's original scope.
-                if number in remote_claims:
+                if number in remote_claims and not self.dry:
                     head = remote_claims[number]
                     self.git("fetch", "--no-tags", "--no-write-fetch-head", "origin", head)
                     pinned = self.git("log", "-1", "--first-parent", "--grep=^Claim-Scope: ",

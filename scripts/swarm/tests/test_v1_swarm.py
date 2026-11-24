@@ -3,6 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stdout
 from copy import deepcopy
+from hashlib import sha256
 import io
 import json
 from pathlib import Path
@@ -57,7 +58,7 @@ class Fake:
         self.merge_runs = []
         self.merger_login = "bot"
         self.strict = True
-        self.default_verdict = True
+        self.findings = {"blocking_findings": [], "advisory_findings": []}
         self.worker_hook = None
         self.claim_gate = None
         self.drop_create_reply = False
@@ -113,6 +114,9 @@ class Fake:
         self.calls.append(tuple(args))
         if tuple(args) == swarm.SETUP:
             return self.setup_status, "Failed to download arro3-core"
+        if args[:3] == ["gh", "api", "graphql"]:
+            closer = self.issues[int(args[-1].split("=")[1])].get("closer")
+            return 0, json.dumps({"data":{"repository":{"issue":{"timelineItems":{"nodes":[{"closer":closer}]}}}}})
         if args[0] == "git":
             if args[1] == "push" and args[2].startswith("--force-with-lease") and self.claim_gate:
                 self.claim_gate.wait(timeout=5)
@@ -180,7 +184,7 @@ class Fake:
             if "candidate" in payload:
                 assert model == "gpt-6.2-sol" and sandbox == swarm.DEFAULT_SANDBOX
                 self.validation_runs.append((number, sha, "second pass"))
-                return self.model_reply({"passed": self.default_verdict, "findings": "Verified evidence."})
+                return self.model_reply(self.findings)
             if "issues" in payload:
                 assert model == "gpt-6.2-astra" and sandbox == swarm.DEFAULT_SANDBOX
                 return self.model_reply({"size": "large", "scope": "", **self.issue_plans.get(number, {
@@ -244,7 +248,7 @@ class Fake:
         if path == "issues":
             if method == "POST":
                 number = max(self.issues, default=0) + 1
-                self.issue(number, body=data["body"])
+                self.issue(number, *data.get("labels", []), body=data["body"])
                 self.issues[number]["title"] = data["title"]
                 return self.issues[number]
             return [item for item in self.issues.values() if item["state"] == "open"]
@@ -450,6 +454,48 @@ class SwarmTest(unittest.TestCase):
         fake.runner().poll()
         self.assertEqual([number for number, *_ in fake.worker_runs], [1, 2])
 
+    def test_manual_completion_holds_dependent_once(self):
+        fake = self.fake
+        fake.issue(1, state="closed")
+        fake.issues[1]["state_reason"] = "completed"
+        fake.issue(2, body="### Dependencies\n- #1")
+        runner = fake.runner()
+        for _ in range(2):
+            self.assertTrue(runner.pending_dependencies(fake.issues[2]))
+        self.assertIn(swarm.HUMAN, swarm.labels(fake.issues[2]))
+        posts = [c for c in fake.calls if c[:4] == ("gh", "api", "-X", "POST")]
+        self.assertEqual(len(posts), 1)
+
+    def test_legacy_triage_backfills_scope(self):
+        fake = self.fake
+        fake.issue(1, swarm.LARGE, body="Legacy issue")
+        runner = fake.runner(role=Issues)
+        fingerprint = sha256(json.dumps(["Issue 1", "Legacy issue", []]).encode()).hexdigest()
+        runner.journal.add(1, "triaged", fingerprint=fingerprint)
+        runner.poll()
+        self.assertIn("### File scope", fake.issues[1]["body"])
+
+    def test_advisory_is_deduplicated_and_passes(self):
+        fake = self.fake
+        self.ready_prs(1)
+        finding = {"title": "Improve wording", "evidence": "Ambiguous message", "impact": "Affects operators"}
+        fake.findings["advisory_findings"] = [finding]
+        fake.findings["blocking_findings"] = [dict(finding, criterion="Unrequested wording")]
+        fake.runner(role=Swarm).poll()
+        self.assertIn('"verdict": "PASS"', fake.comments[100][-1]["body"])
+        self.assertTrue(any("Non-blocking: #2" in c["body"] for c in fake.comments[100]))
+        self.assertEqual(set(fake.issues), {1, 2})
+        self.assertIn(swarm.READY, swarm.labels(fake.issues[2]))
+        self.assertIn(finding["impact"], fake.issues[2]["body"])
+
+    def test_verified_acceptance_failure_blocks(self):
+        fake = self.fake
+        self.ready_prs(1)
+        fake.findings["blocking_findings"] = [{"criterion": "uv run python -m unittest",
+            "title": "Missing test", "evidence": "Required assertion missing", "impact": "Coverage"}]
+        fake.runner(role=Swarm).poll()
+        self.assertIn('"verdict": "FAIL"', fake.comments[100][-1]["body"])
+
     def test_bare_closed_pr_requires_merge(self):
         runner = self.fake.runner()
         item = {"body": "### Dependencies\n- #150"}
@@ -465,6 +511,9 @@ class SwarmTest(unittest.TestCase):
         fake.runner("other").claim(fake.issues[46], "swarm/issue-46")
         fake.issues[46]["body"] = ""
         fake.issue(1, swarm.READY, body="### File scope\n- docs/a.md")
+        fake.calls.clear()
+        fake.runner(dry=True).poll()
+        self.assertFalse(any(call[:2] == ("git", "fetch") for call in fake.calls))
         runner = fake.runner()
         runner.poll()
         self.assertFalse(fake.worker_runs)
@@ -525,7 +574,7 @@ class SwarmTest(unittest.TestCase):
         self.assertEqual(sum(call[:3] == ("git", "worktree", "add") for call in fake.calls), 1)
 
         fake.pulls[100].update(state="closed", merged_at="now", merged_by={"login": "maintainer"})
-        fake.issues[1].update(state="closed", state_reason="completed")
+        fake.issues[1].update(state="closed", state_reason="completed", closer={"__typename":"PullRequest", "merged":True})
         restart = fake.runner()
         restart.poll()
         terminal = [e for e in restart.journal.events[1] if e["event"] == "terminal"]
