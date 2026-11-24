@@ -172,14 +172,14 @@ class Fake:
                 assert " ".join(swarm.SETUP) not in commands
                 return self.model_reply({"passed": True, "command": "", "output": "Checks passed."})
             if "merge_report" in payload:
-                assert model == "gpt-6.2-sol" and sandbox == swarm.DEFAULT_SANDBOX
+                assert model == "gpt-6-luna" and sandbox == swarm.DEFAULT_SANDBOX
                 return self.model_reply({"summary": "Implemented the scoped change."})
             if "candidate" in payload:
-                assert model == "gpt-6.2-sol" and sandbox == swarm.DEFAULT_SANDBOX
+                assert model == "gpt-6-luna" and sandbox == swarm.DEFAULT_SANDBOX
                 self.validation_runs.append((number, sha, "second pass"))
                 return self.model_reply(self.findings)
             if "issues" in payload:
-                assert model == "gpt-6.2-astra" and sandbox == swarm.DEFAULT_SANDBOX
+                assert model == "gpt-5.6-terra" and sandbox == swarm.DEFAULT_SANDBOX
                 return self.model_reply({"size": "large", "scope": "", **self.issue_plans.get(number, {
                     "classification": "distinct", "duplicate": "", "impact": "Affects contracts.",
                     "prerequisites": "",
@@ -1050,7 +1050,7 @@ class SwarmTest(unittest.TestCase):
         head = fake.head(1)
         self.assertNotEqual(head, old1)
         self.assertEqual(fake.head(2), old2)
-        self.assertIn("Swarm-Rebase-Model: gpt-6.2-sol",
+        self.assertIn("Swarm-Rebase-Model: gpt-6-luna",
                       git(fake.remote, "show", "-s", "--format=%B", head))
         record = provenance.parse(fake.pulls[100]["body"])
         commits = [{"sha": sha, "commit": {"message": git(fake.remote, "show", "-s", "--format=%B", sha)}}
@@ -1121,7 +1121,7 @@ class SwarmTest(unittest.TestCase):
         fake.issue(4, swarm.SMALL, swarm.LARGE)
         fake.runner().poll()
         self.assertCountEqual(fake.author_calls, [
-            (1, "gpt-6.2-sol", "medium"), (2, "gpt-6.2-astra", "xhigh"), (3, "gpt-6.2-astra", "medium"),
+            (1, "gpt-6-luna", "medium"), (2, "gpt-5.6-terra", "xhigh"), (3, "gpt-5.6-terra", "medium"),
         ])
         for number, model, effort in fake.author_calls:
             record = provenance.parse(fake.pulls[99 + number]["body"])
@@ -1136,15 +1136,15 @@ class SwarmTest(unittest.TestCase):
 
     def test_review_eligibility_and_same_model_verdict_rejected(self):
         fake = self.fake
-        self.assertEqual(eligible_reviewers("gpt-6.2-sol"), ("claude-opus-5-5", "gpt-6.2-astra"))
-        self.assertEqual(eligible_reviewers("gpt-6.2-astra"), ("claude-opus-5-5",))
+        self.assertEqual(eligible_reviewers("gpt-6-luna"), ("claude-opus-5-5", "gpt-5.6-terra"))
+        self.assertEqual(eligible_reviewers("gpt-5.6-terra"), ("claude-opus-5-5",))
         self.assertEqual(eligible_reviewers(None), ())
         self.ready_prs(1)
         validator = fake.runner(role=Swarm)
         validator.poll()
         head, base = fake.head(1), validator.dev()
         valid = validator.journal.last(100, "reviewer-verdict")
-        source = {**valid["provenance"], "model": "gpt-6.2-astra", "provider": "OpenAI",
+        source = {**valid["provenance"], "model": "gpt-5.6-terra", "provider": "OpenAI",
                   "effort": "medium", "reviewer_fallback": True, "fallback_reason": "quota"}
         validator.journal.add(100, "reviewer-verdict", head=head, base=base, provenance=source, passed=True)
         fake.comments[100][-1]["body"] = ("<!-- swarm-verdict " +
@@ -1165,7 +1165,7 @@ class SwarmTest(unittest.TestCase):
             fake.runner(role=Swarm).poll()
         self.assertCountEqual([call.args[0] for call in wait.call_args_list], [2, 4, 2, 4])
         self.assertCountEqual(fake.review_calls, [(100, "claude-opus-5-5", "low")] * 3 +
-                         [(101, "claude-opus-5-5", "low")] * 3 + [(101, "gpt-6.2-astra", "medium")])
+                         [(101, "claude-opus-5-5", "low")] * 3 + [(101, "gpt-5.6-terra", "medium")])
         self.assertIn(swarm.AWAITING_REVIEW, swarm.labels(fake.pulls[100]))
         self.assertNotIn("review/independent", fake.statuses[fake.head(1)])
         record = provenance.parse(fake.comments[101][-1]["body"])

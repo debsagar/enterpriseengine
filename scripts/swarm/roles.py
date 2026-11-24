@@ -64,10 +64,12 @@ def author_model(pr):
 
 def eligible_reviewers(author):
     # Sol is in the overall priority list but is ineligible for both author models.
-    priorities = (CLAUDE_REVIEWER, FALLBACK_REVIEWER, "gpt-6.2-sol")
+    priorities = (CLAUDE_REVIEWER, FALLBACK_REVIEWER, "gpt-6.2-astra", "gpt-6-luna")
     eligible = {
-        "gpt-6.2-sol": {CLAUDE_REVIEWER, FALLBACK_REVIEWER},
+        "gpt-6.2-sol": {CLAUDE_REVIEWER, "gpt-6.2-astra", FALLBACK_REVIEWER},
         "gpt-6.2-astra": {CLAUDE_REVIEWER},
+        "gpt-6-luna": {CLAUDE_REVIEWER, FALLBACK_REVIEWER},
+        "gpt-5.6-terra": {CLAUDE_REVIEWER},
     }
     return tuple(model for model in priorities if model in eligible.get((author or "").lower(), ()))
 

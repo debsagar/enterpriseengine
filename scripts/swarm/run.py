@@ -31,13 +31,14 @@ STATE = Path("/data/enterprise/.swarm")
 READY, ACTIVE, BLOCKED, HUMAN = "agent-ready", "in-progress", "blocked", "needs-human"
 MAX_FIXES = 2
 WORKER_SLOTS = 3
-MODELS = {"author": "gpt-6.2-astra", "issues": "gpt-6.2-astra",
-          "swarm": "gpt-6.2-sol", "merger": "gpt-6.2-sol"}
+# Owner 2026-11-24: ChatGPT-account Codex no longer serves 6.2 Sol/Astra; Luna replaces Sol, Terra replaces Astra.
+MODELS = {"author": "gpt-5.6-terra", "issues": "gpt-5.6-terra",
+          "swarm": "gpt-6-luna", "merger": "gpt-6-luna"}
 WORKER_MODEL, REVIEWER_MODEL, EFFORT = MODELS["author"], "pending", "high"
 VERDICT_CONTEXTS = {"swarm": "swarm/validate", "reviewer": "review/independent"}
 DEFAULT_SANDBOX = "danger-full-access"
 CLAUDE_REVIEWER = "claude-opus-5-5"
-FALLBACK_REVIEWER = "gpt-6.2-astra"
+FALLBACK_REVIEWER = "gpt-5.6-terra"
 SMALL, LARGE = "size:small", "size:large"
 AWAITING_REVIEW = "awaiting-review"
 CLAUDE_TIMEOUT = 30
@@ -149,7 +150,7 @@ def labels(item):
 
 def author_selection(item):
     if labels(item) & {SMALL, LARGE} == {SMALL}:
-        return "gpt-6.2-sol", "medium"
+        return "gpt-6-luna", "medium"
     override = re.search(r"(?im)^\s*reasoning[ _-]*effort\s*:\s*(low|medium|high|xhigh)\s*$",
                          item.get("body") or "")
     return WORKER_MODEL, override[1].lower() if override else "medium"

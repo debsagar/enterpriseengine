@@ -13,10 +13,10 @@ Then update Norvale's engine lock to the tested commit, carry the corresponding 
 
 | Subcommand | Model | Responsibility |
 | --- | --- | --- |
-| `swarm` | `gpt-6.2-sol` | Runs offline dev checks, PR acceptance tests, and the Norvale #39 baseline when tracked. Checks PRs against requirements and verifies findings in a fresh pass before posting a verdict. Files or updates findings on issues and comments on PRs. |
+| `swarm` | `gpt-6-luna` | Runs offline dev checks, PR acceptance tests, and the Norvale #39 baseline when tracked. Checks PRs against requirements and verifies findings in a fresh pass before posting a verdict. Files or updates findings on issues and comments on PRs. |
 | `author` | Sol medium for `size:small`, Astra medium by default otherwise | Runs up to three scope-compatible claims and opens or repairs one `dev` PR per issue. Pins the author model and effort in the claim and owns source edits and PR creation. |
-| `merger` | `gpt-6.2-sol` | Applies deterministic integration gates to one PR at a time and summarizes completed merges. Rebases onto current `dev`, adds provenance trailers, and requires green CI and both exact-head verdicts before rebase-merging. Skips `awaiting-review`. |
-| `issues` | `gpt-6.2-astra` | Classifies matches, similar issues and distinct issues, closes confirmed duplicates with reciprocal links, and records downstream impact, file scope and structured prerequisites, and assigns one size label. |
+| `merger` | `gpt-6-luna` | Applies deterministic integration gates to one PR at a time and summarizes completed merges. Rebases onto current `dev`, adds provenance trailers, and requires green CI and both exact-head verdicts before rebase-merging. Skips `awaiting-review`. |
+| `issues` | `gpt-5.6-terra` | Classifies matches, similar issues and distinct issues, closes confirmed duplicates with reciprocal links, and records downstream impact, file scope and structured prerequisites, and assigns one size label. |
 
 The human orchestrator owns the processes. On the designated Linux host,
 authenticate `gh` as `debsagar` for all roles and configure the Claude CLI
