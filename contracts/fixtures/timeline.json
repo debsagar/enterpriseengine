@@ -1,0 +1,245 @@
+{
+  "now": "2026-11-24T23:00:00Z",
+  "responses": {
+    "": {
+      "visibility": "public",
+      "full_name": "example/enterprise",
+      "owner": {
+        "login": "example"
+      }
+    },
+    "/issues?state=all": [
+      {
+        "number": 47,
+        "title": "Build timeline <script>example</script>",
+        "labels": [],
+        "created_at": "2026-11-23T08:00:00Z",
+        "body": "PRIVATE-ISSUE-BODY",
+        "closed_at": "2026-11-24T01:00:00Z"
+      },
+      {
+        "number": 50,
+        "title": "Render project activity",
+        "labels": [],
+        "created_at": "2026-11-23T09:00:00Z",
+        "body": "PRIVATE-ISSUE-BODY",
+        "pull_request": {},
+        "closed_at": "2026-11-24T14:00:00Z"
+      }
+    ],
+    "/pulls/50": {
+      "head": {
+        "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "changed_files": 4,
+      "additions": 80,
+      "deletions": 12,
+      "body": "PRIVATE-PR-BODY\n<!-- swarm-provenance\n{\"actor\": \"agent\", \"model\": \"gpt-6.2-sol\", \"effort\": \"medium\", \"run\": \"author-47\", \"transcript\": \"swarm://PRIVATE-LOCATOR\"}\n-->",
+      "merged_at": "2026-11-24T14:00:00Z"
+    },
+    "/issues/47/timeline": [
+      {
+        "event": "closed",
+        "created_at": "2026-11-24T01:00:00Z"
+      }
+    ],
+    "/issues/50/timeline": [
+      {
+        "event": "closed",
+        "created_at": "2026-11-24T14:00:00Z"
+      },
+      {
+        "event": "commented",
+        "created_at": "2026-11-24T08:00:00Z",
+        "id": 101,
+        "user": {
+          "login": "example"
+        },
+        "body": "<!-- swarm-verdict {\"head\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"role\": \"reviewer\", \"run\": \"review-old\", \"verdict\": \"FAIL\", \"effort\": \"medium\", \"model\": \"gpt-6.2-astra\", \"reviewer_fallback\": true, \"fallback_reason\": \"Claude quota or rate limit\"} -->\nPRIVATE-COMMENT-BODY"
+      },
+      {
+        "event": "labeled",
+        "created_at": "2026-11-24T02:00:00Z",
+        "label": {
+          "name": "ml-review"
+        }
+      },
+      {
+        "event": "labeled",
+        "created_at": "2026-11-24T03:00:00Z",
+        "label": {
+          "name": "needs-human"
+        }
+      },
+      {
+        "event": "unlabeled",
+        "created_at": "2026-11-24T13:00:00Z",
+        "label": {
+          "name": "needs-human"
+        }
+      },
+      {
+        "event": "commented",
+        "created_at": "2026-11-24T10:00:00Z",
+        "id": 102,
+        "user": {
+          "login": "example"
+        },
+        "body": "<!-- swarm-bounce:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:dddddddddddddddddddddddddddddddddddddddd:eeeeeeeeeeee -->\nPRIVATE-COMMENT-BODY"
+      },
+      {
+        "event": "commented",
+        "created_at": "2026-11-24T11:00:00Z",
+        "id": 103,
+        "user": {
+          "login": "example"
+        },
+        "body": "<!-- swarm-verdict {\"head\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\", \"role\": \"swarm\", \"run\": \"swarm-current\", \"verdict\": \"PASS\", \"effort\": \"medium\", \"model\": \"gpt-6.2-sol\"} -->\nPRIVATE-COMMENT-BODY"
+      },
+      {
+        "event": "commented",
+        "created_at": "2026-11-24T07:00:00Z",
+        "id": 104,
+        "user": {
+          "login": "example"
+        },
+        "body": "<!-- swarm-verdict {\"head\": \"cccccccccccccccccccccccccccccccccccccccc\", \"role\": \"reviewer\", \"run\": \"review-unpublished\", \"verdict\": \"FAIL\", \"effort\": \"medium\", \"model\": \"gpt-6.2-astra\", \"reviewer_fallback\": true, \"fallback_reason\": \"PRIVATE-FALLBACK-DETAIL\"} -->\nPRIVATE-COMMENT-BODY"
+      },
+      {
+        "event": "head_ref_force_pushed",
+        "created_at": "2026-11-24T06:00:00Z"
+      },
+      {
+        "event": "committed",
+        "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "committer": {
+          "date": "2026-11-24T05:00:00Z"
+        }
+      },
+      {
+        "event": "committed",
+        "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "committer": {
+          "date": "2026-11-23T07:00:00Z"
+        }
+      },
+      {
+        "event": "commented",
+        "created_at": "2026-11-24T16:00:00Z",
+        "id": 105,
+        "user": {
+          "login": "someone-else"
+        },
+        "body": "<!-- swarm-bounce:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:dddddddddddddddddddddddddddddddddddddddd:ffffffffffff -->\nPRIVATE-COMMENT-BODY"
+      }
+    ],
+    "/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/statuses": [
+      {
+        "created_at": "2026-11-24T09:00:00Z",
+        "context": "review/independent",
+        "description": "review-old",
+        "state": "failure",
+        "creator": {
+          "login": "example"
+        }
+      }
+    ],
+    "/commits/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/statuses": [
+      {
+        "created_at": "2026-11-24T12:00:00Z",
+        "context": "swarm/validate",
+        "description": "swarm-current",
+        "state": "success",
+        "creator": {
+          "login": "example"
+        }
+      },
+      {
+        "created_at": "2026-11-24T18:00:00Z",
+        "context": "swarm/validate",
+        "description": "unrelated",
+        "state": "success",
+        "creator": {
+          "login": "someone-else"
+        }
+      },
+      {
+        "created_at": "2026-11-24T18:00:00Z",
+        "context": "unrelated/check",
+        "description": "unrelated",
+        "state": "success",
+        "creator": {
+          "login": "example"
+        }
+      }
+    ],
+    "/commits/cccccccccccccccccccccccccccccccccccccccc/statuses": []
+  },
+  "expected": [
+    [
+      "PR merged",
+      50,
+      ""
+    ],
+    [
+      "Label removed",
+      50,
+      "needs-human"
+    ],
+    [
+      "swarm/validate success",
+      50,
+      "swarm-current"
+    ],
+    [
+      "PR bounced",
+      50,
+      ""
+    ],
+    [
+      "review/independent failure",
+      50,
+      "Fallback review (Claude quota or rate limit)"
+    ],
+    [
+      "review/independent reported FAIL",
+      50,
+      "review-unpublished"
+    ],
+    [
+      "PR updated",
+      50,
+      "Head force-pushed"
+    ],
+    [
+      "PR updated",
+      50,
+      "Commit bbbbbbbbbbbb"
+    ],
+    [
+      "Label added",
+      50,
+      "needs-human"
+    ],
+    [
+      "Label added",
+      50,
+      "ml-review"
+    ],
+    [
+      "Issue closed",
+      47,
+      ""
+    ],
+    [
+      "PR opened",
+      50,
+      ""
+    ],
+    [
+      "Issue opened",
+      47,
+      ""
+    ]
+  ]
+}
