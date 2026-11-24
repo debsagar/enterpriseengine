@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shlex
 from shutil import rmtree
+from threading import Lock
 from time import sleep
 from tempfile import TemporaryDirectory
 from uuid import uuid4
@@ -17,7 +18,7 @@ import provenance
 from run import (ACTIVE, FILE_SCOPE, AWAITING_REVIEW, BLOCKED, CLAUDE_REVIEWER, FALLBACK_REVIEWER, HUMAN,
                  LARGE, MODELS, REPO, SMALL,
                  TASK_RULES, VERDICT_CONTEXTS, WORKER_SCHEMA, WORKER_SLOTS,
-                 Client, Journal, JobError, ToolError, append_record, dependencies, labels,
+                 SETUP, accepted_commands, command_key, Client, Journal, JobError, ToolError, append_record, dependencies, labels,
                  redact, role_record, safe_evidence, scope_paths)
 
 
@@ -128,38 +129,6 @@ def linked_issue(pr):
     return int(match[1]) if match else None
 
 
-def accepted_commands(body):
-    """Read a fenced or inline acceptance command, keeping prose as requirements."""
-    section = re.search(r"(?ims)^#{1,6}[ \t]+Acceptance(?: test command)?[ \t]*\n(.*?)(?=^#{1,6}[ \t]|\Z)", body)
-    if section:
-        fenced = re.findall(r"```[\w-]*\n(.*?)```", section[1], re.S)
-        if fenced:
-            return [command.strip() for command in fenced if command.strip()]
-    inline = re.search(r"(?im)^(?:Acceptance(?: test command)?\s*:\s*)?`([^`\n]+)`", section[1] if section else body)
-    if inline:
-        return [inline[1]]
-    if section:
-        return [line.strip() for line in section[1].splitlines()
-                if re.match(r"^\s*(?:(?:uv|python[\d.]*|bash|pytest|npm|make)\s|\./)", line)]
-    evidence = re.search(r"(?m)^Command\s*\n\n    (\S.+)$", body)
-    return [evidence[1]] if evidence else []
-
-
-def command_key(command):
-    """Normalize shell quoting and the offline flags used for legacy uv commands."""
-    try:
-        tokens = shlex.split(command)
-        if len(tokens) == 3 and tokens[1] in {"-c", "-lc"} and tokens[0].endswith(("sh", "bash")):
-            tokens = shlex.split(tokens[2])
-    except ValueError:
-        return ()
-    if tokens[:2] == ["uv", "run"]:
-        for option in ("--offline", "--no-sync"):
-            if option in tokens[2:4]:
-                tokens.remove(option)
-    return tuple(tokens)
-
-
 class Role(Client):
     checkout_path = None
 
@@ -268,6 +237,7 @@ class Role(Client):
 
 class Swarm(Role):
     role = "swarm"
+    infrastructure_lock = Lock()
 
     def validate(self, pr, base):
         number = pr["number"] if pr else 0
@@ -288,7 +258,15 @@ class Swarm(Role):
         if pr and not commands:
             commands = accepted_commands(pr.get("body") or "")
         with self.snapshot(head) as path:
-            required = ["uv sync --locked --offline --all-packages", *commands]
+            try:
+                self.prepare_workspace(path)
+            except ToolError as error:
+                reason = str(error)
+                self.event("infra-failure", head=head, base=base, reason=reason)
+                with self.infrastructure_lock:
+                    self.report_regression([" ".join(SETUP)], {}, reason, infrastructure=True)
+                return
+            required = list(commands)
             if pr:
                 required.append(OFFLINE[0])
             if "scripts/norvale_dry_run.py" in self.git(
@@ -308,15 +286,6 @@ class Swarm(Role):
                 self.event("deferred", head=head, base=base, reason="No valid model result.")
                 return
             ran = {command_key(item.get("command", "")): item.get("exit_code") for item in report["commands"]}
-            if ran.get(command_key(required[0])) != 0:
-                reason = "Locked offline workspace setup did not pass."
-                if not pr:
-                    if self.dev() == base:
-                        self.report_regression(required[:1], ran, "Infrastructure failure. " + reason)
-                    self.event("infra-failure", head=head, base=base, reason=reason)
-                else:
-                    self.event("deferred", head=head, base=base, reason=reason)
-                return
             missing = [command for command in required if command_key(command) not in ran]
             failed = [command for command in required
                       if command_key(command) in ran and ran[command_key(command)] != 0]
@@ -358,7 +327,7 @@ class Swarm(Role):
             self.report_regression(required, ran, details)
         self.event("verdict", head=head, base=base, passed=passed)
 
-    def report_regression(self, commands, ran, details):
+    def report_regression(self, commands, ran, details, *, infrastructure=False):
         # Group by failed check so a moving dev head does not create duplicate reports.
         failed = [command for command in commands if ran.get(command_key(command)) != 0]
         key = sha256("\n".join(failed or [details]).encode()).hexdigest()[:16]
@@ -369,7 +338,7 @@ class Swarm(Role):
                     self.comment(item["number"], f"<!-- swarm-observed:{self.identity['base']} -->", details)
                     return
         self.api(f"{self.repo}/issues", method="POST", data={
-            "title": f"Offline dev validation failed ({key})",
+            "title": "Offline workspace setup failed" if infrastructure else f"Offline dev validation failed ({key})",
             "body": f"{marker}\n\nRequirements: R19\n\nDev `{self.identity['base']}`\n\n{details.replace('<!--', '&lt;!--')}\n\n"
                     + provenance.block(self.identity),
         })

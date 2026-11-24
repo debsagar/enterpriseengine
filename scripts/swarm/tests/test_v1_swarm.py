@@ -111,6 +111,8 @@ class Fake:
 
     def command(self, args, cwd, stdin, *, lock_fd=None):
         self.calls.append(tuple(args))
+        if tuple(args) == swarm.SETUP:
+            return self.setup_status, "Failed to download arro3-core"
         if args[0] == "git":
             if args[1] == "push" and args[2].startswith("--force-with-lease") and self.claim_gate:
                 self.claim_gate.wait(timeout=5)
@@ -163,10 +165,13 @@ class Fake:
                 self.validation_runs.append((number, sha, list(payload["required_commands"])))
                 if number and self.validation_hook:
                     self.validation_hook(number, cwd)
+                assert " ".join(swarm.SETUP) not in payload["required_commands"]
                 events = [json.dumps({"type": "item.completed", "item": {
                     "type": "command_execution", "command": command,
-                    "exit_code": self.setup_status if command.startswith("uv sync ") else 0,
+                    "exit_code": 0,
                 }}) for command in payload["required_commands"]]
+                events.append(json.dumps({"type": "item.completed", "item": {"type": "command_execution",
+                                    "command": " ".join(swarm.SETUP), "exit_code": 1}}))
                 _, result = self.model_reply({"passed": True, "command": "", "output": "Checks passed."})
                 return 0, "\n".join([*events, result])
             if "merge_report" in payload:
@@ -188,8 +193,11 @@ class Fake:
                 self.worker_hook(number, cwd)
             if sandbox in {"workspace-write", "danger-full-access"}:
                 (cwd / f"result-{number}.txt").write_text(f"implementation {len(self.worker_runs)}\n")
-            return self.model_reply({"passed": True, "command": "python -m unittest",
+            code, reply = self.model_reply({"passed": True, "command": "python -m unittest",
                                      "output": "Ran 1 test\nOK\nexit 0\npassword=hidden"})
+            event = {"type": "command_execution", "command": "uv run python -m unittest" if "uv run" in payload["body"] else "python -m unittest",
+                     "aggregated_output": "Ran 1 test\nOK\nexit 0", "exit_code": 0}
+            return code, json.dumps({"type": "item.completed", "item": event}) + "\n" + reply
         assert args[:2] == ["gh", "api"], args
         with self.github_lock:
             response = self.api(args[3], args[4], json.loads(stdin) if stdin else None)
@@ -560,10 +568,31 @@ class SwarmTest(unittest.TestCase):
         validator = fake.runner(role=Swarm)
         validator.poll()
 
+        self.assertEqual(fake.validation_runs, [])
+        self.assertIn(swarm.SETUP, fake.calls)
         self.assertEqual(len(fake.issues), 1)
-        self.assertIn("Infrastructure failure. Locked offline workspace setup did not pass.",
+        self.assertIn("Failed to download arro3-core",
                       fake.issues[1]["body"])
         self.assertEqual(validator.journal.last(0, "infra-failure")["head"], validator.dev())
+
+    def test_parallel_pr_setup_failures_share_one_issue(self):
+        self.ready_prs(1, 2)
+        fake = self.fake
+        fake.setup_status = 1
+        validator = fake.runner(role=Swarm)
+        validator.poll()
+        for number in (0, 100, 101):
+            self.assertIn("Failed to download", validator.journal.last(number, "infra-failure")["reason"])
+        self.assertEqual(len(fake.issues), 3)
+        self.assertEqual(fake.validation_runs, [])
+        self.assertEqual(fake.statuses, {})
+
+    def test_setup_retains_subprocess_stderr(self):
+        result = subprocess.CompletedProcess(swarm.SETUP, 1, stdout="progress", stderr="download failed")
+        with patch.object(subprocess, "run", return_value=result) as run:
+            self.assertEqual(swarm.execute(list(swarm.SETUP), self.fake.clone), (1, "download failed"))
+        self.assertEqual(run.call_args.kwargs["cwd"], self.fake.clone)
+        self.assertNotIn("env", run.call_args.kwargs)
 
     def test_external_head_is_held_without_review(self):
         fake = self.fake
