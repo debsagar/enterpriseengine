@@ -204,6 +204,8 @@ class Fake:
         url = urlsplit(target)
         path = url.path.removeprefix(f"repos/{swarm.REPO}/")
         query = parse_qs(url.query)
+        if path == "milestones" and method == "GET":
+            return []
         if path == "user":
             return {"login": "bot"}
         if path == "labels" and method == "POST":

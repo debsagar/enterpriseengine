@@ -18,6 +18,9 @@ from threading import Lock
 import time
 from uuid import uuid4
 
+if "--dry-run" in sys.argv:
+    sys.dont_write_bytecode = True
+
 import provenance
 
 
@@ -287,7 +290,8 @@ class Client:
                 or (issue_mutation and issue_mutation[2] in {"comments", "labels"}),
                 "swarm": verdict_status or target == "issues" or (issue_mutation and issue_mutation[2] in {"comments", "labels"}),
                 "merger": issue_mutation and issue_mutation[2] in {"comments", "labels"},
-                "issues": issue_mutation or (label_setup and (data or {}).get("name") in {SMALL, LARGE}),
+                "issues": issue_mutation or (method == "POST" and target in {"issues", "milestones"})
+                or (label_setup and (data or {}).get("name") in {SMALL, LARGE, "process", READY, HUMAN}),
             }
             if self.dry or not allowed[self.role]:
                 raise JobError("GitHub mutation is outside this role.")
@@ -1066,7 +1070,15 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--sandbox", choices=("workspace-write", "danger-full-access"),
                         default=DEFAULT_SANDBOX)
+    parser.add_argument("--retro", metavar="MILESTONE", help="Plan one Issue-role retrospective")
     args = parser.parse_args()
+    if args.retro:
+        from retro import VERSION, checkout_preview
+        if args.role != "issues" or not args.once or not VERSION.fullmatch(args.retro):
+            parser.error("--retro requires issues --once and a version such as v0.3.0")
+        if args.dry_run and os.environ.get("SWARM_RETRO_OFFLINE") == "1":
+            checkout_preview(Path(__file__).resolve().parents[2], args.retro)
+            return 0
     if args.interval < 1:
         parser.error("Use a positive interval.")
 
@@ -1095,11 +1107,21 @@ def main():
 
     def poll(lock_fd=None):
         cls = {"author": Runner, "swarm": Swarm, "merger": Merger, "issues": Issues}[args.role]
-        runner = cls(CLONE, WORKTREES, Journal(journal_path), dry=args.dry_run, lock_fd=lock_fd,
+        runner = cls(source.parents[1] if args.retro and args.dry_run else CLONE, WORKTREES, Journal(journal_path), dry=args.dry_run, lock_fd=lock_fd,
                      sandbox=args.sandbox, runner_sha=runner_sha)
         while True:
             try:
-                runner.poll()
+                if args.retro:
+                    from retro import poll as retrospective
+                    if args.dry_run:
+                        retrospective(runner, runner.clone, args.retro)
+                    else:
+                        base = runner.dev()
+                        runner.fetch(0, base, base)
+                        with runner.snapshot(base) as path:
+                            retrospective(runner, path, args.retro)
+                else:
+                    runner.poll()
             except (JobError, ToolError) as error:
                 print(f"Poll deferred ({error})", flush=True)
                 if args.once:
