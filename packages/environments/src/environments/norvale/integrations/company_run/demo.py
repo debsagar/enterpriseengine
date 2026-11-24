@@ -9,10 +9,10 @@ from decimal import Decimal
 from fractions import Fraction
 from functools import cached_property
 
-from native.company import save
-from native.company_erp import Pending
-from integrations.mes.client import Mes
-from integrations.plm import PLM
+from environments.norvale.native.company import save
+from environments.norvale.native.company_erp import Pending
+from environments.norvale.integrations.mes.client import Mes
+from environments.norvale.integrations.plm import PLM
 from .input_staging import stage
 from .quality import inspect
 

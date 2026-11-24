@@ -1,6 +1,6 @@
 import unittest
 
-from adapter import eligible
+from components.qms import eligible
 
 
 class EligibilityTest(unittest.TestCase):
@@ -24,7 +24,7 @@ class EligibilityTest(unittest.TestCase):
 class CreateRecoveryTest(unittest.TestCase):
     def test_find_native_record_after_lost_reply(self):
         from unittest.mock import patch
-        from adapter import CASE, OP, QMS
+        from components.qms import CASE, OP, QMS
 
         qms = QMS("http://unused", "", "")
         with (patch.object(qms, "list", side_effect=[[], [{"name": "NC-1"}]]) as search,

@@ -18,12 +18,13 @@ GitHub displays HTML source; download the repository and open HTML files locally
 Validate the scenario and inspect the opening orders without starting any services:
 
 ```sh
-python3 simulate.py --scenario scenarios/norvale-q1.json --run /absolute/path/to/q1 --plan
+uv sync --locked --all-packages
+uv run python simulate.py --run /absolute/path/to/q1 --plan
 ```
 
 The starter scenario covers January 1 through March 31, 2027. Four submitted customer orders (720 units) enter the ordinary planning queue before day-one demand. Change the seed, dates relative to opening day, customers, SKUs or quantities in the versioned JSON.
 
-For a live run, install the [runtime prerequisites](docs/GENERATING.md), including cached service images, the shared clock library and [Delta dependencies](integrations/lake/requirements.txt). Set `NORVALE_CLOCK_LIB`, `TYPESAFE_API_KEY` and either `OPENAI_API_KEY` or `OPENROUTER_API_KEY`. Remove `--plan` to provision **one** private stack, seed ERPNext, and run the ordinary company with InvenTree PLM, Odoo MES, separate QMS, scheduled Delta ingestion and live decision routing. This command creates containers and can incur provider charges.
+For a live run, install the [runtime prerequisites](docs/GENERATING.md), including cached service images, the shared clock library and [Delta dependencies](packages/environments/src/environments/norvale/integrations/lake/requirements.txt). Set `NORVALE_CLOCK_LIB`, `TYPESAFE_API_KEY` and either `OPENAI_API_KEY` or `OPENROUTER_API_KEY`. Remove `--plan` to provision **one** private stack, seed ERPNext, and run the ordinary company with InvenTree PLM, Odoo MES, separate QMS, scheduled Delta ingestion and live decision routing. This command creates containers and can incur provider charges.
 
 Use the same command and run directory to resume after successful commissioning. The directory holds a private release snapshot and Git revision, scenario, business checkpoint, source settings, and lake archive. Keep it outside version control. If commissioning fails, inspect that run’s `provision.log` and service logs before retrying; the launcher refuses to allocate another stack in its place. Use a release tag or commit for future runs and the original pinned source for an existing run. The published 120-day dataset came from the earlier ERPNext, tickets and mail generator. A new live Q1 run is still subject to native commissioning and verification.
 
@@ -32,9 +33,9 @@ Use the same command and run directory to resume after successful commissioning.
 Use the same runtime path throughout. These commands select existing containers by the run’s Compose file and project labels. They work independently of provider credentials. Finish or interrupt the generator before stopping its services.
 
 ```sh
-python3 simulate.py --run /absolute/private/path/q1 --services status
-python3 simulate.py --run /absolute/private/path/q1 --services stop
-python3 simulate.py --run /absolute/private/path/q1 --services start
+uv run python simulate.py --run /absolute/private/path/q1 --services status
+uv run python simulate.py --run /absolute/private/path/q1 --services stop
+uv run python simulate.py --run /absolute/private/path/q1 --services start
 ```
 
 Stop keeps the containers, networks and volumes. Start brings up the existing database and Redis containers first. Check application readiness before resuming the same scenario command. Newly commissioned runs keep fixed loopback ports for ERP, QMS, MES and PLM. Older runs may have ephemeral addresses; verify them against their commissioned bindings after restarting.
@@ -44,7 +45,7 @@ For a recoverable version checkpoint, stop the controller and its containers at 
 After day 90, generate cutoff-specific extractor questions from the run’s own trace:
 
 ```sh
-python3 /absolute/private/path/q1/release/native/build_evidence.py \
+/absolute/private/path/q1/release/.venv/bin/python -m environments.norvale.native.build_evidence \
   --run /absolute/private/path/q1/business --cutoff 89 --out /absolute/private/path/q1-grading
 ```
 
@@ -70,8 +71,8 @@ These are synthetic activities posted into actual applications. They are not emp
 
 | Path | Purpose |
 | --- | --- |
-| `generate.py`, `native/` | Native generation, integrations, routing, validation, artifact builders |
-| `norvale/` | Required service provisioning and client support, included locally |
+| `generate.py`, `packages/environments/src/environments/norvale/native/` | Native generation, integrations, routing, validation, artifact builders |
+| `packages/environments/src/environments/norvale/environment/` | Service provisioning |
 | `walkthrough/engine.py` | Inherited catalog and 19-role definitions used by v2; not the old walkthrough |
 | `data/observable/` | Filtered native business records intended for inspection |
 | `data/{summary,checks,config,manifest}.json` | Recorded run results, checks, configuration and integrity hashes |
@@ -92,10 +93,10 @@ Run the offline checks from the repository root:
 
 ```sh
 python3 scripts/check_data.py
-python3 native/check_core.py
-python3 native/check_routing.py
-python3 native/check_retry.py
-python3 generate.py --help
+uv run python -m environments.norvale.native.check_core
+uv run python -m environments.norvale.native.check_routing
+uv run python -m environments.norvale.native.check_retry
+uv run python generate.py --help
 ```
 
 The completed run recorded nine passing checks, including native links/labor, material and shipment conservation, payment allocations, role permissions, resume behavior, and ledger balance. Those results are saved evidence; the offline checks above do not rerun live-service verification.

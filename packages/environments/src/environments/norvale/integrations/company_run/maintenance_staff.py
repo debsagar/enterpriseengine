@@ -1,8 +1,8 @@
 """Ordinary staffed maintenance for recognized simulated usage faults."""
 from datetime import datetime, timedelta
 
-from integrations.mes.client import CENTER, EVENT
-from native.company_erp import Pending, digest
+from environments.norvale.integrations.mes.client import CENTER, EVENT
+from environments.norvale.native.company_erp import Pending, digest
 
 ACTORS = {role: 'norvale-maintenance-' + role for role in ('technician', 'tester', 'verifier', 'reader')}
 MINUTES = {'diagnosis': 25, 'service': 60, 'test': 20, 'verification': 15}

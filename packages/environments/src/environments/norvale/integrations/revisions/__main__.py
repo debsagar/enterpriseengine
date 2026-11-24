@@ -29,15 +29,15 @@ def main():
     config = json.loads(args.pop("config").read_text())
     command = args.pop("command")
 
-    from norvale.loader.erp_client import ErpClient
+    from components.erp_client import ErpClient
 
     erp = ERPNext(ErpClient(**config["erp"], token=os.environ["REVISIONS_ERP_TOKEN"]))
     if command == "provision-erp":
         erp.provision(scoped=config["bridge"].get("scoped_receipts", False))
         return
 
-    from integrations.mes.client import Mes
-    from integrations.plm import PLM
+    from environments.norvale.integrations.mes.client import Mes
+    from environments.norvale.integrations.plm import PLM
 
     plm = PLM(**config["plm"], token=os.environ["REVISIONS_PLM_TOKEN"])
     mes = Mes(**config["mes"], password=os.environ["REVISIONS_MES_PASSWORD"])

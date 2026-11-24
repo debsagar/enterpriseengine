@@ -1,6 +1,6 @@
 """Index observable invoice lines, voucher allocations and bank statement links for one ERP."""
 from collections import defaultdict
-from native.build_evidence import INVOICES, matches_bank_clearance, shipment_rows
+from environments.norvale.native.build_evidence import INVOICES, matches_bank_clearance, shipment_rows
 
 
 def billing_links(latest, source, invoice_type='Sales Invoice'):

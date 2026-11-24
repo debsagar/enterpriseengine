@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from native.company import Engine, DEFAULT_CONFIG, initialize
+from environments.norvale.native.company import Engine, DEFAULT_CONFIG, initialize
 from . import timing
 
 
@@ -30,7 +30,7 @@ class AcceptanceEngine(Engine):
         if dt == 'Delivery Note' and before_submit and not self.state.get('demo_revocation'):
             guard = before_submit
             def revoke_then_check(draft):
-                from integrations.qms.adapter import QMS
+                from components.qms import QMS
                 shipment = self.company_erp.state['shipments'][key]
                 batch = shipment['rows'][0]['batch']
                 inspection = self.state['acceptance_assays'][batch]['id']
@@ -110,8 +110,7 @@ def main():
     if not (run / 'env/site-created').exists():
         initialize(run)
     if not (run / 'ticket-check.json').exists():
-        subprocess.run([sys.executable, str(Path(__file__).resolve().parents[2] /
-                        'native/provision_tickets_v2.py'), str(run)], check=True)
+        subprocess.run([sys.executable, "-m", "environments.norvale.native.provision_tickets_v2", str(run)], check=True)
     engine = AcceptanceEngine(run)
     engine.through(engine.config['days'] - 1 if args.through is None else args.through)
 

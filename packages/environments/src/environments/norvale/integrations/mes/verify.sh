@@ -47,12 +47,12 @@ ready() {
 }
 
 check() {
-    (cd ../.. && PYTHONPATH=".:integrations/lake:${PYTHONPATH:-}" python3 -m integrations.mes.test_live "$1" "$evidence/fixture.json" "$evidence/checkpoint.json")
+    python3 -m environments.norvale.integrations.mes.test_live "$1" "$evidence/fixture.json" "$evidence/checkpoint.json"
 }
 
 ready
 if [[ -n ${MES_REWORK_QMS_RUNTIME:-} ]]; then
-    (cd ../.. && python3 -m integrations.mes.check_rework "$evidence/fixture.json" \
+    (cd ../.. && python3 -m environments.norvale.integrations.mes.check_rework "$evidence/fixture.json" \
         "$MES_REWORK_QMS_RUNTIME" "$evidence/controller") | tee "$evidence/rework.json"
     exit
 fi

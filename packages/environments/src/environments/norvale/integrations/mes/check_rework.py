@@ -13,12 +13,12 @@ import sys
 from types import SimpleNamespace
 from xmlrpc.client import Fault
 
-from integrations.company_run.authority import Authority
-from integrations.mes.client import Mes
-from integrations.qms.adapter import CASE, INSPECTION, APIError, QMS
-from native.company import Engine, save
-from native.company_erp import CompanyERP
-from norvale.loader.erp_client import ErpClient
+from environments.norvale.integrations.company_run.authority import Authority
+from environments.norvale.integrations.mes.client import Mes
+from components.qms import CASE, INSPECTION, APIError, QMS
+from environments.norvale.native.company import Engine, save
+from environments.norvale.native.company_erp import CompanyERP
+from components.erp_client import ErpClient
 
 
 def prove(mes_fixture, qms_runtime, checkpoint):

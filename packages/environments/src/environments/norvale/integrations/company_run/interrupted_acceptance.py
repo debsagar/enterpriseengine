@@ -3,9 +3,9 @@ import json
 from decimal import Decimal
 from .consumption import amount
 
-from integrations.mes.client import MO, WO
-from integrations.qms.adapter import CASE, QMS
-from native.company_erp import digest
+from environments.norvale.integrations.mes.client import MO, WO
+from components.qms import CASE, QMS
+from environments.norvale.native.company_erp import digest
 
 
 def verified_interrupted(engine):

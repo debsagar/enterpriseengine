@@ -2053,7 +2053,7 @@ class EnterpriseSimV4:
         return audit_report
 
 
-if __name__ == "__main__":
+def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="norvale_2027_dataset_v4")
     ap.add_argument("--seed", type=int, default=42)
@@ -2066,3 +2066,7 @@ if __name__ == "__main__":
     sim.run()
     rep = sim.export_all(args.out)
     print(json.dumps(rep, indent=2))
+
+
+if __name__ == "__main__":
+    main()

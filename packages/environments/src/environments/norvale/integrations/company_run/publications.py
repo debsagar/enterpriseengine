@@ -4,8 +4,8 @@ import json
 from datetime import date, timedelta
 from pathlib import Path
 
-from integrations.plm import PLM
-from integrations.lake.plm_reader import scan_publications
+from environments.norvale.integrations.plm import PLM
+from environments.norvale.integrations.lake.plm_reader import scan_publications
 
 
 def families(config):

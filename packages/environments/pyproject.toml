@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "enterpriseengine-environments"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["enterpriseengine>=0.3.0", "enterpriseengine-components>=0.1.0"]
+
+[project.optional-dependencies]
+lake = ["deltalake==1.2.1; python_version >= '3.11'", "pyarrow==25.0.0; python_version >= '3.11'"]
+
+[tool.uv.sources]
+enterpriseengine = { workspace = true }
+enterpriseengine-components = { workspace = true }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["*.addons*", "*.odoo_addons*", "*.images", "*.scenarios"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.sh", "*.yaml", "*.yml", "*.xml", "*.csv", "*.txt", "*.md"]
+"environments.norvale" = ["scenarios/*.json"]
+"environments.norvale.environment" = ["images/Dockerfile.*"]
+"environments.norvale.integrations.mes" = ["addons/*/*.py", "addons/*/security/*.xml", "addons/*/security/*.csv"]
+"environments.norvale.integrations.revisions" = ["odoo_addons/*/*.py"]

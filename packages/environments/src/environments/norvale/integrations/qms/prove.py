@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from adapter import ACTION, CASE, INSPECTION, OP, APIError, QMS
+from components.qms import ACTION, CASE, INSPECTION, OP, APIError, QMS
 
 
 def denied(call, *kinds):

@@ -7,10 +7,10 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-import generate
-from integrations.company_run.operating import Operating, proposed_salvage
-from integrations.company_run.timing import operating_quality
-from native.company_erp import Pending
+from environments.norvale import generate
+from environments.norvale.integrations.company_run.operating import Operating, proposed_salvage
+from environments.norvale.integrations.company_run.timing import operating_quality
+from environments.norvale.native.company_erp import Pending
 
 
 def bind_legacy(actor, lot):
@@ -40,7 +40,7 @@ class OperatingTest(TestCase):
     def test_normal_entry_opts_in_at_provisioning(self):
         original_mask = os.umask(0o077)
         try:
-            with TemporaryDirectory() as tmp, patch('company.initialize') as initialize:
+            with TemporaryDirectory() as tmp, patch('environments.norvale.native.company.initialize') as initialize:
                 generate.main(['--run', tmp, '--provision', '--company-operating', '--days', '8'])
         finally:
             os.umask(original_mask)
@@ -94,7 +94,7 @@ class OperatingTest(TestCase):
         value = actor.measurement(lot)
         self.assertGreater(value, 6)
         self.assertEqual(actor.measurement(dict(lot, batch='fresh-native-id')), value)
-        with patch('integrations.company_run.operating.QMS') as client:
+        with patch('environments.norvale.integrations.company_run.operating.QMS') as client:
             qa = client.return_value
             doc = {}
             def create(entity, key, **fields):
@@ -177,7 +177,7 @@ class OperatingTest(TestCase):
                        custom_rework_input_batch='B', custom_rework_salvage_quantity=11,
                        readings=[dict(specification='pH', numeric=1, min_value=5, max_value=6,
                                       reading_1='6.35', status='Rejected')])
-        with patch('integrations.company_run.operating.QMS') as client:
+        with patch('environments.norvale.integrations.company_run.operating.QMS') as client:
             qa = client.return_value
             qa.request.return_value = {'message':'qa'}
             qa.get.side_effect = lambda kind, name: receipt if kind == 'Stock Entry' else failure
@@ -222,7 +222,7 @@ class OperatingTest(TestCase):
                    custom_spec_revision='R', readings=[dict(specification='pH', numeric=1, min_value=5,
                    max_value=6, status='Accepted', reading_1='5.80')])
         result = dict(inspection='RT', sample=dict(date='2027-01-02', value=5.6))
-        with patch('integrations.company_run.operating.QMS') as client:
+        with patch('environments.norvale.integrations.company_run.operating.QMS') as client:
             qa = client.return_value
             qa.request.return_value = {'message': 'qa'}
             qa.get.return_value = doc
@@ -241,7 +241,7 @@ class OperatingTest(TestCase):
             self.assertEqual(actor.review('SALVAGE', result), 'Released')
 
     def test_timed_out_sample_defers_only_that_lot(self):
-        from native.company_erp import CompanyERP
+        from environments.norvale.native.company_erp import CompanyERP
         from unittest.mock import Mock
         company = SimpleNamespace(config={'company_timing':{'lab_minutes':90}}, state={}, day=1,
                                   persist=Mock(), log=Mock())
@@ -250,7 +250,7 @@ class OperatingTest(TestCase):
         actor = Mock()
         actor.sample.side_effect = [TimeoutError('laboratory unavailable'), ['2027-01-02',5.5]]
         jobs = [['lab',lot,None] for lot in ('A','B')]
-        with patch('integrations.company_run.timing.schedule') as schedule:
+        with patch('environments.norvale.integrations.company_run.timing.schedule') as schedule:
             for job in jobs:
                 operating_quality(company,clock,actor,job,'sample',0,None)
         first, second = schedule.call_args_list
@@ -307,7 +307,7 @@ class OperatingTest(TestCase):
         actor = SimpleNamespace(review=lambda batch, inspection: 'Rework Authorized', rework_center=lambda _: 7,
                                 rework=lambda batch, inspection: 'reworked-batch')
         job = ['lab', 'held-batch', None]
-        with patch('integrations.company_run.timing.schedule', schedule):
+        with patch('environments.norvale.integrations.company_run.timing.schedule', schedule):
             operating_quality(company, clock, actor, job, 'review', 0, 'failure')
             self.assertEqual(edges.pop(), (job, 'rework', dict(role='PRODUCTION', duration=30, rows='failure')))
             def missing(*args):

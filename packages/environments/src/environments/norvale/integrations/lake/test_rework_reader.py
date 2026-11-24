@@ -2,9 +2,9 @@ import hashlib
 import json
 import unittest
 from types import SimpleNamespace
-from boundary import project
-from genealogy import shipment, ShipmentHistory
-from rework_archive import reconcile
+from environments.norvale.integrations.lake.boundary import project
+from environments.norvale.integrations.lake.genealogy import shipment, ShipmentHistory
+from environments.norvale.integrations.lake.rework_archive import reconcile
 
 
 class ReworkReaderTest(unittest.TestCase):

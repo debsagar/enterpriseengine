@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import generate
 from test_engine_goals import Native
-from norvale.loader.erp_client import ErpClient
+from components.erp_client import ErpClient
 
 
 class FrappeFixture:
@@ -78,8 +78,7 @@ class CLI(unittest.TestCase):
             api.opener = self.service
             return api
 
-        # Import the native command (generate adds native/ to sys.path).
-        self.enterContext(patch("native.incremental_erp.ErpClient", side_effect=client))
+        self.enterContext(patch("environments.norvale.native.incremental_erp.ErpClient", side_effect=client))
         self.enterContext(patch.dict(os.environ, {"NORVALE_INCREMENTAL_SALES_TOKEN": "test-only"}))
         self.enterContext(patch("urllib.request.OpenerDirector.open",
                                 side_effect=AssertionError("offline test forbids network")))
@@ -105,7 +104,7 @@ class CLI(unittest.TestCase):
 
     def test_invalid_final_delivery_date_rejects_whole_plan(self):
         from datetime import date
-        from native.incremental_erp import EPOCH
+        from environments.norvale.native.incremental_erp import EPOCH
         plan = self.sales_plan()
         plan["events"].append({**plan["events"][0], "id": "later",
                                "at": (date.max - EPOCH).days * 1440})
@@ -116,7 +115,7 @@ class CLI(unittest.TestCase):
 
     def test_erp_redirect_origin_boundary(self):
         from urllib.request import Request
-        from norvale.loader.erp_client import SameOriginRedirect, ErpError
+        from components.erp_client import SameOriginRedirect, ErpError
         client = ErpClient("https://erp.test", "fixture")
         handler = next(h for h in client.opener.handlers if isinstance(h, SameOriginRedirect))
         request = Request("https://erp.test/start")
@@ -127,8 +126,8 @@ class CLI(unittest.TestCase):
         self.assertEqual(allowed.full_url, "https://erp.test:443/end")
 
     def test_catalog_item_survives_native_readback(self):
-        from native.incremental_erp import sales_transport
-        from consumers.norvale import Consumer
+        from environments.norvale.native.incremental_erp import sales_transport
+        from environments.consumers.norvale import Consumer
         from types import SimpleNamespace
         adapter = sales_transport("1" * 32, self.sales_plan())
         def write(system, kind, fields):
@@ -151,7 +150,7 @@ class CLI(unittest.TestCase):
             adapter.read("erp", "SO-1")
 
     def test_employee_profile_requires_the_enrolled_account_and_document_owner(self):
-        from native.incremental_erp import sales_transport
+        from environments.norvale.native.incremental_erp import sales_transport
         employee = {"role": "desk", "user": "counter@warehouse.test"}
         adapter = sales_transport("a" * 32, self.sales_plan(), employee=employee)
         doc = dict(kind="order", at=30, case="PO", quantity=1, rate=5, order_role="desk")
@@ -191,7 +190,7 @@ class CLI(unittest.TestCase):
             "products": {"lotion": {"system": "east", "item": "LOTION-2"}},
             "events": [{"id": "east-order", "kind": "order", "role": "east-salesperson", "at": 20,
                         "payload": {"product": "lotion", "case": "PO-E", "quantity": 2, "rate": 5}}]}))
-        with patch("native.incremental_erp.ErpClient", side_effect=client), patch.dict(
+        with patch("environments.norvale.native.incremental_erp.ErpClient", side_effect=client), patch.dict(
                 os.environ, NORVALE_CONNECTIONS_FILE=str(registry), TEST_EAST_TOKEN="test-only"):
             args = ["incremental", "--run", str(self.run_path), "--extend", str(extension), "--until", "20"]
             with redirect_stdout(io.StringIO()):
@@ -203,7 +202,7 @@ class CLI(unittest.TestCase):
                 engine = Engine(*args, **kwargs)
                 reopened.append(engine)
                 return engine
-            with patch("incremental.Engine", side_effect=capture):
+            with patch("environments.norvale.native.incremental.Engine", side_effect=capture):
                 rows = self.cli(550)
             self.assertEqual([r["case"] for r in reopened[-1].observe("east-salesperson", as_of=550)],
                              ["PO-E"])
@@ -233,8 +232,8 @@ class CLI(unittest.TestCase):
         args = ["incremental", "--run", str(self.run_path), "--extend", str(extension), "--until"]
         with patch.dict(os.environ, NORVALE_CONNECTIONS_FILE=str(registry)), redirect_stdout(io.StringIO()):
             # Seed the historical unbound descriptor and queued role using the old admission rule.
-            with patch("native.software_connections.sales_binding", return_value={}), patch(
-                    "native.software_connections.validate_sales_roles"):
+            with patch("environments.norvale.native.software_connections.sales_binding", return_value={}), patch(
+                    "environments.norvale.native.software_connections.validate_sales_roles"):
                 generate.main([*args, "0"])
             self.service.omit_remarks = True
             self.service.fail_read = True
@@ -299,13 +298,13 @@ class CLI(unittest.TestCase):
         second, = self.cli(550, self.sales_plan(), directory=self.root / "second")
         self.assertNotEqual(second["native_id"], first["native_id"])
         self.assertEqual(self.service.posts, 2)
-        from native.incremental_erp import sales_transport
+        from environments.norvale.native.incremental_erp import sales_transport
         manifest = json.loads((self.run_path / "incremental.json").read_text())
         adapter = sales_transport(manifest["namespace"], manifest["plan"])
         self.assertEqual(list(adapter.records()), [first])
         with self.assertRaises(RuntimeError):
             adapter.read("erp", second["native_id"])
-        from consumers.norvale import Consumer
+        from environments.consumers.norvale import Consumer
         from engine import Engine
         from time import monotonic
         checkpoint = Engine(self.run_path, Consumer({"_incremental_identity": manifest}),

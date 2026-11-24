@@ -4,10 +4,10 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import Mock
 
-from adapter import Lake
-from boundary import trace
-from integrations.plm import PLM
-from plm_reader import scan_publications
+from environments.norvale.integrations.lake.adapter import Lake
+from environments.norvale.integrations.lake.boundary import trace
+from environments.norvale.integrations.plm import PLM
+from environments.norvale.integrations.lake.plm_reader import scan_publications
 
 
 class ChangeHistoryTests(TestCase):

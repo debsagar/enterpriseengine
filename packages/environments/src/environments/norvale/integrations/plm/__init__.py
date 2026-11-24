@@ -8,7 +8,7 @@ import re
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from integrations.revisions import valid_receiver_marker
+from environments.norvale.integrations.revisions import valid_receiver_marker
 
 
 class Blocked(RuntimeError):

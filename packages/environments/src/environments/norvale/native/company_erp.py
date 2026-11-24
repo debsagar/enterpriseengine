@@ -9,7 +9,7 @@ import math
 from urllib.error import URLError
 from uuid import uuid4
 
-from norvale.loader.erp_client import ErpError
+from components.erp_client import ErpError
 
 
 class MailReadbackError(RuntimeError):
@@ -43,7 +43,7 @@ class CompanyERP:
     def __init__(self, engine, authority):
         self.e = engine
         self.authority = authority
-        from native.company_maintenance import Equipment
+        from environments.norvale.native.company_maintenance import Equipment
         self.equipment = Equipment(self)
 
     @property
@@ -627,7 +627,7 @@ class CompanyERP:
             raise Pending('Approved ERP BOM is unavailable or does not match item')
         expected_site = revision.get('receiver_markers', {}).get('erp')
         if expected_site is not None:
-            from integrations.revisions.receivers import ERP_SITE
+            from environments.norvale.integrations.revisions.receivers import ERP_SITE
             if bom.get(ERP_SITE) != expected_site:
                 raise Pending('Planning ERP BOM belongs to a different receiver')
         components = self.components(bom)

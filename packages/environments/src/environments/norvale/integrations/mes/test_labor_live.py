@@ -10,8 +10,8 @@ from .test_live import input_lots, must_fail
 
 
 def run(fixture_path, lake_root):
-    from adapter import Lake
-    from mes_reader import scan_labor
+    from environments.norvale.integrations.lake.adapter import Lake
+    from environments.norvale.integrations.lake.mes_reader import scan_labor
 
     fixture = json.loads(Path(fixture_path).read_text())
     source = os.environ["MES_TEST_SOURCE"]

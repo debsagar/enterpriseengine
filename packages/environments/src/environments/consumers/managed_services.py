@@ -270,3 +270,7 @@ class Consumer:
         observation["payment_id"] = shared.native_id(engine.write("erp", "payment", {
             **receipt, "observed_at": observation["at"], "outstanding": float(balance)}))
         invoice["outstanding"] = float(balance)
+
+
+# Existing checkpoints identify the consumer by its original module name.
+Consumer.__module__ = "consumers.managed_services"

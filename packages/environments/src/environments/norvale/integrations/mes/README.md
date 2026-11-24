@@ -34,7 +34,7 @@ ID and origin remain stable when Odoo adds backorder suffixes.
 From the release root:
 
 ```python
-from integrations.mes import Mes
+from environments.norvale.integrations.mes import Mes
 
 planner = Mes(url, "norvale_mes", planner_login, planner_secret, "norvale-mes-run-42")
 operator = Mes(url, "norvale_mes", operator_login, operator_secret, "norvale-mes-run-42")

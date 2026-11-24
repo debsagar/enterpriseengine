@@ -4,7 +4,7 @@ import json
 import math
 from xmlrpc.client import Fault
 
-from integrations.qms.adapter import APIError, STATE
+from components.qms import APIError, STATE
 from .company_erp import Pending, digest, ids
 
 

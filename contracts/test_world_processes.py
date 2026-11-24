@@ -7,10 +7,10 @@ from unittest import TestCase
 from unittest.mock import Mock
 
 from engine import DAY, Engine, world
-from consumers import norvale
-from native.company import Engine as Company
-from native.company_world import check_binding, evidence
-from native.recurring_extensions import MIDNIGHT, open_catalog
+from environments.consumers import norvale
+from environments.norvale.native.company import Engine as Company
+from environments.norvale.native.company_world import check_binding, evidence
+from environments.norvale.native.recurring_extensions import MIDNIGHT, open_catalog
 from test_engine_goals import CONSUMERS, OPEN, PowerLoss, PRIVATE, Goals
 
 

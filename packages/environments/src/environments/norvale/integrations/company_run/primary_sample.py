@@ -3,13 +3,13 @@ from datetime import date
 import json
 from math import isfinite
 
-from integrations.qms.adapter import APIError, INSPECTION, OP, QMS
-from integrations.qms.sample_reference import (
+from components.qms import APIError, INSPECTION, OP, QMS
+from environments.norvale.integrations.qms.sample_reference import (
     COMPANY, KEY, ORIGINS, SCOPE, WAREHOUSE, decode, reference_key, reference_row, submitted_row,
 )
-from integrations.revisions import RevisionMismatch
-from integrations.revisions.receivers import erp_receiver_marker
-from native.company_erp import Pending, digest
+from environments.norvale.integrations.revisions import RevisionMismatch
+from environments.norvale.integrations.revisions.receivers import erp_receiver_marker
+from environments.norvale.native.company_erp import Pending, digest
 from .authority import qms_target
 from .registered_lab import authenticated_actor, ensure_batch
 

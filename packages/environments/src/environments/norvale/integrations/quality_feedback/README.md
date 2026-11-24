@@ -9,7 +9,7 @@ writable temporary mount at `/data` in the Bench container, and the lake
 dependencies installed in the proof runner:
 
 ```sh
-PYTHONPATH=. python3 -m integrations.quality_feedback.prove "$runtime" "$runtime/feedback-proof"
+PYTHONPATH=. uv run python -m environments.norvale.integrations.quality_feedback.prove "$runtime" "$runtime/feedback-proof"
 ```
 
 The proof places an ERP shipment and QMS on one isolated site to exercise role-scoped native APIs. Production callers may supply distinct ERP and QMS clients. The inspection, customer complaint and historical shipment remain independently readable.

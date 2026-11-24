@@ -18,10 +18,10 @@ See `config.example.json` for the complete mapping structure. Credentials come f
 
 ```sh
 python3 -m unittest -v integrations.revisions.test_bridge
-python3 -m integrations.revisions --config config.json provision-erp
-python3 -m integrations.revisions --config config.json publish 12 --on 2027-01-04
-python3 -m integrations.revisions --config config.json release 12 erp:WO-0001 --on 2027-01-04
-python3 -m integrations.revisions --config config.json dispatch erp:WO-0001 4 19 --on 2027-02-01
+uv run python -m environments.norvale.integrations.revisions --config config.json provision-erp
+uv run python -m environments.norvale.integrations.revisions --config config.json publish 12 --on 2027-01-04
+uv run python -m environments.norvale.integrations.revisions --config config.json release 12 erp:WO-0001 --on 2027-01-04
+uv run python -m environments.norvale.integrations.revisions --config config.json dispatch erp:WO-0001 4 19 --on 2027-02-01
 ```
 
 `publish` takes the approved native revision ID. `release` takes the original Part ID of the revision family. A retry must use the original definition and release date. A partial publication can leave a verified draft or one receipt. Rerun `publish` with the original mapping to resume. If a destination BOM differs, publication and dispatch stop with an error. A later effective revision must have its own two receipts before new work can release against it. Existing work keeps its earlier native BOM.
@@ -41,7 +41,7 @@ A database clone carries its identity unless separately recommissioned. Identica
 Use fresh local InvenTree, ERPNext and Odoo services with separate databases and volumes. Start InvenTree from the PLM builder's compose and run its database migrations and `provision.py`. Start Odoo from the MES builder's compose with both addons in the mounted addons directory. Install `norvale_revision_receiver` into the empty database and run the MES builder's `fixture.py` through Odoo's ORM shell. Complete the setup wizard on a clean ERPNext site, then provision an API token allowed to customize BOMs and create example records. In a copy of the config, use the local service endpoints and set `example.workcenter_id` and `example.hold_location_id` from the MES fixture output. The live check builds its own explicit mapping and creates a dedicated company, example ERP items, two PLM revisions, four native BOMs, and one Odoo manufacturing order. It expects the example ERP items to be absent before the run.
 
 ```sh
-python3 -m integrations.revisions.check_live isolated.json /path/to/new/qualification.sqlite3 > qualification.json
+uv run python -m environments.norvale.integrations.revisions.check_live isolated.json /path/to/new/qualification.sqlite3 > qualification.json
 ```
 
 Norvale blocks A and D supply role identities, product masters and approved revision evidence. Blocks I and J enforce effectivity, mappings and the pinned dispatch. Blocks K and L preserve native acknowledgements, replay and explicit failures. ERPNext can promote the first submitted active BOM for an item to its default. A work-order caller must pass the explicit ERP BOM ID from the release record. This bridge handles flat BOMs and one Odoo routing operation. Plant-wide rollout, multi-operation routing, ERP work-order release orchestration and engine scheduling are separate work.

@@ -1,7 +1,7 @@
 """Offline consumer checks; durable engine operations are represented by doubles."""
 import json
 import unittest
-from consumers import norvale, managed_services
+from environments.consumers import norvale, managed_services
 
 
 class Provider:

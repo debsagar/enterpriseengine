@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
 
-from native.company_erp import CompanyERP, Pending, digest
+from environments.norvale.native.company_erp import CompanyERP, Pending, digest
 
 
 def decision(batch, qty, version='release', authorized=True):
@@ -351,7 +351,7 @@ class RestartTests(unittest.TestCase):
         e.api = {'PLANNER':Mock(),'SALES':Mock()}
         e.api['PLANNER'].get.return_value = self.native[op['key']]
         e.api['SALES'].get.side_effect = lambda *args:next(iter(task.values()))
-        from native.company_erp import MailReadbackError
+        from environments.norvale.native.company_erp import MailReadbackError
         e.mail=Mock(side_effect=[TimeoutError(), MailReadbackError("delivery differs"), None])
         with self.assertRaises(TimeoutError): flow.report_allocation_change(op)
         key = 'sales-impact:' + op['key']

@@ -1,6 +1,6 @@
 """Finance captures existing ERP evidence at the ordinary settlement boundary."""
-from native.company_bank import TRANSACTION
-from native.company_records import SalesRecords
+from environments.norvale.native.company_bank import TRANSACTION
+from environments.norvale.native.company_records import SalesRecords
 from norvale_goals_fixture import start_queue
 from test_engine_goals import DAY, Goals, Providers
 
@@ -46,7 +46,7 @@ class SalesCapture(Goals):
 
     def test_migrate_legacy_name_with_two_document_types(self):
         from unittest.mock import Mock
-        from native.company_records import SOURCES, SYSTEM
+        from environments.norvale.native.company_records import SOURCES, SYSTEM
         records = SalesRecords(None)
         records.confirmed = lambda: [('shared', 'shipment', {}), ('shared', 'invoice', {})]
         records.read = lambda system, name: dict(system=system, native_id=name, kind='invoice')
@@ -60,7 +60,7 @@ class SalesCapture(Goals):
 
     def test_pre_worklist_journal_replays_pending_and_defers_new_payment(self):
         from unittest.mock import patch
-        from native.company_records import SYSTEM
+        from environments.norvale.native.company_records import SYSTEM
         from test_engine_goals import PowerLoss
         import sqlite3
         import json

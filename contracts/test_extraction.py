@@ -8,9 +8,9 @@ from tempfile import TemporaryDirectory
 from time import monotonic
 import unittest
 
-from consumers.norvale import Consumer
+from environments.consumers.norvale import Consumer
 from engine import Engine
-from native.build_evidence import sales_facts
+from environments.norvale.native.build_evidence import sales_facts
 from test_engine_goals import Native, PowerLoss, Providers
 
 

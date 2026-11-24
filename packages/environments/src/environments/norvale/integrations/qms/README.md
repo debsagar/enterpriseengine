@@ -9,7 +9,7 @@ From the release root, with Docker Compose, Python 3, curl, OpenSSL and flock:
 ```bash
 qms=integrations/qms
 runtime=$(mktemp -d)
-python3 -m unittest discover -s "$qms" -p test_adapter.py
+uv run python -m unittest discover -s "$qms" -p test_adapter.py
 "$qms/provision.sh" up "$runtime"
 "$qms/provision.sh" configure "$runtime"
 "$qms/provision.sh" restart "$runtime"

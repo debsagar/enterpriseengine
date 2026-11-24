@@ -4,12 +4,12 @@ import unittest
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
 
-from integrations.company_run.verify import active_releases, measured_retests, reconcile_completions, revoked_allocation_held, ordinary_revocations, verified_maintenance
+from environments.norvale.integrations.company_run.verify import active_releases, measured_retests, reconcile_completions, revoked_allocation_held, ordinary_revocations, verified_maintenance
 
 
 class NativeReconciliationTests(unittest.TestCase):
     def test_shipment_archive_coverage_uses_current_source_and_exact_delivery_rows(self):
-        from integrations.company_run.verify import shipment_archive_coverage
+        from environments.norvale.integrations.company_run.verify import shipment_archive_coverage
 
         line = dict(name='row-1', item_code='A', qty=4, stock_qty=4, so_detail='SO-row')
         doc = dict(name='D', docstatus=1, modified='v1', items=[line])
@@ -72,8 +72,8 @@ class NativeReconciliationTests(unittest.TestCase):
         self.assertFalse(check())
 
     def test_ordinary_withdrawal_needs_matching_native_and_archived_versions(self):
-        from integrations.lake.genealogy import ShipmentHistory
-        from integrations.qms.disposition_history import ENTITY
+        from environments.norvale.integrations.lake.genealogy import ShipmentHistory
+        from environments.norvale.integrations.qms.disposition_history import ENTITY
         source, batch, item, sample = 'annex-qa', 'salvage', 'product', 'QI-1'
         released, revoked = '2027-02-10 12:00:00', '2027-02-11 10:00:00'
         scope = dict(id=sample, qms_source=source, qms_batch='original', batch=batch, version=released,
@@ -110,7 +110,7 @@ class NativeReconciliationTests(unittest.TestCase):
         def check(archive):
             result, = ordinary_revocations(engine, primary, ShipmentHistory(archive, 'erp'), [])
             return result['verified']
-        with patch('integrations.qms.adapter.QMS') as client:
+        with patch('components.qms.QMS') as client:
             client.return_value.get.return_value = doc
             self.assertTrue(check(rows))
             client.assert_called_with(url='http://annex')
@@ -132,7 +132,7 @@ class NativeReconciliationTests(unittest.TestCase):
             self.assertFalse(check(rows))
 
     def test_restarts_are_verified_at_each_registered_site_with_colliding_ids(self):
-        from native.company_erp import digest
+        from environments.norvale.native.company_erp import digest
         engine = Mock()
         equipment = engine.company_erp.equipment
         equipment.cases = {}
@@ -250,7 +250,7 @@ class NativeReconciliationTests(unittest.TestCase):
                       erp_work_ref='WO', backorder_id='8', inputs=moves,
                       output=dict(item_code='SKU', quantity=4, lot_id='17', unit='Units', unit_id='10'))
 
-        from native.company_erp import digest
+        from environments.norvale.native.company_erp import digest
         batch = 'NV-' + digest(['ns', ['MES', mes, 'east:stock.lot:17'], 'SKU'])[:32]
         links = dict(voucher_type='Stock Entry', voucher_no='A', voucher_detail_no='FG',
                      docstatus=1, is_cancelled=0, item_code='SKU', warehouse='Hold')

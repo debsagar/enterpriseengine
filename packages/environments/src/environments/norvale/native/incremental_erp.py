@@ -6,7 +6,7 @@ import os
 import re
 from urllib.parse import urlsplit
 
-from norvale.loader.erp_client import ErpClient, q
+from components.erp_client import ErpClient, q
 
 
 DOCTYPE = "Sales Order"

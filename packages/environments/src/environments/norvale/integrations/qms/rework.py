@@ -1,6 +1,6 @@
 """Read physical rework authority and create a separate, unmeasured retest."""
 
-from .adapter import ACTION, CASE, INSPECTION, STATE
+from components.qms import ACTION, CASE, INSPECTION, STATE
 from .measurements import numeric_results
 
 

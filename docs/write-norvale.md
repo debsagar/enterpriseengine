@@ -19,20 +19,20 @@ Path("my-norvale.json").write_text(json.dumps(scenario))
 From the checkout, inspect the customized scenario before provisioning:
 
 ```sh
-python3 simulate.py --scenario my-norvale.json --run /data/enterprise/runs/my-norvale --plan
+uv run python simulate.py --scenario my-norvale.json --run /data/enterprise/runs/my-norvale --plan
 ```
 
 For the full company, complete the [native prerequisites](GENERATING.md) and use the same command without `--plan`. That provisions a private deployment and can incur live provider costs. A successfully commissioned run resumes from its original directory. Pick a fresh directory for a different opening.
 
 ## Where the company rules live
 
-The reusable engine owns event time, scheduling, checkpointing and verified writes. In the [Norvale consumer](../consumers/norvale.py), `handle(engine, kind, payload)` interprets company events. For an order, the consumer validates quantity and rate, resolves the native product and role, writes through the selected adapter and uses the returned record ID for follow-on work.
+The reusable engine owns event time, scheduling, checkpointing and verified writes. In the [Norvale consumer](../packages/environments/src/environments/consumers/norvale.py), `handle(engine, kind, payload)` interprets company events. For an order, the consumer validates quantity and rate, resolves the native product and role, writes through the selected adapter and uses the returned record ID for follow-on work.
 
-This is how a host wires the existing Norvale consumer to the engine for a sales-order event. The host supplies a commissioned native transport and a fresh checkpoint directory. The [incremental host](../native/incremental.py) handles that setup and persists the opening plan for replay.
+This is how a host wires the existing Norvale consumer to the engine for a sales-order event. The host supplies a commissioned native transport and a fresh checkpoint directory. The [incremental host](../packages/environments/src/environments/norvale/native/incremental.py) handles that setup and persists the opening plan for replay.
 
 ```python
 from time import monotonic
-from consumers.norvale import Consumer
+from environments.consumers.norvale import Consumer
 from engine import Engine
 
 def open_sales_day(directory, native):
@@ -44,7 +44,7 @@ def open_sales_day(directory, native):
     return company
 ```
 
-This small API example covers one draft sales order. For the complete native manufacturing company, the [scenario launcher](../simulate.py) invokes the [recurring operating loop](../native/company.py). Its [ERP controller](../native/company_erp.py) and [cross-application adapters](../integrations/company_run) coordinate product revisions, factory execution, quality decisions, shipment and lake ingestion. Following one order reads links produced by that loop. Other orders remain in competition for stock and staff.
+This small API example covers one draft sales order. For the complete native manufacturing company, the [scenario launcher](../simulate.py) invokes the [recurring operating loop](../packages/environments/src/environments/norvale/native/company.py). Its [ERP controller](../packages/environments/src/environments/norvale/native/company_erp.py) and [cross-application adapters](../packages/environments/src/environments/norvale/integrations/company_run) coordinate product revisions, factory execution, quality decisions, shipment and lake ingestion. Following one order reads links produced by that loop. Other orders remain in competition for stock and staff.
 
 ## Changing a running company
 

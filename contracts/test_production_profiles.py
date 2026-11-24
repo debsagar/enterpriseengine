@@ -13,14 +13,14 @@ from unittest import TestCase
 from unittest.mock import patch
 
 import generate
-import company
-from integrations.company_run.authority import Authority
-from integrations.company_run.maintenance_staff import ACTORS
-from integrations.mes.client import CENTER, EVENT, MO, WO, Mes
-from integrations.qms.adapter import CASE, INSPECTION, OP
-from native.company_erp import CompanyERP, Pending
-from native.production_profiles import FACTORY, registered
-from native.recurring_extensions import open_catalog
+from environments.norvale.native import company
+from environments.norvale.integrations.company_run.authority import Authority
+from environments.norvale.integrations.company_run.maintenance_staff import ACTORS
+from environments.norvale.integrations.mes.client import CENTER, EVENT, MO, WO, Mes
+from components.qms import CASE, INSPECTION, OP
+from environments.norvale.native.company_erp import CompanyERP, Pending
+from environments.norvale.native.production_profiles import FACTORY, registered
+from environments.norvale.native.recurring_extensions import open_catalog
 
 
 class ERP:
@@ -491,7 +491,7 @@ class ProductionProfiles(TestCase):
         self.exercise_sites(operating=True, bounded=True)
 
     def test_input_staging_reuses_verified_legacy_stock_only_at_its_original_site(self):
-        from integrations.company_run.input_staging import stage
+        from environments.norvale.integrations.company_run.input_staging import stage
 
         state = {'work': {}}
         lot = dict(batch='opening', item='BULK', uom='Nos', qty=20)
@@ -660,13 +660,13 @@ class ProductionProfiles(TestCase):
 
             with patch.dict(os.environ, NORVALE_CONNECTIONS_FILE=str(registry), SECRET='never-persist',
                             EAST_OPERATOR_SECRET='east-operator-only', WEST_OPERATOR_SECRET='west-operator-only'), \
-                 patch('integrations.company_run.authority.PLM', PLM), \
-                 patch('integrations.company_run.authority.Mes', side_effect=connect_mes), \
-                 patch('integrations.company_run.authority.ErpClient', return_value=erp), \
-                 patch('integrations.company_run.authority.QMS', QMS), \
-                 patch('integrations.revisions.receivers.ERPNext.verify',
+                 patch('environments.norvale.integrations.company_run.authority.PLM', PLM), \
+                 patch('environments.norvale.integrations.company_run.authority.Mes', side_effect=connect_mes), \
+                 patch('environments.norvale.integrations.company_run.authority.ErpClient', return_value=erp), \
+                 patch('environments.norvale.integrations.company_run.authority.QMS', QMS), \
+                 patch('environments.norvale.integrations.revisions.receivers.ERPNext.verify',
                        side_effect=lambda pk, marker, plan: {'bom_id': pk, 'import_key': marker}), \
-                 patch('integrations.revisions.receivers.Odoo.verify',
+                 patch('environments.norvale.integrations.revisions.receivers.Odoo.verify',
                        side_effect=lambda pk, marker, plan: {
                            'bom_id': int(pk), 'import_key': marker, 'revision': 'fingerprint'}):
                 with self.assertRaises(SystemExit):
@@ -771,7 +771,7 @@ class ProductionProfiles(TestCase):
         now = [None]
         lab = []
         if outage:
-            from integrations.company_run.timing import schedule
+            from environments.norvale.integrations.company_run.timing import schedule
             schedule(engine.additions, ['lab', 'unrelated', None], 'sample', 2 * 1440 + 540, role='LAB')
             # The east start commits on day 1 and its operator remains offline
             # until day 4. West recovers within the original CLI invocation.
@@ -823,18 +823,18 @@ class ProductionProfiles(TestCase):
 
         with ExitStack() as stack:
             stack.enter_context(patch.multiple(company.Engine, __init__=fresh, **noops))
-            stack.enter_context(patch('company.Stack',
+            stack.enter_context(patch('environments.norvale.native.company.Stack',
                                       lambda _: SimpleNamespace(endpoints=lambda: {'erp': '', 'site': ''})))
-            stack.enter_context(patch('company.ErpClient', return_value=erp))
+            stack.enter_context(patch('environments.norvale.native.company.ErpClient', return_value=erp))
             for module in ('demo', 'operating'):
-                stack.enter_context(patch('integrations.company_run.' + module + '.Mes', side_effect=connect_mes))
+                stack.enter_context(patch('environments.norvale.integrations.company_run.' + module + '.Mes', side_effect=connect_mes))
             stack.enter_context(patch('socket.create_connection',
                                       side_effect=AssertionError('Unexpected network connection')))
-            stack.enter_context(patch('integrations.company_run.timing.queue_samples',
+            stack.enter_context(patch('environments.norvale.integrations.company_run.timing.queue_samples',
                                       side_effect=AssertionError('Primary lab must not receive site output')))
             stack.enter_context(redirect_stdout(StringIO()))
             stack.enter_context(patch('time.sleep', side_effect=unexpected_stage_retry))
-            stack.enter_context(patch('integrations.company_run.timing.operating_quality',
+            stack.enter_context(patch('environments.norvale.integrations.company_run.timing.operating_quality',
                                       side_effect=unrelated_lab))
             if bounded:
                 self.run_bounded(run, erp, sites)
@@ -842,7 +842,7 @@ class ProductionProfiles(TestCase):
                 return
             generate.main(['--run', str(run)])
             if outage:
-                from integrations.company_run.operating import Operating
+                from environments.norvale.integrations.company_run.operating import Operating
                 pending = company.Engine(run)
                 east, west = sorted(pending.company_erp.state['work'].values(), key=lambda w: w['item'])
                 self.assertEqual((east.get('produced', 0), west['produced']), (0, 2))
@@ -921,7 +921,7 @@ class ProductionProfiles(TestCase):
         self.assertEqual((east['dispatch']['id'], east['produced'], east['used']),
                          ('1', 1, {'bulk-lot': 1, 'pack-lot': 1}))
         self.assertEqual(sites['east'].orders[2]['state'], 'confirmed')
-        from integrations.company_run.production_batch import backorder
+        from environments.norvale.integrations.company_run.production_batch import backorder
         sites['east'].orders[2]['origin'] = next(iter(sites['west'].work))
         engine = company.Engine(run)
         with self.assertRaisesRegex(Pending, 'does not match the posted original ERP work'):
@@ -1028,11 +1028,11 @@ class ProductionProfiles(TestCase):
         tickets = MaintenanceTickets()
         tickets.deny_west_tester = True
         with patch.dict(os.environ, credentials), \
-             patch('integrations.company_run.authority.Mes', side_effect=mes), \
-             patch('integrations.company_run.maintenance.Mes', side_effect=mes), \
-             patch('integrations.company_run.maintenance.QMS', Disposition), \
-             patch('router.request_json', side_effect=tickets.request), \
-             patch('integrations.company_run.maintenance_staff.vibration', return_value=370):
+             patch('environments.norvale.integrations.company_run.authority.Mes', side_effect=mes), \
+             patch('environments.norvale.integrations.company_run.maintenance.Mes', side_effect=mes), \
+             patch('environments.norvale.integrations.company_run.maintenance.QMS', Disposition), \
+             patch('environments.norvale.native.router.request_json', side_effect=tickets.request), \
+             patch('environments.norvale.integrations.company_run.maintenance_staff.vibration', return_value=370):
             cases = service(2)
             self.assertEqual(set(cases), {'east:4', 'west:4'})
             self.assertFalse(sites['west']['events'])

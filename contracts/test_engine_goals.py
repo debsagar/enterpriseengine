@@ -121,7 +121,7 @@ class Goals(unittest.TestCase):
     def fixture(self, company, *, config=None, seed=41, boundary=None):
         # Import inside the test so discovery still identifies all red goals.
         engine = importlib.import_module("engine")
-        consumer = importlib.import_module(f"consumers.{company}").Consumer
+        consumer = importlib.import_module(f"environments.consumers.{company}").Consumer
         root = Path(self.enterContext(tempfile.TemporaryDirectory()))
         native = Native(root / "native.json")
         providers = Providers()
@@ -179,7 +179,7 @@ class Goals(unittest.TestCase):
 
         authority = company.authority
         qms = SimpleNamespace(release=authority.release, get=authority.get, dispatch_lease=authority.qms_lease)
-        self.enterContext(patch("integrations.company_run.authority.QMS", return_value=qms))
+        self.enterContext(patch("environments.norvale.integrations.company_run.authority.QMS", return_value=qms))
         providers = Providers()
 
         def resume(hook=None):

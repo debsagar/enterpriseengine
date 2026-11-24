@@ -1,6 +1,6 @@
 # Company logic architecture for Norvale
 
-**Implementation status, 2026-11-19.** The ordinary company generator connects operational ERPNext to InvenTree for product definitions, Odoo for manufacturing, a dedicated ERPNext site for quality, and Delta for analytical history. Isolated native runs exercised the cross-application handoffs. The current integrated revision still needs a full live qualification, including completion of a native backorder after restart. The original 120-day dataset remains frozen. [Recurring deployment and acceptance](../integrations/company_run/README.md)
+**Implementation status, 2026-11-19.** The ordinary company generator connects operational ERPNext to InvenTree for product definitions, Odoo for manufacturing, a dedicated ERPNext site for quality, and Delta for analytical history. Isolated native runs exercised the cross-application handoffs. The current integrated revision still needs a full live qualification, including completion of a native backorder after restart. The original 120-day dataset remains frozen. [Recurring deployment and acceptance](../packages/environments/src/environments/norvale/integrations/company_run/README.md)
 
 ## Purpose and domain
 
@@ -74,7 +74,7 @@ Company acceptance checks every observed MES completion for submitted ERP work, 
 
 A failed or missing test keeps the affected lot on hold. Quality receives the measured result, specification revision and genealogy, opens a nonconformance and investigates. Disposition can reject, authorize a specific rework, or release when the applicable criteria and authority permit it. Rework creates additional execution and retest records; it never rewrites the original failure. Corrective action addresses recurrence and requires evidence of effectiveness before closure.
 
-For a newly commissioned primary laboratory, the sample writer creates a draft QMS reference linked to the submitted ERP receipt or manufacture row. The analyst records the measurement and QA checks its lot, sampling date and value before disposition. A separate scheduled reader can follow a failed inspection to that ERP row while the lot is still held. Existing sample references retain their historical owner. [Sample writer commissioning and permissions](../integrations/company_run/README.md#primary-qms-sample-references)
+For a newly commissioned primary laboratory, the sample writer creates a draft QMS reference linked to the submitted ERP receipt or manufacture row. The analyst records the measurement and QA checks its lot, sampling date and value before disposition. A separate scheduled reader can follow a failed inspection to that ERP row while the lot is still held. Existing sample references retain their historical owner. [Sample writer commissioning and permissions](../packages/environments/src/environments/norvale/integrations/company_run/README.md#primary-qms-sample-references)
 
 The recurring physical rework path uses a specific QMS authorization that names the failed ERP batch and salvage quantity. It consumes the full held scope through a new MES order and native scrap, then posts a new ERP batch into hold. The controller opens an unmeasured native QMS retest linked to the original failure and the completed MES order. See [recurring authority setup and limits](COMPANY-ERP-CONTRACT.md#physical-rework).
 
@@ -92,7 +92,7 @@ The integrated recurring engine pins the native MES work center on each request 
 
 The service phase adopts open MES faults on managed centers and creates a native fault when a center crosses its usage limit. It checkpoints the fault and its Gitea issue.
 
-Ordinary company source provisioning installs separate technician, tester, verifier, and read-only Gitea identities scoped to issues in the private operations repository. For an existing dedicated native run, opt in with `PYTHONPATH=.:native python3 -m integrations.company_run.provision_maintenance /path/to/business`. The command reuses the existing Gitea issue and saved credentials on retry, and preserves any configured verifier and reader for manual cases.
+Ordinary company source provisioning installs separate technician, tester, verifier, and read-only Gitea identities scoped to issues in the private operations repository. For an existing dedicated native run, opt in with `uv run python -m environments.norvale.integrations.company_run.provision_maintenance /path/to/business`. The command reuses the existing Gitea issue and saved credentials on retry, and preserves any configured verifier and reader for manual cases.
 
 For a recognized usage fault, the technician observes guide vibration and performs service on a later shift. Odoo records the timed intervention and its modeled adjustment while the center stays blocked. The tester reads that service and measures modeled no-load vibration on a separate shift. A reading above 2.50 mm/s RMS leaves the center blocked and queues corrective alignment and another test. On a later shift the verifier reads the original diagnosis, Odoo service and passing test before posting a comment linking all three. Each participant has capacity for one maintenance task per shift. Modeled work occupies 25 minutes for diagnosis, 60 for service, 20 for testing and 15 for verification. The recurring controller rechecks the pinned native evidence before restart.
 
@@ -164,11 +164,11 @@ Retain raw observable snapshots per source, then derive typed datasets and busin
 | I/J | `production`, `inspect_release`, `fulfillment`, `write`, `mapped` | Enforce lot/revision guards; call product APIs; reconcile MES facts into ERP once |
 | K/L | Readback, `persist`, logs, `systems_v2.export_native` | Preserve pending cross-system steps, source links and failures; export new systems and ingest observable data |
 
-The frozen generator uses nominal passing readings and ERP manufacturing documents. The configured recurring company sends work to Odoo, records inspections and dispositions in a separate QMS, and posts the resulting stock movements in operational ERPNext. New runs select these paths through the ordinary generator. Configured operating runs scan the lake before management and after timed work closes for the day. An independent collector can also scan the same sources. The deployment guide gives the entry points and role setup for each application. [Recurring company deployment](../integrations/company_run/README.md)
+The frozen generator uses nominal passing readings and ERP manufacturing documents. The configured recurring company sends work to Odoo, records inspections and dispositions in a separate QMS, and posts the resulting stock movements in operational ERPNext. New runs select these paths through the ordinary generator. Configured operating runs scan the lake before management and after timed work closes for the day. An independent collector can also scan the same sources. The deployment guide gives the entry points and role setup for each application. [Recurring company deployment](../packages/environments/src/environments/norvale/integrations/company_run/README.md)
 
 ## Implementation sequence and acceptance evidence
 
-The retained 12-day coordinator run recorded eight MES completion postings and five shipments. All 20 checks on that snapshot passed, and one additional allocation remained pending after ERP rejected it. That run used deterministic decisions and scripted interruptions. The current verifier also checks posted input lots against ERP ledger issues and checks a withdrawn draft against its exact QMS inspection, version and quantity. For ordinary withdrawals, the verifier follows the changed allocation to the issuing QMS and the ERP draft, then checks both the prior release and the current revocation in the archive. A missing earlier snapshot leaves the ordinary check unverified. Maintenance restart verification reads the pinned MES and ticket source for each completed case. Read the retained results with the verifier version that produced them. [Current verifier](../integrations/company_run/verify.py)
+The retained 12-day coordinator run recorded eight MES completion postings and five shipments. All 20 checks on that snapshot passed, and one additional allocation remained pending after ERP rejected it. That run used deterministic decisions and scripted interruptions. The current verifier also checks posted input lots against ERP ledger issues and checks a withdrawn draft against its exact QMS inspection, version and quantity. For ordinary withdrawals, the verifier follows the changed allocation to the issuing QMS and the ERP draft, then checks both the prior release and the current revocation in the archive. A missing earlier snapshot leaves the ordinary check unverified. Maintenance restart verification reads the pinned MES and ticket source for each completed case. Read the retained results with the verifier version that produced them. [Current verifier](../packages/environments/src/environments/norvale/integrations/company_run/verify.py)
 
 1. **Qualify products and native contracts.** For each selected application demonstrate create/read/update, role denial, native references, export, restart and retry behavior in isolation. Record real endpoint/schema/version details. The MES, QMS and PLM integration runbooks record the selected products and their qualification scopes.
 2. **MES + QMS within recurring business work.** Preserve the company's orders, purchasing, maintenance and finance; add execution and release handoffs. Prove a failed lot stays unshippable, passing lots can ship and backlog persists. Single fixtures are regression checks, not a replacement company run.
@@ -194,11 +194,11 @@ From the release directory, using the relevant actor's InvenTree API token
 in `PLM_DECISION_TOKEN` for each decision command:
 
 ```sh
-python3 -m integrations.company_run.definition_change RUN propose ITEM B BOM-ID
-python3 -m integrations.company_run.definition_change RUN review PART-ID ENGINEERING-EVIDENCE-REF
-python3 -m integrations.company_run.definition_change RUN approve PART-ID DECISION-EVIDENCE-REF --effective YYYY-MM-DD
+uv run python -m environments.norvale.integrations.company_run.definition_change RUN propose ITEM B BOM-ID
+uv run python -m environments.norvale.integrations.company_run.definition_change RUN review PART-ID ENGINEERING-EVIDENCE-REF
+uv run python -m environments.norvale.integrations.company_run.definition_change RUN approve PART-ID DECISION-EVIDENCE-REF --effective YYYY-MM-DD
 # Alternatively, under the approver's credential:
-python3 -m integrations.company_run.definition_change RUN reject PART-ID DECISION-EVIDENCE-REF
+uv run python -m environments.norvale.integrations.company_run.definition_change RUN reject PART-ID DECISION-EVIDENCE-REF
 ```
 
 The first command reads ERPNext with the configured planner token and writes

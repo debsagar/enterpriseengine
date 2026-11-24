@@ -4,7 +4,7 @@ import hashlib
 import json
 
 
-from integrations.qms.measurements import numeric_results
+from environments.norvale.integrations.qms.measurements import numeric_results
 
 
 def one_snapshot(rows):

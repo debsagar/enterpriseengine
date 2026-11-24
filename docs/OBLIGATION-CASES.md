@@ -54,5 +54,5 @@ cover misleading evidence, partial receipts, redelivery and a crash after
 native confirmation but before closure commits.
 
 ```sh
-python3 -m unittest discover -s tests -p test_obligation_cases.py -v
+uv run python -m unittest discover -s contracts -p test_obligation_cases.py -v
 ```

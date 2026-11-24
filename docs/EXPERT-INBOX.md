@@ -28,7 +28,7 @@ The case resides in `RUN/private/expert-inbox-v1/CASE` (mode 0700). Keep it out 
 Offline check from the repository root:
 
 ```sh
-python3 scripts/check_expert_inbox.py
+uv run python scripts/check_expert_inbox.py
 ```
 
 This checks the role dialogue, native-ID contract, replay, visibility cutoff and evidence-based grade through in-memory mail transports. An isolated native SMTP/IMAP exercise on simulation day 2027-01-01 used three commissioned employees and four messages. The planner received Jan 2 from Maintenance and Jan 4 from Quality. The private grader accepted Jan 4 with both citations and rejected a missing citation. Reopening the case recovered the same two request IDs and two reply IDs. Native email header folding exposed a leading whitespace discrepancy, which the final implementation reconciles. This exercised the same respondent callable used by management, invoked separately in an opening clock window. A later recurring horizon was outside this check.

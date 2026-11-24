@@ -3,8 +3,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
 
-from integrations.qms.rework import ReworkQuality
-from native.company_rework import Rework
+from environments.norvale.integrations.qms.rework import ReworkQuality
+from environments.norvale.native.company_rework import Rework
 
 
 class ReworkDisposition(unittest.TestCase):

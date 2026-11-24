@@ -2,16 +2,14 @@
 import json
 from pathlib import Path
 import subprocess
-import sys
 
-from integrations.quality_feedback.complaint import close_action, contain, corrective_action, investigate
-from integrations.quality_feedback.scope import shipped_batch, verify_inspection
+from environments.norvale.integrations.quality_feedback.complaint import close_action, contain, corrective_action, investigate
+from environments.norvale.integrations.quality_feedback.scope import shipped_batch, verify_inspection
 
 qms_dir = Path(__file__).resolve().parents[1] / "qms"
-sys.path.insert(0, str(qms_dir))
-from adapter import APIError
-from integrations.quality_feedback.prove_recovery import exercise_returns
-from prove import exercise
+from components.qms import APIError
+from environments.norvale.integrations.quality_feedback.prove_recovery import exercise_returns
+from environments.norvale.integrations.qms.prove import exercise
 
 
 def run(runtime, output):

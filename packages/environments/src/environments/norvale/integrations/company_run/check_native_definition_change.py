@@ -4,15 +4,15 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from integrations.company_run.check_definition_change import blocked, clients
-from integrations.company_run.definition_change import propose
-from integrations.mes.client import Mes
-from integrations.plm import Blocked
-from integrations.revisions import Bridge
-from integrations.revisions.receivers import ERPNext, Odoo
-from integrations.revisions.test_bridge import EARLY, LATER, PRODUCT, components, mapping
-from native.company import Engine, save
-from norvale.loader.erp_client import ErpClient, ErpError
+from environments.norvale.integrations.company_run.check_definition_change import blocked, clients
+from environments.norvale.integrations.company_run.definition_change import propose
+from environments.norvale.integrations.mes.client import Mes
+from environments.norvale.integrations.plm import Blocked
+from environments.norvale.integrations.revisions import Bridge
+from environments.norvale.integrations.revisions.receivers import ERPNext, Odoo
+from environments.norvale.integrations.revisions.test_bridge import EARLY, LATER, PRODUCT, components, mapping
+from environments.norvale.native.company import Engine, save
+from components.erp_client import ErpClient, ErpError
 
 
 def qualify(path, runtime, passwords):

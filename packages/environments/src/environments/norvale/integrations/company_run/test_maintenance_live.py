@@ -6,13 +6,13 @@ import sys
 from threading import Barrier
 from xmlrpc.client import Fault
 
-from integrations.company_run.authority import Authority
-from integrations.mes.client import EVENT, MO, Mes
-from integrations.mes.test_live import input_lots, must_fail
-from integrations.qms.adapter import CASE, INSPECTION, APIError, QMS
-from native.company import Engine, save
-from native.company_erp import CompanyERP, Pending
-from native.systems_v2 import Tickets
+from environments.norvale.integrations.company_run.authority import Authority
+from environments.norvale.integrations.mes.client import EVENT, MO, Mes
+from environments.norvale.integrations.mes.test_live import input_lots, must_fail
+from components.qms import CASE, INSPECTION, APIError, QMS
+from environments.norvale.native.company import Engine, save
+from environments.norvale.native.company_erp import CompanyERP, Pending
+from environments.norvale.native.systems_v2 import Tickets
 
 
 def engine(run):

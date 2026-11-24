@@ -4,7 +4,7 @@ import fcntl
 import json
 from pathlib import Path
 
-from integrations.qms.adapter import ACTION, CASE, QMS
+from components.qms import ACTION, CASE, QMS
 from .complaint import close_action, contain, corrective_action, investigate
 from .returns import authorize, receive
 from .scope import authority, feedback_site, legacy_case, shipment, shipped_batch, verify_dispatch_version, verify_inspection
@@ -117,7 +117,7 @@ def main(argv=None):
     config = args.run / "env/company-sources.json"
     if not config.is_file():
         parser.error("Expected an existing company run with configured software connections")
-    from native.company import Engine
+    from environments.norvale.native.company import Engine
     with (args.run / "execution.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         result = process(Engine(args.run), args, json.loads(config.read_text()))

@@ -2,8 +2,8 @@
 from collections import defaultdict
 from xmlrpc.client import Error as RPCError
 
-from integrations.qms.adapter import APIError
-from native.company_erp import Pending, digest
+from components.qms import APIError
+from environments.norvale.native.company_erp import Pending, digest
 
 
 class Equipment:

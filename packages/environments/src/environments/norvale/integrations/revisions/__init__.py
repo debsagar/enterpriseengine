@@ -76,7 +76,7 @@ def project(publication, mapping, system):
     output = {"item": output["item"], "unit": output["unit"], "qty": amount(output["qty"])}
     components = config["components"]
     rows = []
-    from integrations.plm import valid_material_lines
+    from environments.norvale.integrations.plm import valid_material_lines
     require(valid_material_lines(definition.get("material_kind", "finished"), definition["lines"]),
             "Revision line kinds differ from the approved material kind")
     for line in definition["lines"]:

@@ -2,7 +2,7 @@
 from decimal import Decimal
 import json
 
-from integrations.qms.adapter import INSPECTION
+from components.qms import INSPECTION
 
 DELIVERY = "Delivery Note"
 WAREHOUSE = "WAREHOUSE"
@@ -61,7 +61,7 @@ def allocation(note, batch, row):
 
 
 def feedback_site(cfg, source):
-    from native.production_profiles import quality_target
+    from environments.norvale.native.production_profiles import quality_target
 
     site = cfg if source == cfg["qms_source"] else cfg.get("feedback_sites", {}).get(source)
     if not site:
@@ -75,7 +75,7 @@ def feedback_site(cfg, source):
 
 
 def authority(engine, cfg, note, row, batch, requested):
-    from native.production_profiles import quality_target
+    from environments.norvale.native.production_profiles import quality_target
 
     entry = allocation(note, batch, row)
     pin = entry["disposition"]

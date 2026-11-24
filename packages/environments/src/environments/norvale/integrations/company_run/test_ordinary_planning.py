@@ -9,17 +9,17 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
 
-from integrations.company_run.authority import Authority
-from integrations.company_run.definition_change import propose
-from integrations.company_run.test_definition_change import FixturePLM
-from integrations.company_run.timing import DEFAULT_TIMING
-from integrations.mes.client import Mes
-from integrations.qms.adapter import INSPECTION, QMS
-from integrations.revisions.receivers import ERP_KEY, ERPNext
-from integrations.revisions.test_bridge import EARLY, LATER, PRODUCT, FrappeFixture, MesFixture, components, mapping
-from native.company import DEFAULT_CONFIG, Engine, save
-from native.company_erp import Pending
-from native.recurring_extensions import open_catalog
+from environments.norvale.integrations.company_run.authority import Authority
+from environments.norvale.integrations.company_run.definition_change import propose
+from environments.norvale.integrations.company_run.test_definition_change import FixturePLM
+from environments.norvale.integrations.company_run.timing import DEFAULT_TIMING
+from environments.norvale.integrations.mes.client import Mes
+from components.qms import INSPECTION, QMS
+from environments.norvale.integrations.revisions.receivers import ERP_KEY, ERPNext
+from environments.norvale.integrations.revisions.test_bridge import EARLY, LATER, PRODUCT, FrappeFixture, MesFixture, components, mapping
+from environments.norvale.native.company import DEFAULT_CONFIG, Engine, save
+from environments.norvale.native.company_erp import Pending
+from environments.norvale.native.recurring_extensions import open_catalog
 
 BULK, BOTTLE = 'NV-BRIDGE-BULK', 'NV-BRIDGE-BOTTLE'
 PLANNER = 'planner@norvale.test'
@@ -220,13 +220,13 @@ class OrdinaryPlanningTest(TestCase):
             self.assertEqual(cfg, dict(url='http://qms.test', api_key='reader', api_secret='reader'))
             return qms
 
-        with (patch('native.company.Stack.endpoints', return_value=endpoints),
-              patch('native.company.ErpClient', erp_endpoint),
-              patch('integrations.company_run.authority.ErpClient', erp_endpoint),
-              patch('integrations.company_run.authority.PLM', plm_endpoint),
-              patch('integrations.company_run.authority.Mes', mes.endpoint),
-              patch('integrations.company_run.maintenance.Mes', mes.endpoint),
-              patch('integrations.company_run.authority.QMS', qms_endpoint),
+        with (patch('environments.norvale.native.company.Stack.endpoints', return_value=endpoints),
+              patch('environments.norvale.native.company.ErpClient', erp_endpoint),
+              patch('environments.norvale.integrations.company_run.authority.ErpClient', erp_endpoint),
+              patch('environments.norvale.integrations.company_run.authority.PLM', plm_endpoint),
+              patch('environments.norvale.integrations.company_run.authority.Mes', mes.endpoint),
+              patch('environments.norvale.integrations.company_run.maintenance.Mes', mes.endpoint),
+              patch('environments.norvale.integrations.company_run.authority.QMS', qms_endpoint),
               patch.object(qms, 'request', qms_request),
               patch.object(qms, 'list', qms_list)):
             e = reopen()

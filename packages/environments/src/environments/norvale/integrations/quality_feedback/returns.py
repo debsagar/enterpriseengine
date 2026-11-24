@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 import json
 
-from integrations.qms.adapter import CASE
+from components.qms import CASE
 from .scope import DELIVERY, WAREHOUSE, legacy_case
 
 

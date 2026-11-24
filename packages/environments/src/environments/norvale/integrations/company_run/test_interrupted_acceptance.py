@@ -4,8 +4,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from integrations.company_run.interrupted_acceptance import verified_interrupted
-from native.company_erp import digest
+from environments.norvale.integrations.company_run.interrupted_acceptance import verified_interrupted
+from environments.norvale.native.company_erp import digest
 
 
 class InterruptedAcceptance(unittest.TestCase):
@@ -29,7 +29,7 @@ class InterruptedAcceptance(unittest.TestCase):
         self.authority.operator.return_value = self.reader
         self.authority.native_center.return_value = 4
         self.authority.interrupted_settings.return_value = {'units': {'Unit': 'Nos'}, 'qms_reader': {}}
-        self.qms_patch = patch('integrations.company_run.interrupted_acceptance.QMS')
+        self.qms_patch = patch('environments.norvale.integrations.company_run.interrupted_acceptance.QMS')
         self.qms = self.qms_patch.start().return_value
         self.addCleanup(self.qms_patch.stop)
         self.qms.get.return_value = dict(name='NC', custom_qms_batch=self.batch['batch'], custom_failed_inspection='QI')

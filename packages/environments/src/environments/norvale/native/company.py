@@ -8,15 +8,15 @@ from email.utils import parsedate_to_datetime
 from imaplib import IMAP4
 from smtplib import SMTPRecipientsRefused, SMTPResponseException, SMTPServerDisconnected
 from datetime import datetime, timedelta, timezone
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-from norvale.environment.stack import Stack
-from norvale.environment import compose as compose_mod
-from norvale.loader.erp_client import ErpClient, ErpError
-from walkthrough.engine import EnterpriseSimV4, ROLES
+from environments.norvale.environment.stack import Stack
+from environments.norvale.environment import compose as compose_mod
+from components.erp_client import ErpClient, ErpError
+from environments.norvale.paths import CHECKOUT
+from environments.norvale.walkthrough import EnterpriseSimV4, ROLES
 
-RUN = Path(__file__).parent/'run'  # preserved fixed-scenario evidence
-ACTIVE_RUN = Path(__file__).parent/'recurring-run'
+ROOT = CHECKOUT
+RUN = ROOT / "native" / "run"  # preserved fixed-scenario evidence
+ACTIVE_RUN = ROOT / "native" / "recurring-run"
 ERP_ROLES = {'BUYER':['Purchase User'],'SCM_MGR':['Purchase User','Purchase Manager'],'SALES':['Sales User'],'WAREHOUSE':['Stock User'],'PLANNER':['Manufacturing User','Stock User'],'PRODUCTION':['Manufacturing User','Stock User'],'QA':['Quality Manager','Stock User'],'FINANCE':['Accounts User','Accounts Manager'],'MAINTENANCE':['Maintenance User'],'IT_ADMIN':['System Manager','Item Manager'],'CFO':['Accounts Manager','Purchase Manager']}
 
 def observable(value):
@@ -57,7 +57,7 @@ class Engine:
             self.validate_config(self.config)
         checkpoint = self.run/'state.json'
         if checkpoint.exists():
-            from native.company_world import check_binding
+            from environments.norvale.native.company_world import check_binding
             check_binding(self.config or {}, json.loads(checkpoint.read_text()))
         self.additions = None
         self.company_erp = self.make_company_erp(company_authority)
@@ -106,7 +106,7 @@ class Engine:
             from importlib import import_module
             module, name = factory.split(':', 1)
             authority = getattr(import_module(module), name)(self.run)
-        from native.company_erp import CompanyERP
+        from environments.norvale.native.company_erp import CompanyERP
         return CompanyERP(self, authority)
 
     def recover_company_doc(self, key, doctype, role):
@@ -127,7 +127,7 @@ class Engine:
 
     def persist(self):
         if (getattr(self, 'config', None) or {}).get('world') and 'world_binding' not in self.state:
-            from native.company_world import binding
+            from environments.norvale.native.company_world import binding
             self.state['world_binding'] = binding(self.config)
         self.state['day']=self.day;save(self.run/'state.json',self.state)
 
@@ -194,7 +194,7 @@ class Engine:
         lot_flow = getattr(self, 'company_erp', None)
         batch_settings = {'has_batch_no': 1, 'create_new_batch': 0} if lot_flow else {}
         if lot_flow:
-            from native.stock_precision import provision_stock_precision
+            from environments.norvale.native.stock_precision import provision_stock_precision
             provision_stock_precision(self.admin)
             self.configure()
             if not self.admin.list('Custom Field', {'dt': 'Work Order', 'fieldname': 'custom_norvale_definition'}):
@@ -242,7 +242,7 @@ class Engine:
             payload={'model':model,'messages':[{'role':'user','content':json.dumps(prompt)}],'response_format':{'type':'json_object'},'max_tokens':1600}
             self.log('model_request',model=model,input=prompt)
             req=urllib.request.Request(base+'/chat/completions',json.dumps(payload).encode(),headers={'Authorization':'Bearer '+keyenv,'Content-Type':'application/json'})
-            from router import provider_json
+            from environments.norvale.native.router import provider_json
             raw=provider_json('Model',req,lambda attempt:self.log('model_http_attempt',attempt=attempt))
             self.log('model_response',response=raw)
             if raw['choices'][0].get('finish_reason')!='stop':raise RuntimeError('Incomplete model response; raw response retained for diagnosis')
@@ -284,8 +284,8 @@ class Engine:
         self.write('po-workflow','Workflow',{'workflow_name':'Norvale purchasing approval','document_type':'Purchase Order','is_active':1,'workflow_state_field':'workflow_state','states':[{'state':'Pending Approval','doc_status':'0','allow_edit':'Purchase User'},{'state':'Approved','doc_status':'1','allow_edit':'Purchase Manager'},{'state':'Rejected','doc_status':'0','allow_edit':'Purchase Manager'}],'transitions':[{'state':'Pending Approval','action':'Approve','next_state':'Approved','allowed':'Purchase Manager','allow_self_approval':0},{'state':'Pending Approval','action':'Reject','next_state':'Rejected','allowed':'Purchase Manager','allow_self_approval':0}]})
 
     def mail(self,key,sender,recipient,subject,body):
-        from native.company_erp import MailReadbackError
-        from norvale.agents.comms import Comms
+        from environments.norvale.native.company_erp import MailReadbackError
+        from environments.norvale.agents.comms import Comms
         roster={r['role_id']:r for r in ROLES};sec=json.loads((self.run/'env/secrets.json').read_text())
         def client(role):
             role={'BUYER':'BUYER_CHEM','SCM_MGR':'SC_MGR','WAREHOUSE':'WH_CLERK','MAINTENANCE':'MAINT_LEAD'}.get(role,role)
@@ -561,9 +561,9 @@ class Engine:
     def choose(self,key,role,evidence,question,action='approve',model=False):
         if key in self.state['decisions']:return self.state['decisions'][key]['output']
         if (getattr(self, 'config', None) or {}).get('company_operating') and os.environ.get('NORVALE_OFFLINE') == '1':
-            from integrations.company_run.operating import offline_decision
+            from environments.norvale.integrations.company_run.operating import offline_decision
             return offline_decision(self, key, role, evidence, question)
-        from router import route
+        from environments.norvale.native.router import route
         policies=self.effective_policies(role)
         history=[d for d in self.state['decisions'].values() if d['input']['role']==role and d['mode']!='provider-unavailable']
         def relevant(d):
@@ -640,7 +640,7 @@ class Engine:
 
     def recurring_setup(self):
         self.configure();self.workflow_setup();self.finance_costs(True)
-        from systems_v2 import identities
+        from environments.norvale.native.systems_v2 import identities
         aliases={'SC_MGR':'SCM_MGR','BUYER_CHEM':'BUYER','MAINT_LEAD':'MAINTENANCE','QA_TECH':'QA','ACCT_EXEC':'SALES','SHIFT_OP':'PRODUCTION','WH_CLERK':'WAREHOUSE'}
         roster=[{'role':aliases.get(r['role_id'],r['role_id']),'user':aliases.get(r['role_id'],r['role_id']).lower()+'@norvale.test','name':r['person'],'mail':r['email'].replace('.example','.test'),'manager':aliases.get(r.get('reports_to'),r.get('reports_to')) if r.get('reports_to')!='BOARD' else None} for r in ROLES if r['role_id']!='BOARD']
         roster.append({'role':'FINANCE','user':'finance@norvale.test','name':'Finance Operations','manager':'CFO'})
@@ -671,7 +671,7 @@ class Engine:
             self.persist()
 
     def regime(self):
-        from regimes import factors
+        from environments.norvale.native.regimes import factors
         value=factors(self.config['seed'],self.day)
         self.log('private_regime',factors=value)
         return value
@@ -688,7 +688,7 @@ class Engine:
             self.state['ops']['orders'].setdefault(p['key'],p);self.persist()
 
     def admit_production_order(self, system, event_id, cfg, payload, ordered, delivery):
-        from native.company_erp import Pending
+        from environments.norvale.native.company_erp import Pending
 
         key = 'addon-order:' + hashlib.sha256(json.dumps([system, event_id]).encode()).hexdigest()
         line = {'item_code': cfg['item'], 'qty': payload['quantity'], 'rate': payload['rate'],
@@ -880,7 +880,7 @@ class Engine:
             self.mail(p['key'],'BUYER','SCM_MGR','Replenishment approval requested',f"Native purchase {self.get(p['key'])['name']} replenishes released inventory below lead-time plus safety coverage.")
 
     def schedule_supplier_arrival(self, key, purchase, submitted):
-        from native.company_erp import Pending
+        from environments.norvale.native.company_erp import Pending
         if 'arrival_due' in purchase or purchase.get('world_dispatched'):
             return
         if submitted.get('docstatus') != 1:
@@ -891,7 +891,7 @@ class Engine:
         promised = (datetime.fromisoformat(max(dates)).date() -
                     datetime.fromisoformat(self.dated(0)).date()).days
         if self.config.get('world'):
-            from native.company_world import dispatch
+            from environments.norvale.native.company_world import dispatch
             dispatch(self, key, submitted, promised)
             purchase.update(world_dispatched=True, approved_day=self.day)
             return
@@ -901,7 +901,7 @@ class Engine:
         purchase['approved_day'] = self.day
 
     def purchase_decision(self, key, role, evidence, question, **options):
-        from router import ProviderUnavailable
+        from environments.norvale.native.router import ProviderUnavailable
         try:
             return self.choose(key, role, evidence, question, **options)
         except ProviderUnavailable as exc:
@@ -945,7 +945,7 @@ class Engine:
             coverage=[{'item_code':row['item_code'],'released_raw_materials_qty':sum(b['actual_qty'] for b in coverage if b['item_code']==row['item_code'] and b['warehouse']==self.wh['rm']),'quarantine_qty':sum(b['actual_qty'] for b in coverage if b['item_code']==row['item_code'] and b['warehouse']==self.wh['hold']),'open_po_qty_excluding_this':sum(max(0,r['qty']-r.get('received_qty',0)) for other in purchase_docs.values() if other['name']!=po['name'] and other['docstatus'] in (0,1) and other.get('workflow_state')!='Rejected' for r in other['items'] if r['item_code']==row['item_code'])} for row in po['items']]
             evidence.update(coverage=coverage,observed_daily_usage={r['item_code']:usage.get(r['item_code'],0) for r in po['items']},other_open_orders=self.observe('SCM_MGR','Purchase Order',{'docstatus':1,'status':['not in',['Closed','Completed']]},['name','supplier','grand_total']))
             if self.config.get('world'):
-                from native.company_world import evidence as world_evidence
+                from environments.norvale.native.company_world import evidence as world_evidence
                 evidence['carrier_observations'] = world_evidence(self, 'SCM_MGR')
             decision_key = 'po-review:'+key+':'+str(self.day)
             result=self.purchase_decision(decision_key,'SCM_MGR',evidence,'Decide this PO on its own current evidence: approve, defer, reject or investigate. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to defer this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.',model=first)
@@ -1043,8 +1043,8 @@ class Engine:
 
     def inspections(self):
         if self.config.get('company_operating'):
-            from integrations.company_run.operating import Operating
-            from integrations.company_run.timing import queue_samples
+            from environments.norvale.integrations.company_run.operating import Operating
+            from environments.norvale.integrations.company_run.timing import queue_samples
             queue_samples(self, self.additions, self.additions.now + 1, Operating(self).eligible_samples())
         ops=self.state['ops']
         lot_flow = getattr(self, 'company_erp', None)
@@ -1080,12 +1080,12 @@ class Engine:
 
     def production(self):
         if self.config.get('company_operating'):
-            from integrations.company_run.operating import Operating
+            from environments.norvale.integrations.company_run.operating import Operating
             participant = Operating(self)
             participant.definitions()
         self.plan_production()
         if self.config.get('company_operating'):
-            from integrations.company_run.timing import queue_dispatches
+            from environments.norvale.integrations.company_run.timing import queue_dispatches
             queue_dispatches(self, participant)
 
     def plan_production(self):
@@ -1134,7 +1134,7 @@ class Engine:
             lot_flow.production(plan)
             return
         for p in plan['work']:
-            from systems_v2 import operation_bom,job_cards,complete_job
+            from environments.norvale.native.systems_v2 import operation_bom,job_cards,complete_job
             minutes_per_unit=self.config.get('shift_minutes',480)/self.config['capacity_units']
             routed_bom=operation_bom(self,p['item'],minutes_per_unit)
             wo=self.write(p['key'],'Work Order',{'production_item':p['item'],'bom_no':routed_bom['name'],'operations':[{'operation':r['operation'],'workstation':r['workstation'],'time_in_mins':p['qty']*minutes_per_unit,'batch_size':p['qty'],'bom':routed_bom['name'],'status':'Pending'} for r in routed_bom['operations']],'transfer_material_against':'Work Order','qty':p['qty'],'company':self.company,'use_multi_level_bom':0,'skip_transfer':1,'source_warehouse':self.wh['rm'],'wip_warehouse':self.wh['wip'],'fg_warehouse':self.wh['hold'],'planned_start_date':self.date()+' 08:00:00','sales_order':self.get(p['order'])['name']},'PLANNER',True)
@@ -1187,7 +1187,7 @@ class Engine:
                           existing=(invoice_key, 'Sales Invoice'), source_name=delivery['name'])
         doc['due_date'] = self.dated(max(self.day, departed_day + 3))
         if getattr(self, 'company_erp', None):
-            from native.company_erp import Pending
+            from environments.norvale.native.company_erp import Pending
 
             fields = ('item_code', 'qty', 'uom', 'conversion_factor', 'stock_qty', 'rate')
             expected = {row['name']: tuple(row[field] for field in fields) for row in delivery['items']}
@@ -1209,12 +1209,12 @@ class Engine:
         self.persist()
 
     def bank_statements(self):
-        from native.company_bank import BankReceipts
+        from environments.norvale.native.company_bank import BankReceipts
         BankReceipts(self.company_erp).import_statements()
 
     def settlements(self):
         if (self.config or {}).get('company_operating'):
-            from native.company_bank import BankReceipts
+            from environments.norvale.native.company_bank import BankReceipts
             bank = BankReceipts(self.company_erp)
             for key, invoice in self.state['ops']['invoices'].items():
                 if invoice.get('paid') is not None:
@@ -1246,7 +1246,7 @@ class Engine:
     def service(self):
         if getattr(self, 'company_erp', None):
             return self.company_erp.equipment.service()
-        from systems_v2 import Tickets
+        from environments.norvale.native.systems_v2 import Tickets
         tickets=Tickets(self.run)
         ops=self.state['ops']
         title = 'Filler preventive service'
@@ -1277,12 +1277,12 @@ class Engine:
 
     def management(self):
         if (self.run/'private/expert-inbox-v1').is_dir():
-            from norvale.agents.expert_inbox import answer_pending
+            from environments.norvale.agents.expert_inbox import answer_pending
             answer_pending(self.run)
         due = (self.day + 1) % self.config['report_every'] == 0
         binding = self.run/'env/planning-report.json'
         if binding.is_file():
-            from integrations.company_run.planning_report import reconcile
+            from environments.norvale.integrations.company_run.planning_report import reconcile
             pending = self.state.setdefault('pending_planning_reports', [])
             if due and self.date() not in pending and f'planning-backlog:{self.date()}' not in self.docs:
                 pending.append(self.date())
@@ -1435,15 +1435,15 @@ class Engine:
         if self.config:
             self.run_additions(self.config['days']*1440-1)
             if self.config.get('company_operating'):
-                from integrations.company_run.lake import scheduled_scan
+                from environments.norvale.integrations.company_run.lake import scheduled_scan
                 scheduled_scan(self, self.config['days'] * 1440 - 1)
             if self.state.get('pending_planning_reports'):
-                from integrations.company_run.planning_report import reconcile
+                from environments.norvale.integrations.company_run.planning_report import reconcile
                 reconcile(self, self.run/'env/planning-report.json')
         return None
 
     def run_phase(self, day, key, action):
-        from native.recurring_extensions import COMPANY_OPEN, DAY, MIDNIGHT
+        from environments.norvale.native.recurring_extensions import COMPANY_OPEN, DAY, MIDNIGHT
         minute = day * DAY + (COMPANY_OPEN if 'company_timing' in (self.config or {}) else 720)
         if self.config and key.startswith(f'd{day:04}:'):
             self.run_additions(minute)
@@ -1451,7 +1451,7 @@ class Engine:
             self.day, self.event = day, key
         self.advance_clock(MIDNIGHT + timedelta(minutes=minute))
         if self.config and self.config.get('company_operating') and key.endswith(':management'):
-            from integrations.company_run.lake import scheduled_scan
+            from environments.norvale.integrations.company_run.lake import scheduled_scan
             scheduled_scan(self, minute)
         action()
         if self.config and self.config.get('company_operating'):
@@ -1463,13 +1463,13 @@ class Engine:
                                             payload={}, role='FINANCE')
                 self.run_additions(self.additions.now)
             if key.endswith(':native-clock'):
-                from integrations.company_run.lake import scheduled_scan
+                from environments.norvale.integrations.company_run.lake import scheduled_scan
                 scheduled_scan(self, (day + 1) * DAY - 1)
 
     def scheduled_company_event(self, clock, payload):
         if not self.config.get('company_operating'):
             raise RuntimeError('Run scheduled qualification work through integrations.company_run')
-        from integrations.company_run.timing import dispatch_event
+        from environments.norvale.integrations.company_run.timing import dispatch_event
         return dispatch_event(self, clock, payload)
 
     def advance_clock(self, target):
@@ -1477,7 +1477,7 @@ class Engine:
             self.stack.settle();self.stack.clock.advance_to(target)
 
     def run_additions(self, until):
-        from native.recurring_extensions import open_catalog
+        from environments.norvale.native.recurring_extensions import open_catalog
         if self.additions is None:
             self.additions=open_catalog(self.run, self.config, self.state, self.advance_clock, company=self)
         self.additions.run(until=until, advance=True)
@@ -1505,7 +1505,7 @@ DEFAULT_CONFIG={'days':120,'seed':42,'demand_scale':0.02,'orders_per_day':3,'ope
 
 def writable_run(path):
     path=Path(path).resolve()
-    for frozen in (ROOT/'data', RUN):
+    for frozen in (ROOT / "data", RUN):
         frozen=frozen.resolve()
         if path.is_relative_to(frozen) or frozen.is_relative_to(path):
             raise ValueError('Choose a dedicated run directory outside frozen evidence')
@@ -1549,7 +1549,7 @@ def main(argv=None):
         if a.extend is not None:
             if a.days is not None or a.demand_scale is not None:
                 p.error('--extend cannot change the horizon or demand scale')
-            from native.recurring_extensions import submit
+            from environments.norvale.native.recurring_extensions import submit
             return submit(a.run, a.extend)
         if a.provision:
             config=dict(DEFAULT_CONFIG)
@@ -1560,7 +1560,7 @@ def main(argv=None):
             if a.demand_scale is not None:config['demand_scale']=a.demand_scale
             if a.company_authority is not None:config['company_authority']=a.company_authority
             if a.company_operating:
-                from integrations.company_run.timing import DEFAULT_TIMING
+                from environments.norvale.integrations.company_run.timing import DEFAULT_TIMING
                 os.umask(0o077)
                 config.update(company_operating=True, supplier_quality=True, company_timing=DEFAULT_TIMING,
                               company_authority='integrations.company_run.authority:Authority')

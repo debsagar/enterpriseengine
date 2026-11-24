@@ -5,12 +5,12 @@ from fractions import Fraction
 from math import ceil
 
 from engine import DAY
-from native.recurring_extensions import COMPANY_OPEN, MIDNIGHT
+from environments.norvale.native.recurring_extensions import COMPANY_OPEN, MIDNIGHT
 from .demo import Demo
 from .operating import Operating
 from .production_batch import backorder, queue_operation
-from integrations.qms.adapter import APIError
-from native.company_erp import Pending
+from components.qms import APIError
+from environments.norvale.native.company_erp import Pending
 from subprocess import CalledProcessError
 from urllib.error import URLError
 from xmlrpc.client import Fault

@@ -1,7 +1,7 @@
 import copy
 import unittest
 from types import SimpleNamespace
-from integrations.company_run.partial_work import partial_work
+from environments.norvale.integrations.company_run.partial_work import partial_work
 
 
 class PartialWorkTests(unittest.TestCase):

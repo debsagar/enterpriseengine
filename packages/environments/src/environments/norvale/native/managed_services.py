@@ -4,7 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from hashlib import sha256
 import json
 
-from norvale.loader.erp_client import ErpError
+from components.erp_client import ErpError
 
 
 KEY = "custom_service_operation"

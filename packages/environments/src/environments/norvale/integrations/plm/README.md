@@ -95,10 +95,10 @@ plm_compose up -d
 curl -fsS --retry 60 --retry-all-errors --retry-delay 1 --max-time 5 "$PLM_URL/api/"
 plm_compose exec -T -e PLM_PUBLISHER_PASSWORD -e PLM_READER_PASSWORD plm \
     python3 src/backend/InvenTree/manage.py shell < integrations/plm/provision.py
-python3 -m integrations.plm.check_live create "$plm_evidence"
+uv run python -m environments.norvale.integrations.plm.check_live create "$plm_evidence"
 plm_compose restart plm
 curl -fsS --retry 60 --retry-all-errors --retry-delay 1 --max-time 5 "$PLM_URL/api/"
-python3 -m integrations.plm.check_live restart "$plm_evidence"
+uv run python -m environments.norvale.integrations.plm.check_live restart "$plm_evidence"
 plm_compose down
 ```
 

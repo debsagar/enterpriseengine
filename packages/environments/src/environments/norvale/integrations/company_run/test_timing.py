@@ -12,15 +12,15 @@ import unittest
 from unittest.mock import patch
 
 from engine import DAY
-from integrations.company_run import __main__ as app, timing
-from integrations.company_run.demo import Demo
-from integrations.company_run.maintenance import MaintenanceAuthority
-from integrations.mes.client import CENTER, EVENT, MO, WO, Mes as MesClient
-from integrations.qms.adapter import CASE, INSPECTION, OP
-import native.company as company
-from native.company import DEFAULT_CONFIG, Engine, save
-from native.company_erp import CompanyERP, Pending
-from native.recurring_extensions import open_catalog
+from environments.norvale.integrations.company_run import __main__ as app, timing
+from environments.norvale.integrations.company_run.demo import Demo
+from environments.norvale.integrations.company_run.maintenance import MaintenanceAuthority
+from environments.norvale.integrations.mes.client import CENTER, EVENT, MO, WO, Mes as MesClient
+from components.qms import CASE, INSPECTION, OP
+import environments.norvale.native.company as company
+from environments.norvale.native.company import DEFAULT_CONFIG, Engine, save
+from environments.norvale.native.company_erp import CompanyERP, Pending
+from environments.norvale.native.recurring_extensions import open_catalog
 
 
 class TimedCompany(unittest.TestCase):
@@ -306,7 +306,7 @@ class TimedCompany(unittest.TestCase):
 
         self_test = self
         with ExitStack() as stack:
-            stack.enter_context(patch.dict(sys.modules, {'company': company}))
+            stack.enter_context(patch.dict(sys.modules, {'environments.norvale.native.company': company}))
             for owner, name, impl in [
                 (Engine, 'make_company_erp', create_flow),
                 (Engine, 'advance_clock', fake_advance),
@@ -331,10 +331,10 @@ class TimedCompany(unittest.TestCase):
             for name in ('arrivals', 'demand', 'fulfillment', 'replenishment', 'approvals', 'settlements', 'management'):
                 stack.enter_context(patch.object(Engine, name, lambda _: None))
             for path, replacement in {
-                'native.company.Stack': lambda _: SimpleNamespace(endpoints=lambda: {'erp': '', 'site': ''}),
-                'native.company.ErpClient': lambda *a: SimpleNamespace(login=lambda *a: None),
-                'integrations.company_run.demo.Mes': Mes,
-                'integrations.company_run.demo.inspect': inspect,
+                'environments.norvale.native.company.Stack': lambda _: SimpleNamespace(endpoints=lambda: {'erp': '', 'site': ''}),
+                'environments.norvale.native.company.ErpClient': lambda *a: SimpleNamespace(login=lambda *a: None),
+                'environments.norvale.integrations.company_run.demo.Mes': Mes,
+                'environments.norvale.integrations.company_run.demo.inspect': inspect,
                 'urllib.request.OpenerDirector.open': forbidden,
                 'socket.create_connection': forbidden,
             }.items():
@@ -350,14 +350,13 @@ class TimedCompany(unittest.TestCase):
                     (CompanyERP, 'verify_row', lambda *a: None),
                 ]:
                     stack.enter_context(patch.object(owner, name, impl))
-                stack.enter_context(patch('integrations.company_run.maintenance.QMS', lambda **kw:
+                stack.enter_context(patch('environments.norvale.integrations.company_run.maintenance.QMS', lambda **kw:
                     SimpleNamespace(list=qms_list, get=lambda *a: dict(inspection))))
             if operating:
-                stack.enter_context(patch('integrations.company_run.operating.Operating.definitions', lambda _: None))
+                stack.enter_context(patch('environments.norvale.integrations.company_run.operating.Operating.definitions', lambda _: None))
                 stack.enter_context(patch.object(Engine, 'bank_statements', lambda _: None))
-                stack.enter_context(patch.object(sys, 'path', sys.path[:]))
-                from generate import main as recurring
-                stack.enter_context(patch('integrations.company_run.timing.queue_samples', lambda *args: None))
+                from environments.norvale.generate import main as recurring
+                stack.enter_context(patch('environments.norvale.integrations.company_run.timing.queue_samples', lambda *args: None))
                 stack.enter_context(patch('time.sleep', lambda _: None))
                 stack.enter_context(redirect_stdout(StringIO()))
                 recurring(['--run', str(run)])
@@ -488,7 +487,7 @@ class TimedCompany(unittest.TestCase):
                 invoke(2)
 
         state = json.loads((run/'state.json').read_text())
-        with patch.dict(sys.modules, {'company': company}):
+        with patch.dict(sys.modules, {'environments.norvale.native.company': company}):
             clock = open_catalog(run, cfg, state)
         labor = {w['equipment']: w['scheduled_labor'] for w in state['company_erp']['work'].values()
                  if not w.get('rejected_remainder')}

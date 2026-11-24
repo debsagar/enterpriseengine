@@ -4,7 +4,7 @@ Release awaits joint signoff. After the `v0.3.0` tag is published, install it
 in your Python environment:
 
 ```sh
-python -m pip install "enterpriseengine @ git+https://github.com/debsagar/enterpriseengine.git@v0.3.0"
+python -m pip install "enterpriseengine @ git+https://github.com/debsagar/enterpriseengine.git@v0.3.0#subdirectory=packages/engine"
 ```
 
 - Pull requests and pushes build and test the wheel with Python 3.10 and 3.12.

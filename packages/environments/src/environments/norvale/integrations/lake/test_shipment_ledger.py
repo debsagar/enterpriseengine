@@ -2,7 +2,7 @@ import copy
 import json
 import unittest
 from types import SimpleNamespace
-from genealogy import shipment
+from environments.norvale.integrations.lake.genealogy import shipment
 
 
 class ShipmentLedgerTest(unittest.TestCase):

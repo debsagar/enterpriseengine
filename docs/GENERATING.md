@@ -4,20 +4,26 @@ Inspection of the bundled data needs only Python 3. Generation additionally need
 
 The bootstrap is for an isolated development stack: it inherits fixed `admin` ERP/database bootstrap passwords. Keep services on their Docker network; do not expose this stack to the internet. Calendar and Matrix are provisioning dependencies; the delivered business evidence focuses on ERP, Gitea, and mail.
 
+Install the workspace using Python 3.11 or later for the Delta dependencies.
+
+```sh
+uv sync --locked --all-packages
+```
+
 ## Prepare images and the shared clock
 
 From the repository root:
 
 ```sh
-docker build -t nv11-erp:15.124.1 -f norvale/environment/images/Dockerfile.erp .
-docker build -t nv11-calendar:3.9.0 -f norvale/environment/images/Dockerfile.calendar .
+docker build -t nv11-erp:15.124.1 -f packages/environments/src/environments/norvale/environment/images/Dockerfile.erp .
+docker build -t nv11-calendar:3.9.0 -f packages/environments/src/environments/norvale/environment/images/Dockerfile.calendar .
 mkdir -p env-cache/lib
 clock_container=$(docker create nv11-erp:15.124.1)
 docker cp "$clock_container:/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1" env-cache/lib/
 docker rm "$clock_container"
 ```
 
-The library must match the host/container architecture. `NORVALE_CLOCK_LIB` can point to another directory containing `libfaketime.so.1`. Remaining service images are pinned in `norvale/environment/docker.py`; Gitea is pinned in `native/provision_tickets_v2.py`.
+The library must match the host/container architecture. `NORVALE_CLOCK_LIB` can point to another directory containing `libfaketime.so.1`. Remaining service images are pinned in `packages/environments/src/environments/norvale/environment/docker.py`; Gitea is pinned in `packages/environments/src/environments/norvale/native/provision_tickets_v2.py`.
 
 ## Configure model access
 
@@ -30,10 +36,10 @@ Generation makes paid network calls. There is no built-in spending ceiling. Miss
 Use a new empty run directory; never point this at the published `data/` snapshot or another existing run.
 
 ```sh
-python3 generate.py --run "$PWD/runs/my-run" --provision --days 120
-python3 native/provision_tickets_v2.py "$PWD/runs/my-run"
-python3 generate.py --run "$PWD/runs/my-run"
-python3 native/verify_run.py "$PWD/runs/my-run"
+uv run python generate.py --run "$PWD/runs/my-run" --provision --days 120
+uv run python -m environments.norvale.native.provision_tickets_v2 "$PWD/runs/my-run"
+uv run python generate.py --run "$PWD/runs/my-run"
+uv run python -m environments.norvale.native.verify_run "$PWD/runs/my-run"
 ```
 
 Provisioning initializes services; the subsequent command advances the modeled company. Resume with the same final generation command. The verifier connects to services and writes new exports; it is not an offline reader. All `runs/` contents are ignored by Git, including credentials, private trace/state, raw SQL and mail archives. Keep them private.
@@ -45,7 +51,7 @@ A fresh run is not guaranteed to reproduce the delivered trajectory byte-for-byt
 Submit from a second shell, including while the ordinary recurring controller is running.
 
 ```sh
-python3 generate.py --run runs/my-run --extend additions.json
+uv run python generate.py --run runs/my-run --extend additions.json
 ```
 
 The operator-only command uses the existing stack identity and writes an
@@ -135,7 +141,7 @@ In the operator-held connection registry, each production entry contains:
 | Field | Value |
 | --- | --- |
 | `adapter`, `item`, `customer`, `order_roles` | `company-production`, the native batch-tracked item code, the installed ERP customer name, and the operator-approved scheduling role names |
-| `source`, `family`, `mapping` | Stable PLM deployment ID, native base part ID, and the family receiver mapping shown in [the revision bridge example](../integrations/revisions/config.example.json) |
+| `source`, `family`, `mapping` | Stable PLM deployment ID, native base part ID, and the family receiver mapping shown in [the revision bridge example](../packages/environments/src/environments/norvale/integrations/revisions/config.example.json) |
 | `hold_location_id`, `units` | Native MES hold location ID and map from MES UOM names to ERP stock UOMs |
 | `plm` | `url`, `publisher`, `token_env` |
 | `erp` | `base`, `site` matching the recurring ERP in `env/endpoints.json`, and `token_env` for native master readback |
@@ -223,7 +229,7 @@ Run the existing lake collector with the recurring run directory. The full-compa
 acceptance script supplies this argument automatically.
 
 ```bash
-python3 -m integrations.company_run.lake "$runtime/analytics.json" "$runtime/lake" --run "$runtime/business" --interval 60
+uv run python -m environments.norvale.integrations.company_run.lake "$runtime/analytics.json" "$runtime/lake" --run "$runtime/business" --interval 60
 ```
 
 The collector reloads the committed catalog each pass. Give its process access
@@ -275,10 +281,10 @@ record names there.
 
 ```sh
 # Create with a path that does not exist. The order starts at minute 540.
-python3 generate.py incremental --run runs/orders-jan04 --plan incremental-orders.json --until 540
+uv run python generate.py incremental --run runs/orders-jan04 --plan incremental-orders.json --until 540
 
 # Resume the in-flight order at its completion minute without adding events.
-python3 generate.py incremental --run runs/orders-jan04 --until 555
+uv run python generate.py incremental --run runs/orders-jan04 --until 555
 ```
 
 Minutes start at Monday, January 4, 2027 00:00 UTC. The cutoff is inclusive.
@@ -309,7 +315,7 @@ JSON, including ERP document IDs and URLs. It uses no model providers.
 Run the CLI integration checks offline from the release root.
 
 ```sh
-python3 -m unittest discover -s tests -p test_incremental_cli.py -v
+uv run python -m unittest discover -s contracts -p test_incremental_cli.py -v
 ```
 
 The Norvale tests exercise the existing Frappe client through an in-process
@@ -329,9 +335,8 @@ python3 scripts/build_viewer.py
 To rebuild the executed notebook over bundled data:
 
 ```sh
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python native/build_behavior_notebook.py --out notebooks
+uv pip install -r requirements.txt
+uv run --no-sync python -m environments.norvale.native.build_behavior_notebook --out notebooks
 ```
 
-Open notebooks from `notebooks/`; their data path is `../data/observable`. Run All only reads files. To inspect a new run, pass `--run runs/my-run/export`; the generated notebook uses a relative path to that export's `observable/` directory. `native/build_evidence.py` separately builds development reference questions from private trace/state of a new run; private traces are not included in this release.
+Open notebooks from `notebooks/`; their data path is `../data/observable`. Run All only reads files. To inspect a new run, pass `--run runs/my-run/export`; the generated notebook uses a relative path to that export's `observable/` directory. `packages/environments/src/environments/norvale/native/build_evidence.py` separately builds development reference questions from private trace/state of a new run; private traces are not included in this release.

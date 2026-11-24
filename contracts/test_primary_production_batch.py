@@ -11,10 +11,10 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from test_production_profiles import ERP, OperatingMES, company, generate
-from integrations.company_run.operating import Operating
-from integrations.mes.client import EVENT, MO, WO, Mes
-from native.company_erp import CompanyERP
-from native.production_profiles import FACTORY
+from environments.norvale.integrations.company_run.operating import Operating
+from environments.norvale.integrations.mes.client import EVENT, MO, WO, Mes
+from environments.norvale.native.company_erp import CompanyERP
+from environments.norvale.native.production_profiles import FACTORY
 
 
 class PrimaryMES(OperatingMES):
@@ -207,13 +207,13 @@ class PrimaryProduction(TestCase):
                               'fulfillment', 'replenishment', 'approvals', 'bank_statements',
                               'settlements', 'management'), noop)
         stack.enter_context(patch.multiple(company.Engine, __init__=fresh, **noops))
-        stack.enter_context(patch('company.Stack', lambda _: SimpleNamespace(
+        stack.enter_context(patch('environments.norvale.native.company.Stack', lambda _: SimpleNamespace(
             endpoints=lambda: {'erp': '', 'site': ''})))
-        stack.enter_context(patch('company.ErpClient', return_value=erp))
+        stack.enter_context(patch('environments.norvale.native.company.ErpClient', return_value=erp))
         for module in ('authority', 'demo', 'maintenance'):
-            stack.enter_context(patch(f'integrations.company_run.{module}.Mes', side_effect=mes.endpoint))
+            stack.enter_context(patch(f'environments.norvale.integrations.company_run.{module}.Mes', side_effect=mes.endpoint))
         stack.enter_context(patch.object(Operating, 'definitions', noop))
-        stack.enter_context(patch('integrations.company_run.timing.queue_samples', noop))
+        stack.enter_context(patch('environments.norvale.integrations.company_run.timing.queue_samples', noop))
         stack.enter_context(patch('socket.create_connection', side_effect=AssertionError('network')))
         stack.enter_context(patch('time.sleep', side_effect=AssertionError('global retry')))
         stack.enter_context(redirect_stdout(StringIO()))

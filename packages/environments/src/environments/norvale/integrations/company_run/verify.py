@@ -5,14 +5,14 @@ import json
 from pathlib import Path
 import sys
 
-from adapter import Lake
-from genealogy import ShipmentHistory
-from integrations.qms.disposition_history import ENTITY as DISPOSITION_ENTITY, confirmed_current
-from integrations.qms.measurements import numeric_results
+from environments.norvale.integrations.lake.adapter import Lake
+from environments.norvale.integrations.lake.genealogy import ShipmentHistory
+from environments.norvale.integrations.qms.disposition_history import ENTITY as DISPOSITION_ENTITY, confirmed_current
+from environments.norvale.integrations.qms.measurements import numeric_results
 from deltalake import DeltaTable
-from integrations.mes.client import EVENT
-from native.company import Engine, save
-from native.company_erp import digest
+from environments.norvale.integrations.mes.client import EVENT
+from environments.norvale.native.company import Engine, save
+from environments.norvale.native.company_erp import digest
 from .consumption import STOCK_UNITS, amount, bundle_entry, index_issues, reconcile_inputs
 from .lake import scan_cycle
 from .settlement import read_settlements
@@ -292,7 +292,7 @@ def revoked_allocation_held(revocation, draft, inspection, ledger, traces, histo
 
 def ordinary_revocations(engine, primary, history, traces):
     """Locate changed allocations, then verify their disposition at the owning site."""
-    from integrations.qms.adapter import QMS
+    from components.qms import QMS
     from .authority import qms_target
     flow = engine.company_erp
     results = []
@@ -428,7 +428,7 @@ def verify(root):
     if e.config.get('company_operating'):
         checks['backorder_completed'] = bool(finished)
     checks.update(settlement['checks'])
-    from integrations.qms.adapter import QMS
+    from components.qms import QMS
     qclient = QMS(**settings['qms']['reader'])
     shipments = {}
     for shipment in lots['shipments'].values():
@@ -499,7 +499,7 @@ def verify(root):
         checks['single_release_after_resume'] = bool(resumed_transfer)
         checks['archived_release_transfer'] = bool(archived_transfer and
             archived_transfer['authorization_at_transfer'] == 'confirmed')
-    from rework_archive import reconcile as reconcile_rework
+    from environments.norvale.integrations.lake.rework_archive import reconcile as reconcile_rework
     rework = reconcile_rework(rows, settings['erp']['source'])
     if e.config.get('company_operating'):
         checks['retested'] = any(r['status'] == 'released' for r in rework)

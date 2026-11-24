@@ -10,14 +10,14 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from engine import DAY
-from integrations.lake.adapter import Lake
-from integrations.lake.boundary import Frappe, crosslinks, trace
-from integrations.qms.sample_reference import ENTITY as SAMPLE_ENTITY, decode_registered, registered_note
-from integrations.qms.adapter import ACTION, APIError, CASE, INSPECTION, OP, QMS, STATES
-from native.company import DEFAULT_CONFIG, Engine, save
-from native.company_erp import CompanyERP, Pending
-from native.production_profiles import ADAPTER, LAB_MODEL, profile
-from native.recurring_extensions import open_catalog
+from environments.norvale.integrations.lake.adapter import Lake
+from environments.norvale.integrations.lake.boundary import Frappe, crosslinks, trace
+from environments.norvale.integrations.qms.sample_reference import ENTITY as SAMPLE_ENTITY, decode_registered, registered_note
+from components.qms import ACTION, APIError, CASE, INSPECTION, OP, QMS, STATES
+from environments.norvale.native.company import DEFAULT_CONFIG, Engine, save
+from environments.norvale.native.company_erp import CompanyERP, Pending
+from environments.norvale.native.production_profiles import ADAPTER, LAB_MODEL, profile
+from environments.norvale.native.recurring_extensions import open_catalog
 from .authority import Authority
 from .operating import Operating
 from .quality import finished_specification
@@ -188,15 +188,15 @@ class RegisteredLabTest(TestCase):
             env = {key.upper(): key for key in ('reader', 'secret', 'analyst', 'approver', 'reference_writer')}
             env['NORVALE_CONNECTIONS_FILE'] = str(run/'registry.json')
             with (patch.dict('os.environ', env),
-                  patch('integrations.company_run.operating.QMS', Client),
-                  patch('integrations.company_run.authority.QMS', Client),
+                  patch('environments.norvale.integrations.company_run.operating.QMS', Client),
+                  patch('environments.norvale.integrations.company_run.authority.QMS', Client),
                   patch.object(Frappe, 'response', observe),
-                  patch('integrations.company_run.publications.collect'),
-                  patch('integrations.plm.PLM'),
-                  patch('integrations.mes.client.Mes'),
-                  patch('integrations.lake.mes_reader.scan'),
-                  patch('integrations.lake.mes_reader.scan_labor'),
-                  patch('integrations.lake.mes_reader.scan_staging'),
+                  patch('environments.norvale.integrations.company_run.publications.collect'),
+                  patch('environments.norvale.integrations.plm.PLM'),
+                  patch('environments.norvale.integrations.mes.client.Mes'),
+                  patch('environments.norvale.integrations.lake.mes_reader.scan'),
+                  patch('environments.norvale.integrations.lake.mes_reader.scan_labor'),
+                  patch('environments.norvale.integrations.lake.mes_reader.scan_staging'),
                   patch('urllib.request.OpenerDirector.open', side_effect=AssertionError('Unexpected I/O'))):
                 state = dict(day=0, docs={}, ops={'orders': {}, 'purchases': {}})
                 engine = controller(state)
@@ -258,7 +258,7 @@ class RegisteredLabTest(TestCase):
                 self.assertIsNone(engine.company_erp.state['synced']['batch-west'])
 
                 actor = Operating(engine)
-                with patch('integrations.company_run.demo.Demo.eligible_samples',
+                with patch('environments.norvale.integrations.company_run.demo.Demo.eligible_samples',
                            return_value={'raw-manual': flow.state['lots']['raw-manual']}):
                     self.assertNotIn('raw-manual', actor.eligible_samples())
                 # An already queued inbound sample may now have a manual-only owner.

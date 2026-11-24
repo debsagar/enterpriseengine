@@ -10,10 +10,10 @@ from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 from urllib.parse import unquote, urlsplit
 
-from integrations.company_run.lake import scan_cycle
-from integrations.lake.adapter import Lake
-from integrations.lake.boundary import Frappe, scan_key
-from integrations.qms.disposition_history import ENTITY, RECORD
+from environments.norvale.integrations.company_run.lake import scan_cycle
+from environments.norvale.integrations.lake.adapter import Lake
+from environments.norvale.integrations.lake.boundary import Frappe, scan_key
+from environments.norvale.integrations.qms.disposition_history import ENTITY, RECORD
 
 
 INSPECTION = 'Quality Inspection'
@@ -114,8 +114,8 @@ class DispositionScanTests(TestCase):
             self.assertEqual(rows['west', '1']['spec_revision'], 'OTHER')
             self.assertTrue(all(json.loads(row['payload'])['workflow_state'] == 'Revoked'
                                 for row in archive if row['entity'] == INSPECTION))
-            from integrations.company_run.verify import ordinary_revocations
-            from integrations.lake.genealogy import ShipmentHistory
+            from environments.norvale.integrations.company_run.verify import ordinary_revocations
+            from environments.norvale.integrations.lake.genealogy import ShipmentHistory
             pin = dict(batch='SALVAGE', qty=3, disposition=dict(id='QI-1', status='released', item='SKU',
                        qms_source='east', qms_batch='ORIGINAL', batch='SALVAGE', version=RELEASED,
                        qty=8, uom='Nos', approver='approver'))
@@ -129,7 +129,7 @@ class DispositionScanTests(TestCase):
             warehouse.get.return_value = dict(name='DN', docstatus=0, remarks=json.dumps([pin]),
                 items=[dict(batch_no='SALVAGE', item_code='SKU', qty=3)])
             warehouse.list.return_value = []
-            with patch('integrations.qms.adapter.QMS') as client:
+            with patch('components.qms.QMS') as client:
                 client.return_value.get.return_value = dict(name='QI-1', workflow_state='Revoked',
                     modified=REVOKED, docstatus=1, batch_no='ORIGINAL', item_code='SKU')
                 result, = ordinary_revocations(engine, config('east'), ShipmentHistory(archive, 'erp'), [])

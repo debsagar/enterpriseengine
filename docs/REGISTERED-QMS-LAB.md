@@ -113,5 +113,5 @@ stock-ledger posting are outside this offline qualification. Draft recovery
 assumes one controller writer and read visibility after commit.
 
 ```sh
-PYTHONPATH=.:native python3 -m unittest integrations.company_run.test_registered_lab integrations.company_run.test_primary_sample integrations.company_run.test_scheduled_lake
+uv run python -m unittest environments.norvale.integrations.company_run.test_registered_lab environments.norvale.integrations.company_run.test_primary_sample environments.norvale.integrations.company_run.test_scheduled_lake
 ```

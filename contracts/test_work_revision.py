@@ -1,5 +1,5 @@
 import unittest
-from native.work_revision import pin_work_revision
+from environments.norvale.native.work_revision import pin_work_revision
 
 
 class Revisions(unittest.TestCase):

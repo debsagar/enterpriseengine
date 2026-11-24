@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from native.build_evidence import build
+from environments.norvale.native.build_evidence import build
 
 
 class BankEvidenceTests(unittest.TestCase):

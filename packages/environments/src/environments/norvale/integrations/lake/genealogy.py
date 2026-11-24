@@ -5,7 +5,7 @@ from decimal import Decimal
 from datetime import date
 import json
 
-from boundary import reference_index
+from environments.norvale.integrations.lake.boundary import reference_index
 
 
 def observations_disagree(first, second):
@@ -40,7 +40,7 @@ def publication_matches(publication, work, report, posting, item, *, erp_bom=Non
     if pin.get('receiver_markers', {}) != markers:
         return False
     if markers:
-        from integrations.revisions import valid_receiver_marker
+        from environments.norvale.integrations.revisions import valid_receiver_marker
         observed = {'erp': (erp_bom or {}).get('receiver_marker'), 'mes': report.get('receiver_marker')}
         if any(not valid_receiver_marker(system, marker) or observed.get(system) != marker
                for system, marker in markers.items()):
@@ -108,7 +108,7 @@ class ShipmentHistory:
                     for batch, _ in self.movements(doc,row,'Inward','Stock Entry'):
                         produced[row['item_code'],batch].append(doc)
         self.produced = produced
-        from integrations.lake.shipment_billing import billing_links
+        from environments.norvale.integrations.lake.shipment_billing import billing_links
         self.billing = billing_links(latest, erp)
 
     def matches(self, kind, source, *identity):
@@ -124,8 +124,8 @@ class ShipmentHistory:
 
     def transfer_lineage(self, transfer):
         """Resolve a posted release transfer and both stock legs from this archive."""
-        from integrations.lake.boundary import release_transfer_reference
-        from integrations.company_run.consumption import amount, bundle_entry
+        from environments.norvale.integrations.lake.boundary import release_transfer_reference
+        from environments.norvale.integrations.company_run.consumption import amount, bundle_entry
         if not transfer:
             return None
         source = self.erp
@@ -200,7 +200,7 @@ class ShipmentHistory:
             sample = observations[0]
             posts = self.produced.get((pin['item'], pin['batch']), [])
             if len(posts) == 1 and posts[0].get('stock_entry_type') == 'Repack':
-                from rework_reader import resolve
+                from environments.norvale.integrations.lake.rework_reader import resolve
                 candidate = dict(batch=pin['batch'], item=pin['item'], unit=pin['uom'], qms_source=site,
                                  quality_release=[site, 'Quality Inspection', inspection, pin['version']])
                 errors = []
@@ -249,11 +249,11 @@ class ShipmentHistory:
 
     @cached_property
     def supplier_billing(self):
-        from integrations.lake.shipment_billing import billing_links
+        from environments.norvale.integrations.lake.shipment_billing import billing_links
         return billing_links(self.latest, self.erp, 'Purchase Invoice')
 
     def purchase_receipt(self, name):
-        from integrations.company_run.consumption import amount
+        from environments.norvale.integrations.company_run.consumption import amount
         ref = (self.erp, 'Purchase Receipt', name)
         doc = self.latest.get(ref, {})
         if doc.get('docstatus') != 1 or doc.get('is_return') or not doc.get('items'):
@@ -425,7 +425,7 @@ class ShipmentHistory:
                     continue
                 doc, = postings
                 if doc.get('stock_entry_type') == 'Repack':
-                    from rework_reader import resolve
+                    from environments.norvale.integrations.lake.rework_reader import resolve
                     resolve(lot, doc, erp, history, latest, movements, result['unresolved'], disputed=self.disputed_stock_entries)
                     if 'rework' not in lot:
                         continue

@@ -6,12 +6,12 @@ import tempfile
 import unittest
 from unittest.mock import Mock
 
-from integrations.company_run.planning_report import FIELDS, OWNER, publish, snapshot
+from environments.norvale.integrations.company_run.planning_report import FIELDS, OWNER, publish, snapshot
 
 
 class PlanningReportTests(unittest.TestCase):
     def test_native_scope_and_scan_fail_closed(self):
-        from boundary import ingest
+        from environments.norvale.integrations.lake.boundary import ingest
         dt = '2027-01-01 08:00:00'
         visible = dict(zip(FIELDS, ['WO-1', dt, dt, dt, None, None,
                                   'In Process', 'SHAMPOO', 10, 3, 'Nos']))
@@ -58,8 +58,8 @@ class PlanningReportTests(unittest.TestCase):
             self.assertEqual(read()['freshness'], 'STALE')
 
     def test_unavailable_reader_marks_only_its_entity_stale_on_the_same_pass(self):
-        from boundary import ingest
-        from integrations.company_run.lake import scan
+        from environments.norvale.integrations.lake.boundary import ingest
+        from environments.norvale.integrations.company_run.lake import scan
         from unittest.mock import patch
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -75,7 +75,7 @@ class PlanningReportTests(unittest.TestCase):
             reader = dict(url='http://localhost', api_key='reader', api_secret='fixture')
             config = dict(source=source, reader=reader, entities=['Work Order', 'Purchase Order'],
                           entity_readers={'Work Order': {}})
-            with patch('integrations.lake.boundary.Frappe') as client:
+            with patch('environments.norvale.integrations.lake.boundary.Frappe') as client:
                 client.return_value.documents.return_value = []
                 with self.assertRaises(ExceptionGroup):
                     scan('erp', config, root)
@@ -89,7 +89,7 @@ class PlanningReportTests(unittest.TestCase):
             self.assertEqual(report()['freshness'], 'FRESH')
 
     def test_changed_order_between_queries_uses_complete_final_result(self):
-        from integrations.company_run.planning_report import visible_backlog
+        from environments.norvale.integrations.company_run.planning_report import visible_backlog
         stamp = '2027-01-01 08:00:00'
         rows = [dict(zip(FIELDS, [str(i), stamp, stamp, stamp, None, None,
                                   'In Process', 'Item', 3, 0, 'Nos'])) for i in range(129)]
@@ -100,7 +100,7 @@ class PlanningReportTests(unittest.TestCase):
         self.assertEqual([c.kwargs['limit'] for c in api.list.call_args_list], [128, 256])
 
     def test_publication_retry_after_lost_reply_and_missed_post(self):
-        from integrations.company_run.planning_report import reconcile
+        from environments.norvale.integrations.company_run.planning_report import reconcile
         from unittest.mock import patch
         for committed in (True, False):
             with self.subTest(committed=committed), tempfile.TemporaryDirectory() as path:
@@ -125,7 +125,7 @@ class PlanningReportTests(unittest.TestCase):
                 engine.write.side_effect = create
                 engine.recover_company_doc.side_effect = lambda key, *args: stored.get(key)
                 report = dict(source='erp', company='Company', as_of=day, freshness='FRESH')
-                with patch('integrations.company_run.planning_report.snapshot', return_value=report):
+                with patch('environments.norvale.integrations.company_run.planning_report.snapshot', return_value=report):
                     for current in (day, '2027-01-03'):
                         engine.date.return_value = current
                         engine.stack.clock.now.return_value = datetime.fromisoformat(current)
@@ -155,7 +155,7 @@ class PlanningReportTests(unittest.TestCase):
 
     def test_report_failure_leaves_management_work_running(self):
         from unittest.mock import patch
-        from native.company import Engine
+        from environments.norvale.native.company import Engine
 
         with tempfile.TemporaryDirectory() as path:
             engine = Mock(run=Path(path), day=1, config={'report_every': 2})
@@ -170,7 +170,7 @@ class PlanningReportTests(unittest.TestCase):
             binding = engine.run/'env/planning-report.json'
             binding.parent.mkdir()
             binding.touch()
-            with patch('integrations.company_run.planning_report.publish', side_effect=OSError):
+            with patch('environments.norvale.integrations.company_run.planning_report.publish', side_effect=OSError):
                 Engine.management(engine)
             engine.log.assert_called_once_with('planning_report_failed', error='OSError')
             self.assertEqual([call.args[1] for call in engine.write.call_args_list], ['Journal Entry', 'Note'])
@@ -178,8 +178,8 @@ class PlanningReportTests(unittest.TestCase):
     def test_generate_publishes_through_the_recurring_phase_and_resumes(self):
         from types import SimpleNamespace
         from unittest.mock import patch
-        import generate
-        from company import Engine
+        from environments.norvale import generate
+        from environments.norvale.native.company import Engine
 
         with tempfile.TemporaryDirectory() as path:
             root = Path(path)
@@ -205,7 +205,7 @@ class PlanningReportTests(unittest.TestCase):
             e.observe = Mock(return_value=[])
             e.write = Mock(side_effect=lambda key, doctype, body, role, *args:
                            dict(body, name=key, owner=OWNER))
-            with patch('company.Engine', return_value=e):
+            with patch('environments.norvale.native.company.Engine', return_value=e):
                 generate.main(['--run', path])
                 generate.main(['--run', path])
             planner_calls = [call.args for call in e.write.call_args_list if call.args[3] == 'PLANNER']

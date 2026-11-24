@@ -2,8 +2,8 @@ import json
 import unittest
 from unittest.mock import Mock, patch
 
-from native.company import Engine
-from native.company_erp import CompanyERP, Pending
+from environments.norvale.native.company import Engine
+from environments.norvale.native.company_erp import CompanyERP, Pending
 
 
 class MaintenanceTests(unittest.TestCase):
@@ -68,8 +68,8 @@ class MaintenanceTests(unittest.TestCase):
         self.assertFalse(self.flow.state['lots'])
 
     def test_interrupted_cancellation_uses_work_revision_and_business_date(self):
-        from integrations.company_run.maintenance import MaintenanceAuthority
-        from integrations.qms.adapter import INSPECTION, OP
+        from environments.norvale.integrations.company_run.maintenance import MaintenanceAuthority
+        from components.qms import INSPECTION, OP
         self.authority.interrupted_disposition.side_effect = (
             MaintenanceAuthority.interrupted_disposition.__get__(self.authority))
         self.authority.interrupted_settings.return_value = dict(
@@ -85,7 +85,7 @@ class MaintenanceTests(unittest.TestCase):
                    readings=[dict(specification='pH', numeric=1, min_value=5, max_value=6, reading_1='7.2', status='Rejected')])
         def list_rows(entity, *args, **kwargs):
             return [{'name':'QI', 'modified':'v1', 'creation':'t'}] if entity == INSPECTION else [{'name':'NC'}]
-        with patch('integrations.company_run.maintenance.QMS') as qms:
+        with patch('environments.norvale.integrations.company_run.maintenance.QMS') as qms:
             qms.return_value.get.return_value = doc
             qms.return_value.list.side_effect = list_rows
             for spec, day in [('new-method','2027-01-03'), ('original-spec','2027-01-04'),

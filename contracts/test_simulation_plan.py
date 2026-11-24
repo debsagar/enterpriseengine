@@ -11,7 +11,7 @@ from simulate import ROOT, load_scenario
 class ScenarioContract(unittest.TestCase):
     def test_native_q1_plan_and_invalid_opening_work(self):
         with tempfile.TemporaryDirectory() as tmp:
-            run = Path(tmp) / "company"
+            run = ROOT.parent / (Path(tmp).name + "-company")
             output = subprocess.check_output([sys.executable, ROOT / "simulate.py",
                                               "--run", run, "--plan"], text=True)
             plan = json.loads(output)
@@ -26,11 +26,9 @@ class ScenarioContract(unittest.TestCase):
                 load_scenario(bad)
 
     def test_opening_order_recovers_before_planning_and_rejects_changed_readback(self):
-        import sys
         from types import SimpleNamespace
         from unittest.mock import Mock
-        sys.path.insert(0, str(ROOT / "native"))
-        from company import Engine
+        from environments.norvale.native.company import Engine
 
         order = {"customer":"CUST-5001", "item":"SKU-30001", "quantity":240, "due_day":2}
         saved = {}

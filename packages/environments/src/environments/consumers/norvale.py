@@ -124,3 +124,7 @@ class Consumer:
                                       "event_id": completion_id, "source_event": event_id, "duration": duration}
             reservations[reservation_key]["sequence"] = engine.schedule(completion_id, "production", start, role="operator", duration=duration, book_staff=True,
                             payload={"case": case, "order_id": order_id, "order_system": system, "quantity": quantity})
+
+
+# Existing checkpoints identify the consumer by its original module name.
+Consumer.__module__ = "consumers.norvale"

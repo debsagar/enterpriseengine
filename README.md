@@ -5,7 +5,7 @@
 
 EnterpriseEngine is a Python library for creating those histories in a controlled company. You supply an opening state, roles, working hours, external events and rules for acting. The engine advances business time, runs those rules and persists the consequences. Connect native software when an action needs an independently verifiable record. An investigator can then work from the observable evidence while an evaluator keeps the answer and its provenance private.
 
-**What would that let you test?** In one isolated quality workflow a lot measured **7.2** against a **5.0–6.0** specification. After rework, a new inspection measured **5.5**. The analyst still lacked release authority. The approver released 100 units and later revoked that release. An agent answering “can we ship?” must recover *which inspection, which signer and which point in time*. A second exercise puts two facts in separate expert mailboxes. The planner must ask both people and cite their replies to justify the earliest feasible date. [Native quality qualification](integrations/qms/README.md) · [Expert exercise and checker](docs/EXPERT-INBOX.md)
+**What would that let you test?** In one isolated quality workflow a lot measured **7.2** against a **5.0–6.0** specification. After rework, a new inspection measured **5.5**. The analyst still lacked release authority. The approver released 100 units and later revoked that release. An agent answering “can we ship?” must recover *which inspection, which signer and which point in time*. A second exercise puts two facts in separate expert mailboxes. The planner must ask both people and cite their replies to justify the earliest feasible date. [Native quality qualification](packages/environments/src/environments/norvale/integrations/qms/README.md) · [Expert exercise and checker](docs/EXPERT-INBOX.md)
 
 ## How the engine works
 
@@ -34,7 +34,7 @@ Once `v0.3.0` is tagged, use the following commands on Linux or macOS with Pytho
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install "enterpriseengine @ git+https://github.com/debsagar/enterpriseengine.git@v0.3.0"
+python -m pip install "enterpriseengine @ git+https://github.com/debsagar/enterpriseengine.git@v0.3.0#subdirectory=packages/engine"
 ```
 
 **Save this as `my_company.py` in your own directory.** The company below has one quality reviewer. Two inspection requests arrive before opening. The handler records what the reviewer discovers and when. It needs neither Docker nor model credentials.
@@ -75,13 +75,14 @@ Run `python my_company.py`. The result is `{'A': [550, 'out of range'], 'B': [56
 
 ## Write an opening in JSON
 
-From a Linux or other supported POSIX checkout with Python 3.10+ and SQLite, run the following. This example uses the standard library and needs no accounts or services.
+From a Linux or other supported POSIX checkout with Python 3.10+, SQLite and uv, run the following. This example uses the standard library and needs no accounts or services.
 
 ```sh
 git clone https://github.com/debsagar/enterpriseengine.git
 cd enterpriseengine
-python3 -m examples.first_run --run ./runs/desk --until 550
-python3 -m examples.first_run --run ./runs/desk --until 560
+uv sync --locked --all-packages
+uv run python -m examples.first_run --run ./runs/desk --until 550
+uv run python -m examples.first_run --run ./runs/desk --until 560
 ```
 
 The first command that runs the engine completes A at 09:10. The second reopens the same checkpoint and completes B at 09:20. Its output is:
@@ -129,7 +130,7 @@ run.extend(opening["id"], roles=opening["roles"], events=opening["events"])
 | Runtime additions | Atomically add roles, products, supported software connections and future work. Existing catalog entries are immutable. |
 | Role-scoped decisions | Read evidence as of a business minute. Use deterministic rules for routine work and optionally call JEV or a model for judgment. The host commissions native identities and the company defines approval authority. |
 | Outside events | Seed private world processes and expose their observable effects to company roles. [World process model](docs/WORLD-PROCESSES.md) |
-| Inspection and grading | Inspect journaled calls, responses and readbacks; export confirmed records; implement company-specific extraction questions and private grading. [Runtime reference](engine/README.md) |
+| Inspection and grading | Inspect journaled calls, responses and readbacks; export confirmed records; implement company-specific extraction questions and private grading. [Runtime reference](packages/engine/src/engine/README.md) |
 | Operational scope | One controller per local run directory. A staff count models capacity. Individually modeled employees need identities, behavior and permissions. A 2,000-person full-stack deployment remains unqualified. |
 
 The [warehouse shortage and managed services SLA examples](docs/OBLIGATION-CASES.md)

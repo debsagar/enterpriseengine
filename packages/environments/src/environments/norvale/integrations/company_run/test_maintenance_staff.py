@@ -3,9 +3,9 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from integrations.company_run.maintenance import MaintenanceAuthority
-from integrations.company_run.maintenance_staff import ACTORS, Staff, staffing, usage_fault
-from native.company_erp import Pending, digest
+from environments.norvale.integrations.company_run.maintenance import MaintenanceAuthority
+from environments.norvale.integrations.company_run.maintenance_staff import ACTORS, Staff, staffing, usage_fault
+from environments.norvale.native.company_erp import Pending, digest
 
 
 class StaffTests(unittest.TestCase):
@@ -58,7 +58,7 @@ class StaffTests(unittest.TestCase):
         staff.record_service = Mock(side_effect=lambda reader, text, turn, **kwargs: {
             'ref': text.splitlines()[0], 'adjustment': int(text.splitlines()[-1].split()[-1]),
         })
-        with patch('integrations.company_run.maintenance_staff.vibration', return_value=410):
+        with patch('environments.norvale.integrations.company_run.maintenance_staff.vibration', return_value=410):
             with self.assertRaisesRegex(Pending, 'shift'):
                 staff.advance()
             for day, pending in enumerate(('next staffed', 'next staffed', 'test failed',

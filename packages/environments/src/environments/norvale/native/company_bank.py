@@ -2,7 +2,7 @@
 from datetime import date, timedelta
 import json
 
-from native.company_erp import Pending, digest, quantity
+from environments.norvale.native.company_erp import Pending, digest, quantity
 
 FEED = 'BANK_FEED'
 FEED_USER = 'bank_feed@norvale.test'
@@ -47,7 +47,7 @@ class BankReceipts:
         if FEED not in e.tokens:
             secret = admin.call('frappe.core.doctype.user.user.generate_keys', {'user': FEED_USER})['api_secret']
             e.tokens[FEED] = admin.get('User', FEED_USER)['api_key'] + ':' + secret
-            from native.company import save
+            from environments.norvale.native.company import save
             token_path = e.run / 'env/role-tokens.json'
             save(token_path, e.tokens)
             token_path.chmod(0o600)

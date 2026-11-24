@@ -6,14 +6,14 @@ from math import isclose
 from xmlrpc.client import Error as RPCError, Fault, ProtocolError
 from pathlib import Path
 
-from integrations.mes.client import Mes
-from integrations.plm import Blocked, PLM
-from integrations.qms.adapter import APIError, QMS, INSPECTION, eligible
-from integrations.revisions import Bridge, RevisionMismatch
-from integrations.revisions.receivers import ERPNext, Odoo
-from native.company_erp import Pending, quantity, stock_steps
-from native.production_profiles import profile, quality_target, registered
-from norvale.loader.erp_client import ErpClient
+from environments.norvale.integrations.mes.client import Mes
+from environments.norvale.integrations.plm import Blocked, PLM
+from components.qms import APIError, QMS, INSPECTION, eligible
+from environments.norvale.integrations.revisions import Bridge, RevisionMismatch
+from environments.norvale.integrations.revisions.receivers import ERPNext, Odoo
+from environments.norvale.native.company_erp import Pending, quantity, stock_steps
+from environments.norvale.native.production_profiles import profile, quality_target, registered
+from components.erp_client import ErpClient
 from .maintenance import MaintenanceAuthority, SiteMaintenance
 from .quality import finished_specification, lot_specification
 from .registered_lab import authenticated_actor
@@ -53,8 +53,8 @@ class Authority(MaintenanceAuthority):
         cfg = self.settings()
         if 'rework_mes' not in cfg:
             return None
-        from integrations.qms.rework import ReworkQuality
-        from native.company_rework import Rework
+        from environments.norvale.integrations.qms.rework import ReworkQuality
+        from environments.norvale.native.company_rework import Rework
 
         target, original = cfg['rework_mes'], cfg['mes']
         if (target['url'].rstrip('/'), target['db'], target['source_id']) != (
@@ -82,8 +82,8 @@ class Authority(MaintenanceAuthority):
         if not cfg.get('physical_rework'):
             return None
 
-        from integrations.qms.rework import ReworkQuality, rework_assay
-        from native.company_rework import Rework
+        from environments.norvale.integrations.qms.rework import ReworkQuality, rework_assay
+        from environments.norvale.native.company_rework import Rework
 
         lab = cfg['recurring_lab']
         assay = rework_assay(lab, lot['item'])

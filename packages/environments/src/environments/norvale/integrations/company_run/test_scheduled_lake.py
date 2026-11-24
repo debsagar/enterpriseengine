@@ -5,10 +5,10 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
-import generate
-from company import Engine
-from integrations.lake.adapter import Lake
-from integrations.lake.boundary import Frappe, DISPOSITION_ENTITY
+from environments.norvale import generate
+from environments.norvale.native.company import Engine
+from environments.norvale.integrations.lake.adapter import Lake
+from environments.norvale.integrations.lake.boundary import Frappe, DISPOSITION_ENTITY
 
 
 class ScheduledLake(TestCase):
@@ -51,16 +51,16 @@ class ScheduledLake(TestCase):
                 return [dict(name=entity+'-1', modified='v1')]
 
             with patch.object(Frappe, 'documents', side_effect=documents), patch.object(
-                    Frappe, '__init__', return_value=None), patch('integrations.plm.PLM'), patch(
-                    'integrations.company_run.publications.collect') as publications:
-                with patch('company.Engine', return_value=e):
+                    Frappe, '__init__', return_value=None), patch('environments.norvale.integrations.plm.PLM'), patch(
+                    'environments.norvale.integrations.company_run.publications.collect') as publications:
+                with patch('environments.norvale.native.company.Engine', return_value=e):
                     generate.main(['--run', temp])
                 self.assertEqual(e.state['lake_scans']['last_success_minute']['operations'], 1439)
                 self.assertNotIn('quality', e.state['lake_scans']['last_success_minute'])
                 self.assertIn(('quality', 'ExceptionGroup'), e.state['lake_scans']['errors'])
                 recover = True
                 resumed = controller()
-                with patch('company.Engine', return_value=resumed):
+                with patch('environments.norvale.native.company.Engine', return_value=resumed):
                     generate.main(['--run', temp])
                     count = publications.call_count
                     generate.main(['--run', temp])

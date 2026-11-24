@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
 
-from native.company import Engine
-from native.company_erp import CompanyERP
+from environments.norvale.native.company import Engine
+from environments.norvale.native.company_erp import CompanyERP
 
 
 class SettlementTests(unittest.TestCase):
@@ -128,7 +128,7 @@ class ArchivedAllocations(unittest.TestCase):
 
 class OperatingSettlement(unittest.TestCase):
     def test_overdue_invoice_waits_for_submitted_scoped_bank_observation(self):
-        from native.company_bank import ACCOUNT, FEED_USER, PAYMENT, TRANSACTION
+        from environments.norvale.native.company_bank import ACCOUNT, FEED_USER, PAYMENT, TRANSACTION
 
         invoice = dict(doctype='Sales Invoice', name='INV-1', docstatus=1, company='Company',
                        customer='Acme', currency='EUR', party_account_currency='EUR',
@@ -205,7 +205,7 @@ class OperatingSettlement(unittest.TestCase):
         self.assertEqual(documents[TRANSACTION, 'BANK-1']['unallocated_amount'], 0)
 
     def test_billing_rejects_mismatched_delivery_before_submit(self):
-        from native.company_erp import Pending
+        from environments.norvale.native.company_erp import Pending
 
         headers = dict(customer='Customer', company='Company', currency='EUR')
         line = dict(item_code='S', qty=3, stock_qty=3, conversion_factor=1, uom='ea', rate=2.45)

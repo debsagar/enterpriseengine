@@ -6,9 +6,9 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-from integrations.company_run.operating import Operating
-from integrations.company_run.production_batch import queue_operation
-from integrations.company_run.timing import queue_dispatches
+from environments.norvale.integrations.company_run.operating import Operating
+from environments.norvale.integrations.company_run.production_batch import queue_operation
+from environments.norvale.integrations.company_run.timing import queue_dispatches
 
 
 class PrimaryBatch(TestCase):
@@ -27,7 +27,7 @@ class PrimaryBatch(TestCase):
                                 config={'capacity_units': 4}, persist=lambda: None)
             actor = Operating(e)
             actor.scheduled = lambda work: actor
-            with patch('integrations.company_run.timing.schedule', side_effect=lambda *a, **k: scheduled.append(a)):
+            with patch('environments.norvale.integrations.company_run.timing.schedule', side_effect=lambda *a, **k: scheduled.append(a)):
                 queue_dispatches(e, actor)
                 self.assertEqual(w['production_operations']['1']['production_target'], 2)
                 self.assertEqual(scheduled[0][1][2], '1')

@@ -7,13 +7,13 @@ from tempfile import TemporaryDirectory
 from time import monotonic
 from uuid import uuid4
 
-from consumers.norvale import may_order
+from environments.consumers.norvale import may_order
 from engine import Engine
-from norvale.loader.erp_client import ErpError
+from components.erp_client import ErpError
+from environments.norvale.paths import CHECKOUT
 
 
 CONSUMERS = ("norvale", "managed_services")
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def main(argv=None, *, transport_factory=None):
@@ -36,7 +36,7 @@ def main(argv=None, *, transport_factory=None):
 
 def execute(directory, plan_path, until, transport_factory=None, *, extension_path=None):
     directory = directory.resolve()
-    if directory.is_relative_to(ROOT / "data") or until < 0:
+    if directory.is_relative_to(CHECKOUT / "data") or until < 0:
         raise ValueError("Choose a run outside data/ and a nonnegative cutoff")
     manifest = directory / "incremental.json"
     if plan_path is None:
@@ -54,21 +54,21 @@ def execute(directory, plan_path, until, transport_factory=None, *, extension_pa
     plan = identity["plan"]
     validate(plan)
     if transport_factory is None:
-        from native.incremental_erp import sales_transport
+        from environments.norvale.native.incremental_erp import sales_transport
         transport_factory = sales_transport
     native = transport_factory(identity["namespace"], plan)
     if mode == "erpnext-sales":
-        from native.system_transport import SystemTransport
+        from environments.norvale.native.system_transport import SystemTransport
         transport = SystemTransport()
         transport.bind("erp", "erp", native)
         native = transport
-    consumer = importlib.import_module("consumers." + plan["consumer"]).Consumer(plan["config"])
+    consumer = importlib.import_module("environments.consumers." + plan["consumer"]).Consumer(plan["config"])
     # The engine persists config and checks it on reopen. Bind the entire plan
     # and namespace to the checkpoint before any event is eligible to run.
     consumer.config = {**consumer.config, "_incremental_identity": identity}
 
     def open_connection(name, spec):
-        from native.software_connections import connection
+        from environments.norvale.native.software_connections import connection
         _, adapter = connection(identity["namespace"], name, {"connection": spec["connection"]},
                                 expected=spec["target_hash"])
         adapter.role = adapter.role or spec.get("order_role")
@@ -98,7 +98,7 @@ def execute(directory, plan_path, until, transport_factory=None, *, extension_pa
     if until < engine.now:
         raise ValueError("Cutoff precedes the latest processed edge")
     if mode == "erpnext-sales":
-        from native.software_connections import connection, sales_binding, validate_sales_roles
+        from environments.norvale.native.software_connections import connection, sales_binding, validate_sales_roles
     if extension_path is not None:
         extension = json.loads(extension_path.read_text())
         if (not isinstance(extension, dict) or not isinstance(extension.get("id"), str)

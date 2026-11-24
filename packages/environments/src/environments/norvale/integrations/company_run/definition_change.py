@@ -6,8 +6,8 @@ import json
 import os
 from pathlib import Path
 
-from integrations.plm import Blocked, PLM, digest, quantity, required
-from norvale.loader.erp_client import ErpClient
+from environments.norvale.integrations.plm import Blocked, PLM, digest, quantity, required
+from components.erp_client import ErpClient
 from .authority import Authority
 
 

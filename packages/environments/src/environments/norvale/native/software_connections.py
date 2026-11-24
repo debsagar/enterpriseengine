@@ -5,7 +5,7 @@ import os
 import re
 from pathlib import Path
 
-from native.incremental_erp import EPOCH, sales_transport
+from environments.norvale.native.incremental_erp import EPOCH, sales_transport
 
 
 def host_profile(spec):

@@ -6,10 +6,10 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from integrations.company_run.authority import Authority
-from integrations.company_run.quality import lot_specification
-from native.company import Engine
-from native.company_erp import CompanyERP
+from environments.norvale.integrations.company_run.authority import Authority
+from environments.norvale.integrations.company_run.quality import lot_specification
+from environments.norvale.native.company import Engine
+from environments.norvale.native.company_erp import CompanyERP
 
 
 class BulkFlowTests(unittest.TestCase):
@@ -55,8 +55,8 @@ class BulkFlowTests(unittest.TestCase):
             return {key: profile for key, profile in profiles.items()
                     if item is None or key == 'production-' + item}
         self.addCleanup(patch.stopall)
-        patch('integrations.company_run.authority.registered', side_effect=registry).start()
-        patch('integrations.company_run.authority.profile', side_effect=lambda path, key, spec: ('hash', spec)).start()
+        patch('environments.norvale.integrations.company_run.authority.registered', side_effect=registry).start()
+        patch('environments.norvale.integrations.company_run.authority.profile', side_effect=lambda path, key, spec: ('hash', spec)).start()
         for item, profile in cfg['products'].items():
             mapping = profile['mapping'][item]
             if item == 'BULK':
@@ -176,7 +176,7 @@ class BulkFlowTests(unittest.TestCase):
                                       completion_ref=f'mes:mrp.production:{native_id}', recorded_at_utc='now',
                                       output=output, inputs=inputs, backorder=None)
 
-        with patch('integrations.company_run.authority.QMS') as qms:
+        with patch('environments.norvale.integrations.company_run.authority.QMS') as qms:
             qms.return_value.release.side_effect = qms_release
             qms.return_value.get.side_effect = qms_read
             receive('raw-lot', 'RAW', 'Kg', 1)

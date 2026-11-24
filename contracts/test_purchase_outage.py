@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
-from native.company import Engine
+from environments.norvale.native.company import Engine
 
 
 class PurchaseOutage(TestCase):
@@ -73,7 +73,7 @@ class PurchaseOutage(TestCase):
                 dict(action='approve', reason='Reviewed revised evidence', message='Approved'))}}]}
 
         with patch.dict(os.environ, TYPESAFE_API_KEY='fixture', OPENAI_API_KEY='fixture', NORVALE_OFFLINE='0'), \
-                patch('router.request_json', side_effect=response) as request:
+                patch('environments.norvale.native.router.request_json', side_effect=response) as request:
             with self.assertRaisesRegex(TimeoutError, 'task committed'):
                 engine.approvals()
             engine.state = json.loads((run/'state.json').read_text())

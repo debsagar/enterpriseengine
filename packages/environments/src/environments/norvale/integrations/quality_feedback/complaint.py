@@ -1,5 +1,5 @@
 """Record shipment feedback and preserve its native corrective-action history."""
-from integrations.qms.adapter import ACTION, CASE, INSPECTION, OP
+from components.qms import ACTION, CASE, INSPECTION, OP
 from .scope import inspection_matches, legacy_case
 
 

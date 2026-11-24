@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 
-ROOT = Path(__file__).resolve().parent
+from .paths import CHECKOUT, PACKAGE, SOURCE_LAYOUT
 
 
 def load_scenario(path):
@@ -19,7 +19,7 @@ def load_scenario(path):
         raise ValueError("Unsupported scenario version")
     if type(cfg["days"]) is not int or not 1 <= cfg["days"] <= 365 or type(cfg["seed"]) is not int:
         raise ValueError("Expected 1..365 days and an integer seed")
-    from walkthrough.engine import EnterpriseSimV4
+    from environments.norvale.walkthrough import EnterpriseSimV4
     catalog = EnterpriseSimV4(seed=cfg["seed"], days=30, mode="dry-run")
     items = {sku["sku_id"] for sku in catalog.skus}
     if not isinstance(cfg["opening_orders"], list):
@@ -36,9 +36,9 @@ def load_scenario(path):
     return cfg
 
 
-def main():
+def main(*, checkout=CHECKOUT):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--scenario", type=Path, default=ROOT / "scenarios/norvale-q1.json")
+    p.add_argument("--scenario", type=Path, default=PACKAGE / "scenarios/norvale-q1.json")
     p.add_argument("--run", type=Path, required=True)
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--services", choices=("status", "stop", "start"), help="Operate existing containers for this run")
@@ -46,10 +46,10 @@ def main():
     a = p.parse_args()
     runtime = a.run.resolve()
     try:
-        if runtime.is_relative_to(ROOT) or ROOT.is_relative_to(runtime):
+        if runtime.is_relative_to(checkout) or checkout.is_relative_to(runtime):
             raise ValueError("Choose a private run directory outside the checkout")
         if a.services:
-            from integrations.company_run.services import manage
+            from environments.norvale.integrations.company_run.services import manage
             launcher_run = (runtime / "scenario.json").is_file() and (runtime / "revision").is_file()
             commissioned = (runtime / "services.json").is_file() and (runtime / "business/config.json").is_file()
             if not (launcher_run or commissioned):
@@ -89,20 +89,26 @@ def main():
             if not (runtime / "commissioned").is_file():
                 raise ValueError("Commissioning was interrupted; inspect provision.log before resuming the same services")
         else:
-            revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+            revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=checkout, text=True).strip()
             release.mkdir()
             (runtime / "revision").write_text(revision + "\n")
             (runtime / "scenario.json").write_text(json.dumps(cfg, indent=2) + "\n")
-            subprocess.run(["git", "archive", revision, "-o", str(runtime / "source.tar")], cwd=ROOT, check=True)
+            subprocess.run(["git", "archive", revision, "-o", str(runtime / "source.tar")], cwd=checkout, check=True)
             subprocess.run(["tar", "-xf", str(runtime / "source.tar"), "-C", str(release)], check=True)
-            shutil.copytree(release / "integrations/revisions/odoo_addons", release / "integrations/mes/addons", dirs_exist_ok=True)
+            integrations = release / SOURCE_LAYOUT / "integrations"
+            shutil.copytree(integrations / "revisions/odoo_addons",
+                            integrations / "mes/addons", dirs_exist_ok=True)
             with (runtime / "provision.log").open("w") as log:
-                subprocess.run(["bash", "integrations/company_run/provision.sh", str(runtime)],
-                               cwd=release, env={**os.environ, "PATH":str(Path(sys.executable).parent) + os.pathsep + os.environ["PATH"],
-                                             "NORVALE_COMPANY_OPERATING":"1"},
+                subprocess.run(["uv", "sync", "--locked", "--all-packages", "--python", sys.executable],
+                               cwd=release,
+                               env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(release / ".venv")},
+                               check=True, stdout=log, stderr=subprocess.STDOUT)
+                subprocess.run(["bash", integrations / "company_run/provision.sh", str(runtime)],
+                               cwd=release, env={**os.environ, "NORVALE_COMPANY_OPERATING": "1"},
                                check=True, stdout=log, stderr=subprocess.STDOUT)
             (runtime / "commissioned").touch()
-        subprocess.run([sys.executable, "generate.py", "--run", str(runtime / "business")], cwd=release, check=True)
+        python = release / ".venv/bin/python" if (release / SOURCE_LAYOUT).is_dir() else sys.executable
+        subprocess.run([python, "generate.py", "--run", str(runtime / "business")], cwd=release, check=True)
     except (OSError, ImportError, ValueError, subprocess.CalledProcessError) as exc:
         p.exit(1, f"{exc}\n")
 

@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 from urllib.error import HTTPError
 
-from integrations.plm import Blocked, PLM
+from environments.norvale.integrations.plm import Blocked, PLM
 
 
 def denied(call, exception=Blocked, *, status=None):

@@ -12,8 +12,8 @@ from urllib.parse import quote, urlencode, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from datetime import datetime, timezone
 
-from integrations.qms.adapter import OP
-from integrations.qms.sample_reference import (
+from components.qms import OP
+from environments.norvale.integrations.qms.sample_reference import (
     ENTITY as SAMPLE_ENTITY, KEY as SAMPLE_KEY, decode as sample_scope, decode_registered,
     reference_row as sample_row,
 )
@@ -22,7 +22,7 @@ if __package__:
     from .adapter import Lake, canonical, now
     from .erp_scope import ERP_ANALYTICS_ROLES
 else:
-    from adapter import Lake, canonical, now
+    from environments.norvale.integrations.lake.adapter import Lake, canonical, now
     from erp_scope import ERP_ANALYTICS_ROLES
 
 WORKFLOW_ENTITY = 'Quality Inspection Workflow'
@@ -137,7 +137,7 @@ def project(entity, doc):
                 fields = [*fields, 'rate']
             result[key] = [{k: row[k] for k in fields if k in row} for row in doc[key]]
     if entity == "BOM" and doc.get("custom_norvale_receiver_marker"):
-        from integrations.revisions import valid_receiver_marker
+        from environments.norvale.integrations.revisions import valid_receiver_marker
         marker = doc["custom_norvale_receiver_marker"]
         if not valid_receiver_marker("erp", marker):
             raise ValueError("Invalid ERPNext BOM receiver marker")
@@ -155,7 +155,7 @@ def project(entity, doc):
         if entity == 'Work Order' and isinstance(value, dict) and value.get('version'):
             result['definition'] = scalars(value, ('id','version','erp_bom','item','effective_from','approval_id','inspection_spec','plm_source','erp_released_on','replenishes_sales_order','replenishes_line'))
             if 'receiver_markers' in value:
-                from integrations.revisions import valid_receiver_marker
+                from environments.norvale.integrations.revisions import valid_receiver_marker
                 markers = value['receiver_markers']
                 if (not isinstance(markers, dict) or not markers
                         or not all(valid_receiver_marker(k, v) for k, v in markers.items())):
@@ -288,7 +288,7 @@ class Frappe:
             if entity == 'BOM' and (marker := doc.get('custom_norvale_receiver_marker')):
                 if site_marker is None:
                     docs = self.response('/api/method/frappe.desk.form.load.getdoctype?doctype=BOM')['docs']
-                    from integrations.revisions.receivers import erp_receiver_marker
+                    from environments.norvale.integrations.revisions.receivers import erp_receiver_marker
                     site_marker = erp_receiver_marker(next(row for row in docs if row['name'] == 'BOM'))
                 if site_marker != marker:
                     raise ValueError('ERPNext BOM marker differs from its native site')
@@ -691,7 +691,7 @@ def main():
     else:
         lake = Lake(root/'delta', {})
         if args.cmd == 'genealogy':
-            from genealogy import ShipmentHistory
+            from environments.norvale.integrations.lake.genealogy import ShipmentHistory
             history = ShipmentHistory(lake._rows(), args.source)
             if args.transfer:
                 result = history.transfer_lineage(args.transfer)

@@ -32,8 +32,8 @@ The transition laws and calibrated defaults were adapted from the local STOCKTAK
 Run the Milestone 3 goals and the recurring controller and privacy checks.
 
 ```sh
-python3 -m unittest discover -s tests -p test_engine_goals.py -k Milestone3 -v
-python3 -m unittest discover -s tests -p test_world_processes.py -v
+uv run python -m unittest discover -s contracts -p test_engine_goals.py -k Milestone3 -v
+uv run python -m unittest discover -s contracts -p test_world_processes.py -v
 ```
 
 The recurring test drives the real procurement methods and calendar with injected ERP and mail endpoints. It checks a restart between recipient notices, the absence of an early receipt and a single warehouse booking after arrival. These tests use local temporary checkpoints and cost-free provider doubles.

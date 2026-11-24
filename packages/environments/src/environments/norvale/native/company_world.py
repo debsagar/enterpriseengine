@@ -21,7 +21,7 @@ def check_binding(config, saved):
 
 
 def dispatch(company, key, submitted, promised):
-    from native.recurring_extensions import COMPANY_OPEN, open_catalog
+    from environments.norvale.native.recurring_extensions import COMPANY_OPEN, open_catalog
 
     if company.additions is None:
         company.additions = open_catalog(company.run, company.config, company.state,
@@ -36,7 +36,7 @@ def dispatch(company, key, submitted, promised):
 
 
 def publish(company, clock, key, kind, subject, text, recipients):
-    from native.recurring_extensions import MIDNIGHT
+    from environments.norvale.native.recurring_extensions import MIDNIGHT
 
     old_day, old_event = company.day, company.event
     try:

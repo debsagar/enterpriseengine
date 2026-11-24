@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from native.software_connections import connection
+from environments.norvale.native.software_connections import connection
 
 
 class Connections(unittest.TestCase):

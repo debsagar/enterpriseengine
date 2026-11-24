@@ -5,15 +5,15 @@ import json
 from time import monotonic
 from urllib.error import URLError
 
-from consumers.norvale import Consumer, may_order
+from environments.consumers.norvale import Consumer, may_order
 from engine import DAY, DeferCompletion, Engine
 from engine._extension import validate_event
-from native.company_records import SYSTEM as SALES_READBACK, SOURCES, SalesRecords
-from native.incremental_erp import order_dates, validate_orders
-from native.production_profiles import ADAPTER, FACTORY, profile
-from native.software_connections import connection, host_profile, sales_binding, validate_sales_roles
-from native.system_transport import SystemTransport
-from norvale.loader.erp_client import ErpError
+from environments.norvale.native.company_records import SYSTEM as SALES_READBACK, SOURCES, SalesRecords
+from environments.norvale.native.incremental_erp import order_dates, validate_orders
+from environments.norvale.native.production_profiles import ADAPTER, FACTORY, profile
+from environments.norvale.native.software_connections import connection, host_profile, sales_binding, validate_sales_roles
+from environments.norvale.native.system_transport import SystemTransport
+from components.erp_client import ErpError
 
 EPOCH = date(2027, 1, 1)
 MIDNIGHT = datetime.combine(EPOCH, time(), tzinfo=timezone.utc)
@@ -38,19 +38,19 @@ class RecurringSales(Consumer):
     def publish_world_bulletin(self, clock, fields):
         if self.company is None:
             raise RuntimeError("World events require the recurring company controller")
-        from native.company_world import BULLETIN_ROLES, publish
+        from environments.norvale.native.company_world import BULLETIN_ROLES, publish
         publish(self.company, clock, clock.event["id"], "world_bulletin",
                 "Carrier bulletin", fields["text"], BULLETIN_ROLES)
 
     def delivery_notice(self, clock, fields, eta):
-        from native.company_world import DELAY_ROLES, publish
+        from environments.norvale.native.company_world import DELAY_ROLES, publish
         promised = (EPOCH + timedelta(days=eta // DAY)).isoformat()
         publish(self.company, clock, clock.event["id"], "delay_notice", "Supplier delay notice",
                 f"Carrier reports a delay for purchase order {fields['po']}, promised on {promised}. "
                 "Revised delivery timing is pending.", DELAY_ROLES)
 
     def delivery_arrival(self, clock, fields):
-        from native.company_world import arrival
+        from environments.norvale.native.company_world import arrival
         arrival(self.company, clock, fields)
 
     def __init__(self, config, advance_clock, company):
@@ -97,7 +97,7 @@ class RecurringSales(Consumer):
 def open_catalog(run, config, state, advance_clock=None, *, company=None):
     # Both entry points import the same durable consumer identity. The stack
     # keeps its original path-derived project ID and JSON checkpoint.
-    from native.company import ERP_ROLES, EnterpriseSimV4, ROLES
+    from environments.norvale.native.company import ERP_ROLES, EnterpriseSimV4, ROLES
 
     namespace = sha256(str(run.resolve()).encode()).hexdigest()[:32]
     base = EnterpriseSimV4(seed=config['seed'], days=30, mode='dry-run')
@@ -147,7 +147,7 @@ def authorize(cfg, system, product, role, roles, payload):
 
 
 def submit(run, filename):
-    from company import Engine as Company
+    from environments.norvale.native.company import Engine as Company
 
     config_path = run/'config.json'
     if not config_path.is_file() or not (run/'env/site-created').is_file():
@@ -228,7 +228,7 @@ def submit(run, filename):
             authorize(cfg, system, product, role, roles, payload)
 
     if production:
-        from integrations.company_run.authority import Authority
+        from environments.norvale.integrations.company_run.authority import Authority
         authority = Authority(run)
         for cfg in production.values():
             authority.verify_profile(cfg, as_of=(EPOCH + timedelta(days=state['day'])).isoformat(),

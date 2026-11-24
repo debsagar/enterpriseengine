@@ -2,15 +2,19 @@
 import json
 import subprocess
 
-from native.company import project
+from environments.norvale.native.company import project
+from environments.norvale.paths import SOURCE_LAYOUT
 
 
 def manage(runtime, action):
+    release = runtime / "release"
+    source = release / SOURCE_LAYOUT
+    integrations = (source if source.is_dir() else release) / "integrations"
     files = {
         "erp": runtime / "business/env/compose.json",
-        "mes": runtime / "release/integrations/mes/compose.yaml",
-        "plm": runtime / "release/integrations/plm/compose.yaml",
-        "qms": runtime / "release/integrations/qms/compose.yml",
+        "mes": integrations / "mes/compose.yaml",
+        "plm": integrations / "plm/compose.yaml",
+        "qms": integrations / "qms/compose.yml",
     }
     sources = runtime / "services.json"
     names = {"erp": project(runtime / "business")}

@@ -5,12 +5,12 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
 
-from integrations.company_run.lake import scan, scan_cycle, scheduled_scan
+from environments.norvale.integrations.company_run.lake import scan, scan_cycle, scheduled_scan
 
 
 class CatalogScanTests(TestCase):
     def test_failed_family_lookup_marks_bom_scan_stale(self):
-        with TemporaryDirectory() as tmp, patch('integrations.plm.PLM') as client:
+        with TemporaryDirectory() as tmp, patch('environments.norvale.integrations.plm.PLM') as client:
             root = Path(tmp)
             cfg = dict(source='plant-plm', reader={}, parts=[17])
             client.return_value._family.return_value = []
@@ -40,9 +40,9 @@ class CatalogScanTests(TestCase):
             observed.append((kind, cfg))
             if kind == 'mes':
                 raise OSError('offline')
-        with TemporaryDirectory() as tmp, patch('native.production_profiles.registered', return_value=catalog), \
-                patch('native.production_profiles.profile', return_value=('digest',family)), \
-                patch('integrations.company_run.publications.collect'), patch('integrations.company_run.lake.scan', read):
+        with TemporaryDirectory() as tmp, patch('environments.norvale.native.production_profiles.registered', return_value=catalog), \
+                patch('environments.norvale.native.production_profiles.profile', return_value=('digest',family)), \
+                patch('environments.norvale.integrations.company_run.publications.collect'), patch('environments.norvale.integrations.company_run.lake.scan', read):
             run = Path(tmp)
             (run/'env').mkdir()
             bindings = run/'env/company-sources.json'
@@ -71,7 +71,7 @@ class CatalogScanTests(TestCase):
             last = engine.state['lake_scans']['last_success_minute']
             self.assertEqual(last['plm-A'], 1)
             self.assertEqual(last['lab-A'], 10)
-            with patch('native.production_profiles.profile', side_effect=ValueError('missing profile')):
+            with patch('environments.norvale.native.production_profiles.profile', side_effect=ValueError('missing profile')):
                 scheduled_scan(engine, 20)
             self.assertEqual(last['lab-A'], 10)
             self.assertEqual(engine.state['lake_scans']['unresolved_profiles'], ['production-SKU'])
@@ -90,7 +90,7 @@ class CatalogScanTests(TestCase):
                                            'mes': {'settings': {'company_id': 2}, 'output': {'item': 8}}}})
             catalog['production-BULK'] = {}
             offset = len(observed)
-            with patch('native.production_profiles.profile',
+            with patch('environments.norvale.native.production_profiles.profile',
                        side_effect=lambda run, name, spec: ('digest', other if name == 'production-BULK' else family)):
                 _, both_errors = scan_cycle(settings, run, run)
             self.assertFalse(any(source == 'lab-B' for source, _ in both_errors))

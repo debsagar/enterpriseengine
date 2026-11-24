@@ -9,9 +9,9 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-import generate
-from integrations.lake.boundary import crosslinks, project
-from integrations.qms.adapter import ACTION, CASE, INSPECTION, QMS
+from environments.norvale import generate
+from environments.norvale.integrations.lake.boundary import crosslinks, project
+from components.qms import ACTION, CASE, INSPECTION, QMS
 from .test_returns import ERP, checkpoint_engine
 
 
@@ -152,8 +152,8 @@ class FeedbackSitesTest(unittest.TestCase):
             return self.qms[url.removeprefix('http://')].client(**kwargs)
         (self.root / 'env/company-sources.json').write_text(json.dumps(self.cfg))
         stream = io.StringIO()
-        with (patch('native.company.Engine', self.make_engine),
-              patch('integrations.quality_feedback.__main__.QMS', client), redirect_stdout(stream)):
+        with (patch('environments.norvale.native.company.Engine', self.make_engine),
+              patch('environments.norvale.integrations.quality_feedback.__main__.QMS', client), redirect_stdout(stream)):
             generate.main(['feedback', '--run', str(self.root), command] +
                           [part for k, v in fields.items() for part in ('--' + k.replace('_', '-'), v)])
         return json.loads(stream.getvalue())

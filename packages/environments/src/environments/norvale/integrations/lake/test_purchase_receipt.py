@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from genealogy import ShipmentHistory
+from environments.norvale.integrations.lake.genealogy import ShipmentHistory
 
 
 class PurchaseReceiptHistory(unittest.TestCase):

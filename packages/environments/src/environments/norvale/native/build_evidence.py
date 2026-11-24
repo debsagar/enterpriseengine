@@ -7,6 +7,8 @@ import json
 import os
 from pathlib import Path
 
+from environments.norvale.native.company import ACTIVE_RUN
+
 
 def load(run):
     state = json.loads((run / 'state.json').read_text())
@@ -298,7 +300,7 @@ def build(run, cutoff):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--run', type=Path, default=Path(__file__).parent/'recurring-run')
+    parser.add_argument('--run', type=Path, default=ACTIVE_RUN)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--cutoff', type=int, required=True)
     args = parser.parse_args()

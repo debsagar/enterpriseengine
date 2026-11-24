@@ -1,6 +1,6 @@
 import unittest
 
-from integrations.lake.shipment_billing import billing_links
+from environments.norvale.integrations.lake.shipment_billing import billing_links
 
 
 class ShipmentBillingTests(unittest.TestCase):

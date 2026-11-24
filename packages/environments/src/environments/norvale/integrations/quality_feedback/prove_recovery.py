@@ -3,12 +3,12 @@ from collections import defaultdict
 import json
 from types import SimpleNamespace
 
-from integrations.lake.boundary import Lake, crosslinks, ingest
-from integrations.quality_feedback.__main__ import process
-from integrations.qms.adapter import APIError, QMS
-from native.company import Engine
-from native.company_erp import CompanyERP
-from norvale.loader.erp_client import ErpClient
+from environments.norvale.integrations.lake.boundary import Lake, crosslinks, ingest
+from environments.norvale.integrations.quality_feedback.__main__ import process
+from components.qms import APIError, QMS
+from environments.norvale.native.company import Engine
+from environments.norvale.native.company_erp import CompanyERP
+from components.erp_client import ErpClient
 
 
 def exercise_returns(runtime, fixture, shipment, complaint, released, clients):

@@ -3,11 +3,12 @@
 set -euo pipefail
 umask 077
 runtime=${1:?new absolute directory}
-source=$(cd "$(dirname "$0")/../.." && pwd -P)
+source=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 runtime=$(realpath -m "$runtime")
 [[ "$runtime" != "$source" && "$runtime" != "$source/"* ]]
 mkdir -m 700 "$runtime"
 mkdir "$runtime/release"
-tar -C "$source" --exclude=.git --exclude=engine_build --exclude=__pycache__ -cf - . |
-    tar -C "$runtime/release" -xpf -
-cp -a "$runtime/release/integrations/revisions/odoo_addons/." "$runtime/release/integrations/mes/addons/"
+git -C "$source" archive HEAD | tar -xpf - -C "$runtime/release"
+integrations="$runtime/release/packages/environments/src/environments/norvale/integrations"
+cp -a "$integrations/revisions/odoo_addons/." "$integrations/mes/addons/"
+(cd "$runtime/release" && UV_PROJECT_ENVIRONMENT="$runtime/release/.venv" uv sync --locked --all-packages)

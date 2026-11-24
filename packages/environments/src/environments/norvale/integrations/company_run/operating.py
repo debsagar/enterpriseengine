@@ -6,14 +6,14 @@ import json
 from math import isfinite
 from xmlrpc.client import Fault, ProtocolError
 
-from integrations.plm import Blocked, PLM
-from integrations.revisions import RevisionMismatch
-from integrations.qms.adapter import ACTION, CASE, INSPECTION, OP, QMS, STATES
-from integrations.qms.rework import PH_LIMITS, proposed_salvage
-from integrations.qms.sample_reference import INCOMING
-from native.company import save
-from native.company_erp import Pending, digest
-from native.production_profiles import ADAPTER, production_batch, registered
+from environments.norvale.integrations.plm import Blocked, PLM
+from environments.norvale.integrations.revisions import RevisionMismatch
+from components.qms import ACTION, CASE, INSPECTION, OP, QMS, STATES
+from environments.norvale.integrations.qms.rework import PH_LIMITS, proposed_salvage
+from environments.norvale.integrations.qms.sample_reference import INCOMING
+from environments.norvale.native.company import save
+from environments.norvale.native.company_erp import Pending, digest
+from environments.norvale.native.production_profiles import ADAPTER, production_batch, registered
 from .authority import qms_target
 from .definition_change import change_actors, change_scope
 from .demo import Demo, Mes

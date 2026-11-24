@@ -16,11 +16,11 @@ from unittest.mock import patch
 from urllib.error import URLError
 
 import generate
-import company
+from environments.norvale.native import company
 from engine import DAY
-from integrations.company_run.timing import DEFAULT_TIMING
-from native.recurring_extensions import open_catalog
-from norvale.loader.erp_client import ErpClient
+from environments.norvale.integrations.company_run.timing import DEFAULT_TIMING
+from environments.norvale.native.recurring_extensions import open_catalog
+from components.erp_client import ErpClient
 from test_incremental_cli import FrappeFixture
 
 
@@ -106,8 +106,8 @@ class RecurringExtensions(unittest.TestCase):
         with patch.multiple(company.Engine, **replacements, scheduled_company_event=dispatch), \
              patch.object(company.Engine, 'make_company_erp'), patch.object(company.Engine, 'advance_clock'), \
              patch.object(company, 'Stack', return_value=SimpleNamespace(endpoints=lambda: {})), \
-             patch('native.incremental_erp.ErpClient', side_effect=client), \
-             patch('integrations.company_run.lake.scheduled_scan'), \
+             patch('environments.norvale.native.incremental_erp.ErpClient', side_effect=client), \
+             patch('environments.norvale.integrations.company_run.lake.scheduled_scan'), \
              patch('urllib.request.OpenerDirector.open', side_effect=AssertionError('offline test forbids network')), \
              patch.dict(os.environ, NORVALE_CONNECTIONS_FILE=str(registry), TEST_RECURRING_TOKEN='test-only'), \
              redirect_stdout(io.StringIO()):
@@ -147,7 +147,7 @@ class RecurringExtensions(unittest.TestCase):
             changed = json.loads(saved_registry)
             changed['warehouse-sales']['erp']['site'] = 'different-site.test'
             registry.write_text(json.dumps(changed))
-            with patch('native.incremental_erp.ErpClient', side_effect=AssertionError('wrong site contacted')):
+            with patch('environments.norvale.native.incremental_erp.ErpClient', side_effect=AssertionError('wrong site contacted')):
                 with self.assertRaisesRegex(ValueError, 'Connection target changed'):
                     resume('--days', '10')
             self.assertEqual(operation(), pending)
@@ -269,7 +269,7 @@ class RecurringExtensions(unittest.TestCase):
             replacements.update(seed=forbidden, recurring_setup=forbidden)
             with patch.multiple(company.Engine, **replacements), patch.object(company, 'Stack', Stack), \
                  patch.object(company, 'ErpClient', return_value=SimpleNamespace(login=lambda *a: None)), \
-                 patch('native.incremental_erp.ErpClient', side_effect=client), \
+                 patch('environments.norvale.native.incremental_erp.ErpClient', side_effect=client), \
                  patch('urllib.request.OpenerDirector.open', side_effect=forbidden), \
                  patch.dict(os.environ, NORVALE_CONNECTIONS_FILE=str(registry),
                             TEST_RECURRING_TOKEN='test-only'), \
@@ -325,7 +325,7 @@ class RecurringExtensions(unittest.TestCase):
             self.assertEqual(order['items'][0]['item_code'], 'LOTION-2')
             self.assertEqual(order['remarks'], 'counter-sales')
             self.assertEqual(order['transaction_date'], '2027-01-02')
-            from native.recurring_extensions import open_catalog
+            from environments.norvale.native.recurring_extensions import open_catalog
             catalog = open_catalog(run, config, state)
             self.assertEqual(catalog.history(), [
                 {'id': 'new-order', 'phase': 'start', 'at': 1440+780},
@@ -341,5 +341,5 @@ class RecurringExtensions(unittest.TestCase):
                     with self.subTest(path=path, flags=flags), self.assertRaises(SystemExit):
                         generate.main(['--run', str(path), *flags])
         help_text = subprocess.check_output(
-            [sys.executable, 'native/company.py', '--help'], text=True)
+            [sys.executable, '-m', 'environments.norvale.native.company', '--help'], text=True)
         self.assertIn('--extend', help_text)

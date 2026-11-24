@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 from uuid import uuid4
 
-from integrations.plm import Blocked, PLM
+from environments.norvale.integrations.plm import Blocked, PLM
 
 from . import Bridge, RevisionMismatch, project
 from .receivers import ERP_KEY, ERP_SITE, ODOO_KEY, ODOO_SITE, ERPNext, Odoo

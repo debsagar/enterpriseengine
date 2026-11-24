@@ -1,10 +1,10 @@
 """Reconcile physical rework from archived native records, without a delivery."""
 from datetime import datetime
 
-from integrations.company_run.consumption import amount, bundle_entry, index_issues
-from integrations.qms.disposition_history import confirmed_current
-from genealogy import ShipmentHistory
-from rework_reader import resolve
+from environments.norvale.integrations.company_run.consumption import amount, bundle_entry, index_issues
+from environments.norvale.integrations.qms.disposition_history import confirmed_current
+from environments.norvale.integrations.lake.genealogy import ShipmentHistory
+from environments.norvale.integrations.lake.rework_reader import resolve
 
 
 def reconcile(rows, erp):

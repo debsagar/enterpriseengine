@@ -4,7 +4,7 @@ from copy import deepcopy
 from unittest.mock import patch
 
 import generate
-from integrations.company_run import release_recovery
+from environments.norvale.integrations.company_run import release_recovery
 from test_engine_goals import Goals
 
 
@@ -17,7 +17,7 @@ class ReleaseRecovery(Goals):
         return company, batch, flow.state['lots'][batch]
 
     def test_salvage_retest_cannot_release_original_stock(self):
-        from native.company_erp import Pending
+        from environments.norvale.native.company_erp import Pending
         company, batch, lot = self.ready_transfer()
         company.authority.inspections[batch].update(
             custom_retest_of='failed-inspection', custom_rework_execution='execution-1',
@@ -28,7 +28,7 @@ class ReleaseRecovery(Goals):
         self.assertFalse(any(call[:2] == ('submit', 'Stock Entry') for call in company.erp.calls))
 
     def test_backdated_draft_cannot_acquire_release_authority(self):
-        from native.company_erp import Pending
+        from environments.norvale.native.company_erp import Pending
         company, batch, lot = self.ready_transfer()
         create = company.erp.create
         def backdate(entity, doc):
@@ -75,7 +75,7 @@ class ReleaseRecovery(Goals):
                 self.assertEqual(receipt['lease_state'], 'submitted')
 
     def test_armed_release_with_lost_arm_or_missing_erp_leg_remains_pending(self):
-        from native.company_erp import Pending
+        from environments.norvale.native.company_erp import Pending
 
         for fault in ('arm', 'leg'):
             with self.subTest(fault=fault):
@@ -113,7 +113,7 @@ class ReleaseRecovery(Goals):
                 self.assertEqual(len(submits), 0 if fault == 'arm' else 1)
 
     def test_revocation_or_changed_version_before_acquisition_blocks_release(self):
-        from native.company_erp import Pending
+        from environments.norvale.native.company_erp import Pending
 
         for fault in ('revocation', 'version'):
             with self.subTest(fault=fault):
@@ -135,7 +135,7 @@ class ReleaseRecovery(Goals):
                 self.assertEqual(company.erp.balance(batch, 'RM', 'Hold'), 6)
 
     def test_stock_entry_posted_before_arm_cannot_finalize(self):
-        from native.company_erp import Pending
+        from environments.norvale.native.company_erp import Pending
 
         company, batch, lot = self.ready_transfer()
         authority = company.authority
@@ -196,7 +196,7 @@ class ReleaseRecovery(Goals):
         company.persist()
         (company.run/'config.json').write_text(json.dumps(company.config))
         company.events = lambda: [(0, 'd0000:inspections', company.company_erp.inspections)]
-        with patch('company.Engine', return_value=company):
+        with patch('environments.norvale.native.company.Engine', return_value=company):
             if hard_exit:
                 save = release_recovery.save
                 def exit_after_save(path, cut):
@@ -222,8 +222,8 @@ class ReleaseRecovery(Goals):
         self.assertIsNone(release_recovery.verified_resume(company, cut))
 
     def test_archive_requires_two_active_movements_under_the_owning_source(self):
-        from genealogy import ShipmentHistory
-        from integrations.lake.boundary import project
+        from environments.norvale.integrations.lake.genealogy import ShipmentHistory
+        from environments.norvale.integrations.lake.boundary import project
         pin = dict(id='QI', version='v1', item='X', batch='B', qty=3, uom='Nos',
                    authorized=True, status='released', approver='approver', qms_source='lab')
         cut = dict(batch='B', item='X', uom='Nos', qty=3, source='Q', target='FG', disposition=pin)
@@ -263,10 +263,10 @@ class ReleaseRecovery(Goals):
         self.assertIsNone(archive(source))
 
     def test_scheduled_delta_confirms_exact_native_transfer_and_receipt(self):
-        from genealogy import ShipmentHistory
-        from integrations.company_run.lake import scheduled_scan
-        from integrations.lake.adapter import Lake
-        from integrations.lake.boundary import Frappe
+        from environments.norvale.integrations.lake.genealogy import ShipmentHistory
+        from environments.norvale.integrations.company_run.lake import scheduled_scan
+        from environments.norvale.integrations.lake.adapter import Lake
+        from environments.norvale.integrations.lake.boundary import Frappe
 
         company, batch, lot = self.ready_transfer()
         authority = company.authority
@@ -308,9 +308,9 @@ class ReleaseRecovery(Goals):
             return {'Quality Inspection': [qms_document], 'Norvale Dispatch Lease': [receipt]}.get(entity, [])
 
         with (patch.object(Frappe, '__init__', connect), patch.object(Frappe, 'documents', documents),
-              patch('integrations.company_run.publications.collect'),
-              patch('integrations.company_run.publications.publication_source'),
-              patch('integrations.lake.plm_reader.scan_bom'), patch('integrations.plm.PLM')):
+              patch('environments.norvale.integrations.company_run.publications.collect'),
+              patch('environments.norvale.integrations.company_run.publications.publication_source'),
+              patch('environments.norvale.integrations.lake.plm_reader.scan_bom'), patch('environments.norvale.integrations.plm.PLM')):
             scheduled_scan(company, 1)
             self.assertEqual(company.state['lake_scans']['errors'], [])
             authority.revoke_transfer_inspection(batch)

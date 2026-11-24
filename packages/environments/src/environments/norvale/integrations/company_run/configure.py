@@ -3,11 +3,11 @@ import argparse
 import json
 import os
 from pathlib import Path
-from integrations.mes.client import Mes
-from integrations.plm import PLM
-from integrations.qms.sample_reference import ENTITY as SAMPLE_ENTITY
-from integrations.revisions.receivers import ERPNext, erp_receiver_marker
-from native.company import Engine, save
+from environments.norvale.integrations.mes.client import Mes
+from environments.norvale.integrations.plm import PLM
+from environments.norvale.integrations.qms.sample_reference import ENTITY as SAMPLE_ENTITY
+from environments.norvale.integrations.revisions.receivers import ERPNext, erp_receiver_marker
+from environments.norvale.native.company import Engine, save
 from .authority import qms_target
 
 
@@ -30,7 +30,7 @@ def configure(root, *, scoped_receipts=False, sample_writer=False):
     mes_scan = previous_mes or dict(reader=dict(mes_cfg, login='operator'))
     previous_commission = 'instance' in previous_mes or 'reader_company' in previous_mes
     if instance is not None or reader_secret.exists() or 'mes_analytics' in cfg or previous_commission:
-        from integrations.revisions import valid_receiver_marker
+        from environments.norvale.integrations.revisions import valid_receiver_marker
         from .lake import check_mes_reader
         password = read('mes-analytics-password')
         rework_secret = root/'mes-rework-password'
@@ -106,7 +106,7 @@ def configure(root, *, scoped_receipts=False, sample_writer=False):
         cfg['lab']['sample_writer'] = writer
     save(path, cfg)
     key, secret = e.tokens['QA'].split(':')
-    from integrations.lake.erp_scope import ERP_ANALYTICS_ROLES
+    from environments.norvale.integrations.lake.erp_scope import ERP_ANALYTICS_ROLES
     entity_readers = {}
     for entity, role in {'BOM':'PLANNER', 'Work Order':'PLANNER', **ERP_ANALYTICS_ROLES}.items():
         api_key, api_secret = e.tokens[role].split(':')

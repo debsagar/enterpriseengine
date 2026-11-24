@@ -3,11 +3,11 @@ from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 import json
 
-from integrations.lake.boundary import project
-from integrations.lake.erp_scope import ERP_ANALYTICS_ROLES
-from native.build_evidence import INVOICES, matches_bank_clearance, shipment_rows
-from native.company_bank import BankReceipts
-from native.company_erp import CompanyERP, Pending
+from environments.norvale.integrations.lake.boundary import project
+from environments.norvale.integrations.lake.erp_scope import ERP_ANALYTICS_ROLES
+from environments.norvale.native.build_evidence import INVOICES, matches_bank_clearance, shipment_rows
+from environments.norvale.native.company_bank import BankReceipts
+from environments.norvale.native.company_erp import CompanyERP, Pending
 
 
 FINANCE = ('Sales Invoice', 'Purchase Invoice', 'Payment Entry', 'GL Entry', 'Bank Transaction')

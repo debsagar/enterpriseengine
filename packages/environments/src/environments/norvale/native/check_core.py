@@ -1,7 +1,7 @@
 """Offline checks only; no ERP provisioning or model calls."""
 import ast
 from pathlib import Path
-from regimes import factors
+from environments.norvale.native.regimes import factors
 
 values=[factors(42,d) for d in range(120)]
 assert values==[factors(42,d) for d in range(120)]

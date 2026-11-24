@@ -2,7 +2,7 @@
 from hashlib import sha256
 import json
 
-from integrations.qms.adapter import QMS, INSPECTION, CASE, ACTION
+from components.qms import QMS, INSPECTION, CASE, ACTION
 
 
 def finished_specification(item, procedure_version, plm_source, publication):

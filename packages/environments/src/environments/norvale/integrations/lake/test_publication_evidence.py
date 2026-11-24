@@ -4,8 +4,8 @@ import json
 import os
 import unittest
 from pathlib import Path
-from adapter import Lake
-from genealogy import ShipmentHistory
+from environments.norvale.integrations.lake.adapter import Lake
+from environments.norvale.integrations.lake.genealogy import ShipmentHistory
 
 PATH = os.environ.get('NORVALE_ORDINARY_DELTA')
 MANIFEST = os.environ.get('NORVALE_SHIPMENT_PROOF')

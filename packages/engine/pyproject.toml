@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "enterpriseengine"
+version = "0.3.0"
+description = "A durable business-time simulation engine for modeling enterprise decisions and generating inspectable histories"
+readme = "src/engine/README.md"
+requires-python = ">=3.10"
+classifiers = ["Operating System :: POSIX", "Programming Language :: Python :: 3"]
+
+[project.urls]
+Repository = "https://github.com/debsagar/enterpriseengine"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+engine = ["adapter_specs.json"]

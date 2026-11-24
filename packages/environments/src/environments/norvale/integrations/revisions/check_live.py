@@ -6,9 +6,9 @@ import os
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from integrations.mes.client import Mes
-from integrations.plm import Blocked, PLM
-from norvale.loader.erp_client import ErpClient
+from environments.norvale.integrations.mes.client import Mes
+from environments.norvale.integrations.plm import Blocked, PLM
+from components.erp_client import ErpClient
 
 from . import Bridge, RevisionMismatch
 from .receivers import ERP_KEY, ERPNext, Odoo

@@ -3,10 +3,10 @@ from datetime import date, datetime
 import os
 import re
 
-from integrations.mes.client import CENTER, EVENT, MO, WO, Mes
-from integrations.qms.adapter import CASE, INSPECTION, OP, QMS
-from integrations.qms.measurements import numeric_results
-from native.company_erp import Pending, digest
+from environments.norvale.integrations.mes.client import CENTER, EVENT, MO, WO, Mes
+from components.qms import CASE, INSPECTION, OP, QMS
+from environments.norvale.integrations.qms.measurements import numeric_results
+from environments.norvale.native.company_erp import Pending, digest
 
 
 class MaintenanceAuthority:
@@ -84,7 +84,7 @@ class MaintenanceAuthority:
     def tickets(self, role, *, token=None):
         if role != 'MAINTENANCE':
             raise PermissionError('Maintenance ticket access requires maintenance')
-        from native.systems_v2 import Tickets
+        from environments.norvale.native.systems_v2 import Tickets
         target = self.settings().get('maintenance_tickets')
         if target:
             token = token or target['token']

@@ -11,14 +11,14 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-from integrations.company_run import definition_change
-from integrations.company_run.authority import Authority
-from integrations.plm import Blocked, PLM
-from integrations.revisions.receivers import ERPNext
-from integrations.revisions.test_bridge import EARLY, LATER, PRODUCT, FrappeFixture, MesFixture, components, mapping
-from native.company import Engine, save
-from native.company_erp import CompanyERP, Pending
-from native.production_profiles import ADAPTER, profile
+from environments.norvale.integrations.company_run import definition_change
+from environments.norvale.integrations.company_run.authority import Authority
+from environments.norvale.integrations.plm import Blocked, PLM
+from environments.norvale.integrations.revisions.receivers import ERPNext
+from environments.norvale.integrations.revisions.test_bridge import EARLY, LATER, PRODUCT, FrappeFixture, MesFixture, components, mapping
+from environments.norvale.native.company import Engine, save
+from environments.norvale.native.company_erp import CompanyERP, Pending
+from environments.norvale.native.production_profiles import ADAPTER, profile
 
 
 class FixturePLM(PLM):
@@ -181,9 +181,9 @@ class DefinitionChangeTest(TestCase):
         with (patch.dict('os.environ', env),
               patch.object(definition_change, 'PLM', plm),
               patch.object(definition_change, 'ErpClient', erp_client),
-              patch('integrations.company_run.authority.PLM', plm),
-              patch('integrations.company_run.authority.ErpClient', receiver_client),
-              patch('integrations.company_run.authority.Mes', side_effect=lambda **cfg: mes[cfg['source_id']])):
+              patch('environments.norvale.integrations.company_run.authority.PLM', plm),
+              patch('environments.norvale.integrations.company_run.authority.ErpClient', receiver_client),
+              patch('environments.norvale.integrations.company_run.authority.Mes', side_effect=lambda **cfg: mes[cfg['source_id']])):
             authority = Authority(run)
             _, site = profile(run, system, spec)
             planner_actor = 'Administrator'

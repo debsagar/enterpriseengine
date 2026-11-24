@@ -29,7 +29,7 @@ def sales_system():
 class Extension(unittest.TestCase):
     def fixture(self, name, boundary=None):
         root = Path(self.enterContext(TemporaryDirectory()))
-        consumer = importlib.import_module(f"consumers.{name}").Consumer({})
+        consumer = importlib.import_module(f"environments.consumers.{name}").Consumer({})
         native = Native(root / "native.json")
         providers = Providers()
         directory = root / "run"

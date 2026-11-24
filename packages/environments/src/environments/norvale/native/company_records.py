@@ -69,7 +69,7 @@ class SalesRecords:
                         or (allocation['reference_doctype'], allocation['reference_name'])
                         != ('Sales Invoice', invoice['name'])):
                     raise ValueError('Confirmed remittance differs from native allocation')
-                from native.company_bank import ACCOUNT, FEED_USER, TRANSACTION
+                from environments.norvale.native.company_bank import ACCOUNT, FEED_USER, TRANSACTION
                 api = company.api['FINANCE']
                 scope = dict(docstatus=1, owner=FEED_USER, company=company.company,
                              bank_account=ACCOUNT, currency=invoice['currency'], party_type='Customer',

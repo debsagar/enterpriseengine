@@ -4,8 +4,8 @@ from fractions import Fraction
 from math import isclose
 from xmlrpc.client import Fault
 
-from native.company_erp import Pending, stock_steps
-from native.production_profiles import production_batch
+from environments.norvale.native.company_erp import Pending, stock_steps
+from environments.norvale.native.production_profiles import production_batch
 from .partial_work import partial_work
 
 

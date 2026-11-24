@@ -1,6 +1,6 @@
 import unittest
 
-from native.system_transport import SystemTransport
+from environments.norvale.native.system_transport import SystemTransport
 
 
 class Store:

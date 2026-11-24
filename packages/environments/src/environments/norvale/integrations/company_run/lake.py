@@ -5,14 +5,14 @@ import json
 from pathlib import Path
 import time
 
-from integrations.qms.sample_reference import (
+from environments.norvale.integrations.qms.sample_reference import (
     ENTITY as SAMPLE_ENTITY, ORIGINS, decode, decode_registered, registered_binding,
 )
 
 
 def check_mes_reader(client, cfg):
     """Require the commissioned Odoo instance and its single-company reader."""
-    from integrations.revisions import valid_receiver_marker
+    from environments.norvale.integrations.revisions import valid_receiver_marker
 
     instance, company = cfg['instance'], cfg['reader_company']
     if (not valid_receiver_marker('mes', instance) or type(company) is not int or company <= 0
@@ -46,7 +46,7 @@ def registered_mes_scan(cfg, product, company, primary):
 
 
 def scan(source, cfg, root):
-    from integrations.lake.boundary import DISPOSITION_ENTITY, Frappe, ingest, project
+    from environments.norvale.integrations.lake.boundary import DISPOSITION_ENTITY, Frappe, ingest, project
     if source in ('erp', 'qms'):
         errors = []
         entities = cfg['entities']
@@ -106,8 +106,8 @@ def scan(source, cfg, root):
         if errors:
             raise ExceptionGroup('Native entity scans failed', errors)
     elif source == 'mes':
-        from integrations.lake.mes_reader import scan as collect, scan_labor, scan_staging
-        from integrations.mes.client import Mes
+        from environments.norvale.integrations.lake.mes_reader import scan as collect, scan_labor, scan_staging
+        from environments.norvale.integrations.mes.client import Mes
         client = Mes(**cfg['reader'])
         if 'instance' in cfg or 'reader_company' in cfg:
             check_mes_reader(client, cfg)
@@ -120,13 +120,13 @@ def scan(source, cfg, root):
         if errors:
             raise ExceptionGroup('Native MES scans failed', errors)
     elif source == 'publication':
-        from integrations.plm import PLM
-        from integrations.lake.plm_reader import scan_publications
+        from environments.norvale.integrations.plm import PLM
+        from environments.norvale.integrations.lake.plm_reader import scan_publications
         scan_publications(root, cfg['source'], PLM(**cfg['reader']), cfg['families'], cfg['on'],
                           registered_family=cfg.get('registered_family'))
     elif source == 'plm':
-        from integrations.lake.plm_reader import scan_bom
-        from integrations.plm import PLM
+        from environments.norvale.integrations.lake.plm_reader import scan_bom
+        from environments.norvale.integrations.plm import PLM
         client = PLM(**cfg['reader'])
         parts = (part['pk'] for family in sorted(set(cfg['parts'])) for part in client._family(family))
         scan_bom(root, cfg['source'], client, parts, registered_family=cfg.get('registered_family'))
@@ -135,7 +135,7 @@ def scan(source, cfg, root):
 
 
 def scan_cycle(config, root, run=None, *, qms_sources=None, business_day=None, unresolved_profiles=None):
-    from native.production_profiles import profile, quality_target, registered
+    from environments.norvale.native.production_profiles import profile, quality_target, registered
     sources = set()
     errors = []
     primary_mes = config.get('mes')

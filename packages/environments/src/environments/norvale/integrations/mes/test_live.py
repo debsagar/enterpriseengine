@@ -60,8 +60,8 @@ def run(phase, fixture_path, checkpoint_path):
                            staging_ref, stock, quantity, production)
 
     def scan_staging_receipt(production, lot):
-        from integrations.company_run.lake import scan
-        from integrations.lake.adapter import Lake
+        from environments.norvale.integrations.company_run.lake import scan
+        from environments.norvale.integrations.lake.adapter import Lake
 
         reader = dict(url=url, db="norvale_mes", login="analytics",
                       password=os.environ["MES_ANALYTICS_PASSWORD"], source_id=deployment)

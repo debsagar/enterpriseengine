@@ -12,8 +12,8 @@ from pathlib import Path
 from . import accounts, compose as compose_mod, docker
 from .clock import Clock
 
-TASK = Path(__file__).resolve().parents[2]
-LIB = Path(os.environ.get("NORVALE_CLOCK_LIB", str(TASK / "env-cache/lib")))
+from environments.norvale.paths import CHECKOUT
+LIB = Path(os.environ.get("NORVALE_CLOCK_LIB", str(CHECKOUT / "env-cache/lib")))
 BENCH_SETUP = (
     "ls -1 apps > sites/apps.txt; bench set-config -g db_host db; bench set-config -gp db_port 3306; "
     "bench set-config -g redis_cache redis://redis-cache:6379; bench set-config -g redis_queue redis://redis-queue:6379; "

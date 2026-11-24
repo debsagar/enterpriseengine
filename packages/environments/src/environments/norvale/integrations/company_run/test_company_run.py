@@ -2,9 +2,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from integrations.company_run.authority import Authority
-from integrations.company_run.__main__ import AcceptanceEngine
-from native.company_erp import Pending
+from environments.norvale.integrations.company_run.authority import Authority
+from environments.norvale.integrations.company_run.__main__ import AcceptanceEngine
+from environments.norvale.native.company_erp import Pending
 
 
 class AcceptanceTests(unittest.TestCase):
@@ -38,7 +38,7 @@ class AcceptanceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             authority = Authority(Path(temp))
             authority.settings = lambda: dict(qms_reader={},qms_approver='qa')
-            with patch('integrations.company_run.authority.QMS') as qms:
+            with patch('environments.norvale.integrations.company_run.authority.QMS') as qms:
                 qms.return_value.release.return_value = dict(name='QI-1',modified='v2')
                 qms.return_value.get.return_value = dict(report_date='2027-02-01',modified='v2',
                                                        modified_by='qa',item_code='lotion',batch_no='B',
@@ -64,7 +64,7 @@ class AcceptanceTests(unittest.TestCase):
             decision = dict(id='QI-1', version='v2', approver='QA', qty=10, qms_source='quality')
             request = dict(id='L', delivery='DN',
                            scopes=[dict(lot=lot, disposition=decision, dispatch_qty=2)])
-            with patch('integrations.company_run.authority.QMS') as qms:
+            with patch('environments.norvale.integrations.company_run.authority.QMS') as qms:
                 authority.dispatch_lease(request, outcome='active', role='WAREHOUSE')
                 qms.assert_called_once_with(**dispatcher)
                 qms.return_value.dispatch_lease.assert_called_once_with(
@@ -101,7 +101,7 @@ class AcceptanceTests(unittest.TestCase):
 
     def test_ordinary_model_failure_remains_visible(self):
         from unittest.mock import patch
-        from native.company import Engine
+        from environments.norvale.native.company import Engine
         engine = object.__new__(Engine)
         engine.day, engine.state = 0, {'decisions': {}}
         with patch.dict('os.environ', {'NORVALE_OFFLINE': '1'}):

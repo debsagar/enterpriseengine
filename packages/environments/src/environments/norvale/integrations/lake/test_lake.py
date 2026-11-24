@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from adapter import Lake
+from environments.norvale.integrations.lake.adapter import Lake
 
 
 class LakeTest(unittest.TestCase):
@@ -14,7 +14,7 @@ class LakeTest(unittest.TestCase):
             lake = Lake(Path(tmp) / 'table', {})
             cursor = {}
             docs = [{'name': 'D1'}, {'name': 'D1'}]
-            with patch('adapter.write_deltalake', side_effect=OSError('disk unavailable')):
+            with patch('environments.norvale.integrations.lake.adapter.write_deltalake', side_effect=OSError('disk unavailable')):
                 with self.assertRaises(OSError):
                     lake.ingest('erp', 'Delivery Note', docs, latest=cursor)
             self.assertEqual(cursor, {})

@@ -12,17 +12,17 @@ from unittest import TestCase
 from unittest.mock import patch
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from integrations.company_run.authority import Authority
-from integrations.company_run.quality import finished_specification
-from integrations.company_run.test_registered_lab import catalog_spec, host_profile
-from integrations.company_run.timing import DEFAULT_TIMING
-from integrations.lake.boundary import Frappe
-from integrations.mes.client import LINE, LOT, MO, Mes
-from integrations.qms.adapter import INSPECTION, STATES
-from integrations.qms.sample_reference import COMPANY, WAREHOUSE
-from integrations.revisions.receivers import ERP_SITE
-from native.company import Engine, save
-from native.recurring_extensions import MIDNIGHT
+from environments.norvale.integrations.company_run.authority import Authority
+from environments.norvale.integrations.company_run.quality import finished_specification
+from environments.norvale.integrations.company_run.test_registered_lab import catalog_spec, host_profile
+from environments.norvale.integrations.company_run.timing import DEFAULT_TIMING
+from environments.norvale.integrations.lake.boundary import Frappe
+from environments.norvale.integrations.mes.client import LINE, LOT, MO, Mes
+from components.qms import INSPECTION, STATES
+from environments.norvale.integrations.qms.sample_reference import COMPANY, WAREHOUSE
+from environments.norvale.integrations.revisions.receivers import ERP_SITE
+from environments.norvale.native.company import Engine, save
+from environments.norvale.native.recurring_extensions import MIDNIGHT
 from norvale_goals_fixture import Authority as FixtureAuthority, CompanyFixture, ERP
 
 
@@ -253,7 +253,7 @@ class OrdinarySalvage(TestCase):
         other_mes = MesSite('mes-b', 'OTHER' if registered_block else 'FG',
                             bridge_group=registered_block != 'bridge')
         mes_sites = {site.settings['url']: site for site in (mesh, other_mes)}
-        self.enterContext(patch('integrations.mes.client.ServerProxy',
+        self.enterContext(patch('environments.norvale.integrations.mes.client.ServerProxy',
             side_effect=lambda url, **kwargs: mes_sites[url.split('/xmlrpc/')[0]]))
         def manufacture(site, item, work, work_order, revision):
             site.order(1, 10, 1, 12, input_product=6)
@@ -320,12 +320,12 @@ class OrdinarySalvage(TestCase):
             sites = {'qms-a.example': primary, 'qms-b.example': other,
                      'qms.example': QualitySite(FixtureAuthority(run), None, False)}
             self.register_sites(company, mesh, other_mes, blocked=registered_block)
-            self.enterContext(patch('integrations.qms.adapter.build_opener',
+            self.enterContext(patch('components.qms.build_opener',
                 return_value=SimpleNamespace(open=lambda request, **kwargs:
                     sites[urlsplit(request.full_url).hostname].open(request, **kwargs))))
         else:
             authority.route = lambda *args, **kwargs: (cfg, None)
-            self.enterContext(patch('integrations.qms.adapter.build_opener', return_value=primary))
+            self.enterContext(patch('components.qms.build_opener', return_value=primary))
         if registered_block:
             for site, item in ((primary, 'FG'), (other, 'OTHER')):
                 site.docs['Quality Inspection Parameter', 'pH'] = dict(name='pH')
@@ -506,7 +506,7 @@ class OrdinarySalvage(TestCase):
                             plm=dict(source='plm-a', reader=cfg['plm'], parts=[])))
         save(company.run/'env/planning-report.json', dict(settings=str(settings), archive=str(archive)))
 
-        from integrations.company_run import lake
+        from environments.norvale.integrations.company_run import lake
         scan = lake.scan
 
         def scan_with_collisions(kind, config, destination):
@@ -519,7 +519,7 @@ class OrdinarySalvage(TestCase):
                 scan(kind, {'reader': other_mes.settings}, destination)
 
         with patch.object(Frappe, 'response', response), patch(
-                'integrations.plm.PLM'), patch('integrations.company_run.publications.collect'), patch.object(
+                'environments.norvale.integrations.plm.PLM'), patch('environments.norvale.integrations.company_run.publications.collect'), patch.object(
                 lake, 'scan', side_effect=scan_with_collisions):
             company.run_phase(0, 'd0000:native-clock', lambda: company.run_additions(1439))
         self.assertEqual(company.state['lake_scans']['errors'], [])
@@ -528,9 +528,9 @@ class OrdinarySalvage(TestCase):
 
         result = subprocess.run([sys.executable, '-c', '''
 import json, sys
-from integrations.lake.adapter import Lake
-from integrations.lake.genealogy import ShipmentHistory
-from integrations.lake.rework_archive import reconcile
+from environments.norvale.integrations.lake.adapter import Lake
+from environments.norvale.integrations.lake.genealogy import ShipmentHistory
+from environments.norvale.integrations.lake.rework_archive import reconcile
 rows = Lake(sys.argv[1], {})._rows()
 history = ShipmentHistory(rows, 'erp-a')
 transfer_id, retest_id, output_batch, expected = sys.argv[2:]

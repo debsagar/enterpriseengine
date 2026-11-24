@@ -2,9 +2,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, main
 import json
-from adapter import Lake
-from boundary import trace
-from mes_reader import scan, scan_staging
+from environments.norvale.integrations.lake.adapter import Lake
+from environments.norvale.integrations.lake.boundary import trace
+from environments.norvale.integrations.lake.mes_reader import scan, scan_staging
 
 
 class MesData(TestCase):

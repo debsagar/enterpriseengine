@@ -10,7 +10,7 @@ import sqlite3
 from urllib.parse import urlsplit
 
 from engine._extension import name
-from native.software_connections import host_profile
+from environments.norvale.native.software_connections import host_profile
 
 ADAPTER = 'company-production'
 FACTORY = 'integrations.company_run.authority:Authority'
@@ -174,7 +174,7 @@ def profile(run, system, spec):
             raise ValueError('Physical rework needs a separate available MES bridge password')
         resolved['physical_rework'] = dict(resolved['mes'], login=bridge['login'], password=password)
     if 'mes_reader' in cfg:
-        from integrations.revisions import valid_receiver_marker
+        from environments.norvale.integrations.revisions import valid_receiver_marker
 
         reader = cfg['mes_reader']
         accounts = [cfg[key] for key in ('mes', 'mes_operator', 'maintenance', 'physical_rework') if key in cfg]

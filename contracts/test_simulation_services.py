@@ -4,8 +4,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from integrations.company_run.services import manage
-from norvale.environment.stack import Stack
+from environments.norvale.integrations.company_run.services import manage
+from environments.norvale.environment.stack import Stack
 
 
 class RunServices(unittest.TestCase):
@@ -46,5 +46,5 @@ class RunServices(unittest.TestCase):
             stack.env.mkdir()
             stack.file.write_text(json.dumps(dict(services=dict(frontend=dict(ports=['127.0.0.1:12345:8080'])))))
             for address in ('172.30.0.3', '172.30.0.9'):
-                with patch('norvale.environment.docker.container_ip', return_value=address):
+                with patch('environments.norvale.environment.docker.container_ip', return_value=address):
                     self.assertEqual(stack.endpoints()['erp'],'http://127.0.0.1:12345')

@@ -6,9 +6,9 @@ import math
 if __package__:
     from .boundary import ingest
 else:
-    from boundary import ingest
-from integrations.revisions import valid_receiver_marker
-from integrations.revisions.receivers import BOM, ODOO_SITE
+    from environments.norvale.integrations.lake.boundary import ingest
+from environments.norvale.integrations.revisions import valid_receiver_marker
+from environments.norvale.integrations.revisions.receivers import BOM, ODOO_SITE
 
 
 def completion_document(entity, completion):
@@ -162,7 +162,7 @@ def scan_staging(root, mes, *, product=None, company=None):
 
 def scan_labor(root, mes, work_refs=None, *, product=None, company=None):
     """Read native productivity by its own durable ID through the reader account."""
-    from integrations.mes.client import EVENT, MO, WO
+    from environments.norvale.integrations.mes.client import EVENT, MO, WO
 
     if isinstance(work_refs, str):
         raise TypeError("Pass a sequence of ERP work references")
@@ -218,7 +218,7 @@ def scan_labor(root, mes, work_refs=None, *, product=None, company=None):
 
 
 if __name__ == "__main__":
-    from integrations.mes.client import Mes
+    from environments.norvale.integrations.mes.client import Mes
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ("root", "url", "database", "login", "source"):
         parser.add_argument("--" + key, required=True)

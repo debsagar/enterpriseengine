@@ -9,8 +9,8 @@ import subprocess
 import sys
 from urllib.error import HTTPError
 
-from native.company import save, writable_run
-from native.systems_v2 import Tickets, stack_for
+from environments.norvale.native.company import save, writable_run
+from environments.norvale.native.systems_v2 import Tickets, stack_for
 from .maintenance_staff import ACTORS
 
 REPO = '/repos/controller/operations'
@@ -27,8 +27,7 @@ def provision(run):
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         cfg = json.loads(sources.read_text())
         if not (run / 'ticket-check.json').is_file():
-            subprocess.run([sys.executable, str(Path(__file__).resolve().parents[2] /
-                            'native/provision_tickets_v2.py'), str(run)], check=True)
+            subprocess.run([sys.executable, "-m", "environments.norvale.native.provision_tickets_v2", str(run)], check=True)
         admin = Tickets(run)
         if admin.request('GET', REPO).get('private') is not True:
             raise ValueError('Staffed maintenance requires a private operations repository')

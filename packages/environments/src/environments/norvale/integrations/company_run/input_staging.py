@@ -4,7 +4,7 @@ from hashlib import sha256
 import json
 from math import isclose
 
-from native.company_erp import Pending
+from environments.norvale.native.company_erp import Pending
 
 PREFIX = 'NV-STAGE-'
 LINE = 'stock.move.line'

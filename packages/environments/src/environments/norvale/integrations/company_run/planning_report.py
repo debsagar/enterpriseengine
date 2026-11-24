@@ -56,7 +56,7 @@ def snapshot(api, settings, archive, company, cutoff):
                   basis='Submitted active work orders planned to start by the business cutoff.')
     try:
         state = json.loads((archive/'state.json').read_text())
-        from integrations.lake.boundary import scan_key
+        from environments.norvale.integrations.lake.boundary import scan_key
         entry = state[scan_key(source, ENTITY)]
         if (entry['source'], entry['entity'], entry.get('scope')) != (source, ENTITY, None):
             raise ValueError('Unexpected scan identity')

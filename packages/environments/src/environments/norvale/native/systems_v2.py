@@ -4,9 +4,9 @@ import hashlib
 import subprocess
 import urllib.request
 from pathlib import Path
-from company import Stack, project, save
+from environments.norvale.native.company import ACTIVE_RUN, Stack, project, save
 
-RUN = Path(__file__).parent / 'recurring-run'
+RUN = ACTIVE_RUN
 
 
 def stack_for(run=RUN):
@@ -86,14 +86,14 @@ class Tickets:
         self.config = json.loads((self.run / 'env/tickets.json').read_text())
         if token is not None:
             self.config['token'] = token
-        from norvale.environment import docker
+        from environments.norvale.environment import docker
         self.config['url']='http://'+docker.container_ip(project(self.run),'tickets')+':3000'
 
     def request(self, method, path, body=None):
         req = urllib.request.Request(self.config['url'] + '/api/v1' + path,
             data=None if body is None else json.dumps(body).encode(), method=method,
             headers={'Authorization': 'token ' + self.config['token'], 'Content-Type': 'application/json'})
-        from router import request_json
+        from environments.norvale.native.router import request_json
         # A stage retry rechecks native records before repeating a creation.
         return request_json(req, attempts=1 if method == 'POST' else 4)
 
@@ -194,7 +194,7 @@ def export_native(run=RUN):
     out = Path(run) / 'export'
     out.mkdir(parents=True, exist_ok=True)
     out.chmod(0o700)
-    from norvale.environment import docker
+    from environments.norvale.environment import docker
     with (out / 'erp.sql').open('w') as f:
         subprocess.run(['docker','compose','-p',s.project,'-f',str(s.file),'exec','-T',
                         'db','mariadb-dump','-uroot','-padmin','--single-transaction',s.db_name()],

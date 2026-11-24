@@ -6,9 +6,9 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 
-from integrations.quality_feedback.returns import receive
-from native.company import Engine
-from native.company_erp import CompanyERP
+from environments.norvale.integrations.quality_feedback.returns import receive
+from environments.norvale.native.company import Engine
+from environments.norvale.native.company_erp import CompanyERP
 
 
 class ERP:

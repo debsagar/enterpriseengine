@@ -1,5 +1,5 @@
 """Regression: recover mapped records before ERP rejects a consumed source."""
-from company import Engine
+from environments.norvale.native.company import Engine
 class API:
  def get(self,dt,name):return {'doctype':dt,'name':name,'docstatus':1}
  def list(self,dt,filters):return [{'name':'BOOKED-1'}]

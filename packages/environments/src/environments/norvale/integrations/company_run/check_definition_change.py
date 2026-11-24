@@ -5,15 +5,15 @@ from pathlib import Path
 from types import SimpleNamespace
 from urllib.error import HTTPError
 
-from integrations.company_run.definition_change import propose
-from integrations.company_run.operating import Operating
-from integrations.plm import Blocked, PLM, digest
-from integrations.revisions import Bridge
-from integrations.revisions.receivers import ERPNext, Odoo
-from integrations.revisions.test_bridge import (
+from environments.norvale.integrations.company_run.definition_change import propose
+from environments.norvale.integrations.company_run.operating import Operating
+from environments.norvale.integrations.plm import Blocked, PLM, digest
+from environments.norvale.integrations.revisions import Bridge
+from environments.norvale.integrations.revisions.receivers import ERPNext, Odoo
+from environments.norvale.integrations.revisions.test_bridge import (
     EARLY, LATER, PRODUCT, FrappeFixture, MesFixture, components, mapping,
 )
-from native.company import save
+from environments.norvale.native.company import save
 
 
 def blocked(call, expected):

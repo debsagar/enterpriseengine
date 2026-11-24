@@ -2,7 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from boundary import ingest, project, trace
+from environments.norvale.integrations.lake.boundary import ingest, project, trace
 
 class BoundaryTest(unittest.TestCase):
     def test_replay_late_cancel_filter_failure_restart(self):
@@ -44,7 +44,7 @@ class BoundaryTest(unittest.TestCase):
             self.assertEqual(len(state),2)
 
     def test_overlapping_native_scans_keep_separate_freshness(self):
-        from adapter import Lake
+        from environments.norvale.integrations.lake.adapter import Lake
         with tempfile.TemporaryDirectory() as tmp:
             entity, source = 'InvenTree Publication', 'plm'
             doc = dict(name='7', effective_on='2027-03-01', version='content-hash')
@@ -107,7 +107,7 @@ class BoundaryTest(unittest.TestCase):
 
 class FrappeTest(unittest.TestCase):
     def test_page_deletion_does_not_skip_unseen_name(self):
-        from boundary import Frappe
+        from environments.norvale.integrations.lake.boundary import Frappe
         from urllib.parse import parse_qs, urlparse
         client = Frappe('http://localhost','key','secret')
         names = [f'QI-{i:04}' for i in range(102)]
@@ -123,7 +123,7 @@ class FrappeTest(unittest.TestCase):
         self.assertEqual(list(client.names('Quality Inspection')), [f'QI-{i:04}' for i in range(102)])
 
     def test_only_exact_native_absence_confirms_deletion(self):
-        from boundary import Frappe
+        from environments.norvale.integrations.lake.boundary import Frappe
         from urllib.error import HTTPError
         from unittest.mock import patch
         from io import BytesIO
@@ -146,7 +146,7 @@ class FrappeTest(unittest.TestCase):
     def test_authenticated_api(self):
         from http.server import BaseHTTPRequestHandler, HTTPServer
         from threading import Thread
-        from boundary import Frappe
+        from environments.norvale.integrations.lake.boundary import Frappe
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self):
                 if self.headers.get('Authorization') != 'token key:secret':

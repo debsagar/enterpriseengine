@@ -118,9 +118,9 @@ class ExpertInbox:
 
 def open_case(run, case, *, create=False):
     """Open a case against the existing run's mail accounts and shared business clock."""
-    from norvale.agents.comms import Comms
-    from norvale.environment.clock import Clock
-    from walkthrough.engine import ROLES
+    from environments.norvale.agents.comms import Comms
+    from environments.norvale.environment.clock import Clock
+    from environments.norvale.walkthrough import ROLES
 
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,48}", case):
         raise ValueError("Invalid case ID")

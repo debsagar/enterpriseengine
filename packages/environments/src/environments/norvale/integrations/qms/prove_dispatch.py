@@ -6,8 +6,8 @@ from pathlib import Path
 import subprocess
 import sys
 
-from adapter import INSPECTION
-from prove import denied, exercise
+from components.qms import INSPECTION
+from .prove import denied, exercise
 
 
 def main(runtime, output):

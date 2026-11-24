@@ -8,12 +8,12 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 from urllib.parse import unquote
 
-from integrations.lake.adapter import Lake
-from integrations.lake.boundary import Frappe, crosslinks
-from integrations.qms.adapter import INSPECTION, QMS
-from integrations.qms.sample_reference import ENTITY, INCOMING, KEY, SCOPE
-from native.company import save
-from native.company_erp import CompanyERP, Pending
+from environments.norvale.integrations.lake.adapter import Lake
+from environments.norvale.integrations.lake.boundary import Frappe, crosslinks
+from components.qms import INSPECTION, QMS
+from environments.norvale.integrations.qms.sample_reference import ENTITY, INCOMING, KEY, SCOPE
+from environments.norvale.native.company import save
+from environments.norvale.native.company_erp import CompanyERP, Pending
 from .lake import scan
 from .operating import Operating
 from .test_operating import bind_legacy
@@ -81,7 +81,7 @@ class PrimarySampleTest(TestCase):
                 return clock.schedule.call_args.kwargs['payload']
 
             initial = dict(job=['lab', 'B', None], edge='sample', attempt=0, rows=None)
-            with (patch('integrations.company_run.operating.QMS', Client),
+            with (patch('environments.norvale.integrations.company_run.operating.QMS', Client),
                   patch.object(Operating, 'measurement', return_value=6.4),
                   patch('subprocess.check_output', side_effect=AssertionError('No bench')),
                   patch('urllib.request.OpenerDirector.open', side_effect=AssertionError('No network'))):

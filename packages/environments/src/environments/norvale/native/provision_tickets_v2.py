@@ -1,7 +1,7 @@
 """Provision the isolated real Gitea application; no simulation events."""
 import json, subprocess, time, urllib.request
-from systems_v2 import RUN, stack_for, save
-from norvale.environment import docker
+from environments.norvale.native.systems_v2 import RUN, stack_for, save
+from environments.norvale.environment import docker
 import sys
 from pathlib import Path
 if len(sys.argv)>1:RUN=Path(sys.argv[1]).resolve()
@@ -29,7 +29,7 @@ if not p.exists():
     r = s.compose('exec','-T','--user','git','tickets','gitea','admin','user','generate-access-token',
         '--username','controller','--token-name','native-v2','--scopes','all','--raw',capture_output=True,text=True)
     save(p,{'url':url,'token':r.stdout.strip()});p.chmod(0o600)
-from systems_v2 import Tickets
+from environments.norvale.native.systems_v2 import Tickets
 t = Tickets(RUN)
 try:t.request('GET','/repos/controller/operations')
 except Exception:t.request('POST','/user/repos',{'name':'operations','private':True,'has_issues':True})

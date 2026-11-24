@@ -7,8 +7,8 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-from integrations.lake.erp_scope import ERP_ANALYTICS_ROLES
-from native.production_profiles import ADAPTER, profile
+from environments.norvale.integrations.lake.erp_scope import ERP_ANALYTICS_ROLES
+from environments.norvale.native.production_profiles import ADAPTER, profile
 from .configure import configure
 from .lake import registered_mes_scan, scan, scan_cycle
 
@@ -22,10 +22,10 @@ PRIMARY = dict(reader=READER, instance=INSTANCE, reader_company=1)
 
 class MesAnalyticsTests(TestCase):
     def test_three_collectors_share_the_attested_account_and_fail_before_ingesting(self):
-        with (patch('integrations.mes.client.Mes') as mes,
-              patch('integrations.lake.mes_reader.scan') as completion,
-              patch('integrations.lake.mes_reader.scan_labor') as labor,
-              patch('integrations.lake.mes_reader.scan_staging') as staging):
+        with (patch('environments.norvale.integrations.mes.client.Mes') as mes,
+              patch('environments.norvale.integrations.lake.mes_reader.scan') as completion,
+              patch('environments.norvale.integrations.lake.mes_reader.scan_labor') as labor,
+              patch('environments.norvale.integrations.lake.mes_reader.scan_staging') as staging):
             client = mes.return_value
             client.call.return_value = 'b' * 64
             with self.assertRaises(PermissionError):
@@ -56,9 +56,9 @@ class MesAnalyticsTests(TestCase):
     def test_primary_binding_cannot_be_downgraded_to_legacy_reader(self):
         config = dict(mes={'reader': EXECUTION}, plm={'source': 'plm', 'reader': {}},
                       qms={'source': 'qms', 'reader': {'url': 'http://qms'}, 'entities': []})
-        with (TemporaryDirectory() as tmp, patch('integrations.company_run.lake.scan') as collect,
-              patch('integrations.company_run.publications.collect'),
-              patch('integrations.company_run.publications.publication_source')):
+        with (TemporaryDirectory() as tmp, patch('environments.norvale.integrations.company_run.lake.scan') as collect,
+              patch('environments.norvale.integrations.company_run.publications.collect'),
+              patch('environments.norvale.integrations.company_run.publications.publication_source')):
             run = Path(tmp)
             (run/'env').mkdir()
             sources = run/'env/company-sources.json'
@@ -88,7 +88,7 @@ class MesAnalyticsTests(TestCase):
                    qms_approver='approver', specifications={'bulk': 'spec'}, units={'kg': 'kg'},
                    material_kind='intermediate', stock_step=.01)
         spec = dict(connection='plant')
-        with (TemporaryDirectory() as tmp, patch('native.production_profiles.host_profile', return_value=cfg),
+        with (TemporaryDirectory() as tmp, patch('environments.norvale.native.production_profiles.host_profile', return_value=cfg),
               patch.dict(os.environ, dict(PLM='plm', ERP='erp', WRITER=EXECUTION['password'],
                                          KEY='key', QMS='secret', READER=READER['password']), clear=True)):
             run = Path(tmp)
@@ -112,9 +112,9 @@ class MesAnalyticsTests(TestCase):
                 profile(run, 'production-bulk', spec)
 
     def test_fresh_configuration_verifies_reader_before_other_native_calls(self):
-        with (TemporaryDirectory() as tmp, patch('integrations.company_run.configure.Engine') as engine,
-              patch('integrations.company_run.configure.Mes') as mes,
-              patch('integrations.company_run.configure.ERPNext') as erp):
+        with (TemporaryDirectory() as tmp, patch('environments.norvale.integrations.company_run.configure.Engine') as engine,
+              patch('environments.norvale.integrations.company_run.configure.Mes') as mes,
+              patch('environments.norvale.integrations.company_run.configure.ERPNext') as erp):
             root = Path(tmp)
             engine.return_value = SimpleNamespace(run=root/'business', admin=object())
             (root/'services.json').write_text(json.dumps(dict(mes_url=READER['url'], mes_project='plant')))
@@ -133,10 +133,10 @@ class MesAnalyticsTests(TestCase):
             self.assertFalse((root/'analytics.json').exists())
 
     def test_configure_persists_fresh_binding_and_reopens_old_settings(self):
-        with (TemporaryDirectory() as tmp, patch('integrations.company_run.configure.Engine') as engine,
-              patch('integrations.company_run.configure.Mes') as mes,
-              patch('integrations.company_run.configure.ERPNext'),
-              patch('integrations.company_run.configure.PLM') as plm):
+        with (TemporaryDirectory() as tmp, patch('environments.norvale.integrations.company_run.configure.Engine') as engine,
+              patch('environments.norvale.integrations.company_run.configure.Mes') as mes,
+              patch('environments.norvale.integrations.company_run.configure.ERPNext'),
+              patch('environments.norvale.integrations.company_run.configure.PLM') as plm):
             root = Path(tmp)
             run = root/'business'
             (run/'env').mkdir(parents=True)

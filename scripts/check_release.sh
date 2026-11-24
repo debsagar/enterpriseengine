@@ -5,7 +5,7 @@ set -euo pipefail
 unset PYTHONPATH PYTHONHOME
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-work=$(mktemp -d /tmp/enterpriseengine-gate.XXXXXX)
+work=$(mktemp -d "${TMPDIR:-/tmp}/enterpriseengine-gate.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 
 printf 'Candidate source: %s\n' "$(git rev-parse HEAD)"
@@ -19,7 +19,8 @@ python=${PYTHON:-python3}
 candidate="$work/candidate-env/bin/python"
 upgrade="$work/upgrade-env/bin/python"
 
-"$candidate" -I -m pip wheel --no-deps --wheel-dir candidate source/
+"$candidate" -I -m pip wheel --no-deps --wheel-dir candidate \
+    source/packages/{engine,components,environments}
 candidate_wheels=(candidate/enterpriseengine-*.whl)
 test "${#candidate_wheels[@]}" -eq 1
 candidate_wheel="$work/${candidate_wheels[0]}"
@@ -27,11 +28,30 @@ candidate_version=${candidate_wheel##*/enterpriseengine-}
 candidate_version=${candidate_version%%-*}
 "$candidate" -I -m pip hash "$candidate_wheel"
 
+"$candidate" -I -m pip install --no-index candidate/*.whl
+"$candidate" -I -m pip check
+
+
+"$candidate" -I - <<'PY_CHECK_RESOURCES'
+from importlib.resources import files
+
+norvale = files("environments.norvale")
+for path in (
+    "scenarios/norvale-q1.json",
+    "environment/images/Dockerfile.erp",
+    "environment/images/Dockerfile.calendar",
+    "integrations/mes/compose.yaml",
+    "integrations/qms/compose.yml",
+    "integrations/company_run/provision.sh",
+    "integrations/mes/addons/norvale_mes/security/ir.model.access.csv",
+    "integrations/revisions/odoo_addons/norvale_revision_receiver/__manifest__.py",
+):
+    assert norvale.joinpath(*path.split("/")).is_file(), path
+PY_CHECK_RESOURCES
+
 # Build the previous release from the commit published as v0.2.0.
 "$candidate" -I -m pip wheel --no-deps --wheel-dir baseline \
     'enterpriseengine @ git+https://github.com/debsagar/enterpriseengine.git@285eb0423cee85845ec667db2702e0b192a5ec56'
-"$candidate" -I -m pip install --no-index "$candidate_wheel"
-"$candidate" -I -m pip check
 "$upgrade" -I -m pip install --no-index baseline/enterpriseengine-0.2.0-*.whl
 
 # Expose only staged client code, after checking both installed imports.
@@ -59,7 +79,7 @@ runpy.run_module(sys.argv.pop(1), run_name="__main__", alter_sys=True)
 ' "$expected_version" "$@"
 }
 
-cp source/scripts/check_release_checkpoint.py source/tests/test_engine_resume_shifts.py client/
+cp source/scripts/check_release_checkpoint.py source/packages/engine/tests/test_engine_resume_shifts.py client/
 # Run the Python example published in the README.
 awk '
     /^## Install and use from Python$/ { section = 1; next }
@@ -81,7 +101,7 @@ run_installed "$upgrade" 0.2.0 check_release_checkpoint seed
 run_installed "$upgrade" "$candidate_version" check_release_checkpoint resume
 
 tests=(test_engine_resume_shifts test_engine_obligations test_obligation_cases)
-cp ../source/tests/{test_engine_obligations,test_obligation_cases}.py .
+cp ../source/packages/engine/tests/test_engine_obligations.py ../source/contracts/test_obligation_cases.py .
 cp ../source/examples/obligation_cases.py examples/
 for case in warehouse sla; do
     for cutoff in 19 27; do
@@ -91,12 +111,7 @@ for case in warehouse sla; do
     done
 done
 
-mkdir -p consumers native norvale/loader
-cp ../source/consumers/{__init__,extraction,managed_services,shared}.py consumers/
-cp ../source/native/managed_services.py native/
-cp ../source/norvale/__init__.py norvale/
-cp ../source/norvale/loader/{__init__,erp_client}.py norvale/loader/
-cp ../source/tests/{test_engine_goals,test_managed_services_obligations}.py .
+cp ../source/contracts/{test_engine_goals,test_managed_services_obligations}.py .
 # The suite's Goals fixture uses TestCase.enterContext (Python 3.11+).
 if "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
     tests+=(test_managed_services_obligations)

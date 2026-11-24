@@ -1,12 +1,12 @@
 import json
 import unittest
 
-from boundary import crosslinks, project
+from environments.norvale.integrations.lake.boundary import crosslinks, project
 
 
 class CrossSourceTest(unittest.TestCase):
     def test_quarantine_transfer_requires_exact_native_release_scope(self):
-        from integrations.qms.disposition_history import ENTITY
+        from environments.norvale.integrations.qms.disposition_history import ENTITY
         pin = dict(id='I', version='t1', item='sku', batch='salvage', qms_batch='original',
                    qty=8, uom='Nos', status='released', qms_source='east', approver='qa', authorized=True,
                    comment='private')
@@ -105,7 +105,7 @@ class CrossSourceTest(unittest.TestCase):
         self.assertNotIn(edge, crosslinks(data)['edges'])
 
     def test_trace_shipment_to_measured_input_and_release(self):
-        from genealogy import shipment
+        from environments.norvale.integrations.lake.genealogy import shipment
         from types import SimpleNamespace
         def bundle(key, typ, voucher, line, outward):
             return dict(name=key,docstatus=1,is_cancelled=0,voucher_type=typ,voucher_no=voucher,
@@ -254,7 +254,7 @@ class CrossSourceTest(unittest.TestCase):
         self.assertIn(['BULK-B','bulk manufacture, release and packing consumption'],inspect()['unresolved'])
 
     def test_trace_rejects_release_allocation_quantity_mismatch(self):
-        from genealogy import shipment
+        from environments.norvale.integrations.lake.genealogy import shipment
         from types import SimpleNamespace
         note = dict(name='D', docstatus=1, items=[dict(name='L', item_code='S', serial_and_batch_bundle='SB')],
                     quality_releases=[dict(batch='B', qty=1, disposition=dict(item='S', batch='B', status='released', id='I', version='v'))])

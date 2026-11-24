@@ -13,17 +13,14 @@ import hashlib
 from urllib.parse import urlsplit, parse_qs, unquote
 import json
 import operator
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'native'))
-import company
-import router
-import systems_v2
+from environments.norvale.native import company
+from environments.norvale.native import router
+from environments.norvale.native import systems_v2
 
 
 class Response(io.BytesIO):
@@ -39,7 +36,7 @@ class RecoveryTests(unittest.TestCase):
         from tempfile import TemporaryDirectory
         from pathlib import Path
         from unittest.mock import patch
-        from native import company
+        from environments.norvale.native import company
         with TemporaryDirectory() as directory:
             run = Path(directory)
             company.save(run/'env/role-tokens.json', {'PLANNER': 'planner-token'})
@@ -272,7 +269,7 @@ class RecoveryTests(unittest.TestCase):
             def status():
                 return json.loads((run / 'state.json').read_text()).get('mail_operations', {}).get('key', {}).get('status')
 
-            with patch('norvale.agents.comms.smtplib.SMTP', SMTP), patch('norvale.agents.comms.imaplib.IMAP4', IMAP):
+            with patch('environments.norvale.agents.comms.smtplib.SMTP', SMTP), patch('environments.norvale.agents.comms.imaplib.IMAP4', IMAP):
                 if altered:
                     for _ in range(2):
                         with self.assertRaisesRegex(RuntimeError, 'Mail delivery readback differs'):

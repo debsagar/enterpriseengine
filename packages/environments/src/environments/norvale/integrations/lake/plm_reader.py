@@ -2,8 +2,8 @@
 if __package__:
     from .boundary import ingest
 else:
-    from boundary import ingest
-from integrations.revisions import valid_receiver_marker
+    from environments.norvale.integrations.lake.boundary import ingest
+from environments.norvale.integrations.revisions import valid_receiver_marker
 
 
 def definition_document(entity, publication):
@@ -89,7 +89,7 @@ def scan_bom(root, source, client, part_ids, *, registered_family=None):
 if __name__ == "__main__":
     import argparse
     import os
-    from integrations.plm import PLM
+    from environments.norvale.integrations.plm import PLM
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True)

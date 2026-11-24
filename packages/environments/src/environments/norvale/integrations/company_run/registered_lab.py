@@ -2,12 +2,12 @@
 from datetime import date
 from math import isfinite
 
-from integrations.qms.adapter import APIError, INSPECTION, OP
-from integrations.qms.rework import rework_assay
-from integrations.qms.sample_reference import (
+from components.qms import APIError, INSPECTION, OP
+from environments.norvale.integrations.qms.rework import rework_assay
+from environments.norvale.integrations.qms.sample_reference import (
     LOT_FIELDS, ORIGINS, decode_registered, reference_row, registered_binding, registered_note, submitted_row,
 )
-from native.company_erp import Pending, digest
+from environments.norvale.native.company_erp import Pending, digest
 from .quality import finished_specification, lot_specification
 
 

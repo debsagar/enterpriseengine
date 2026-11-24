@@ -80,11 +80,11 @@ Run the native regression against isolated projects using the existing provision
 
 ```sh
 runtime=$(mktemp -d)
-integrations/qms/provision.sh up "$runtime"
-integrations/qms/provision.sh configure "$runtime"
-integrations/qms/provision.sh fixture "$runtime"
-MES_REWORK_QMS_RUNTIME="$runtime" MES_TEST_SOURCE=nvmes-rework-check MES_PORT=53645 integrations/mes/verify.sh
-integrations/qms/provision.sh stop "$runtime"
+packages/environments/src/environments/norvale/integrations/qms/provision.sh up "$runtime"
+packages/environments/src/environments/norvale/integrations/qms/provision.sh configure "$runtime"
+packages/environments/src/environments/norvale/integrations/qms/provision.sh fixture "$runtime"
+MES_REWORK_QMS_RUNTIME="$runtime" MES_TEST_SOURCE=nvmes-rework-check MES_PORT=53645 uv run bash packages/environments/src/environments/norvale/integrations/mes/verify.sh
+packages/environments/src/environments/norvale/integrations/qms/provision.sh stop "$runtime"
 ```
 
 ## Invoice settlement

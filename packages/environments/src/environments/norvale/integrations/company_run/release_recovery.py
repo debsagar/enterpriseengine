@@ -4,8 +4,8 @@ from pathlib import Path
 import sys
 from unittest.mock import patch
 
-from native.company import save, writable_run
-from native.company_erp import CompanyERP
+from environments.norvale.native.company import save, writable_run
+from environments.norvale.native.company_erp import CompanyERP
 
 
 INTERRUPTION = 'Qualification interrupted after QMS release and before ERP stock transfer'
@@ -110,7 +110,7 @@ def archived_resume(history, transfer, cut):
 
 
 def main(run):
-    import generate
+    from environments.norvale import generate
     run = writable_run(run)
     if not json.loads((run/'config.json').read_text()).get('company_operating'):
         raise ValueError('Select a configured ordinary operating run')

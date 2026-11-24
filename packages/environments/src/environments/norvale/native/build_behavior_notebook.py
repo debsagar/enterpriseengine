@@ -1,5 +1,6 @@
 """Build and execute a short, read-only notebook over the actual safe exports."""
 import argparse
+from environments.norvale.paths import CHECKOUT
 import os
 from pathlib import Path
 import nbformat as n
@@ -7,7 +8,7 @@ from nbclient import NotebookClient
 from nbconvert import HTMLExporter
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--run',type=Path,default=Path(__file__).resolve().parents[1]/'data');p.add_argument('--out',type=Path,required=True);a=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--run',type=Path,default=CHECKOUT/'data');p.add_argument('--out',type=Path,required=True);a=p.parse_args()
  run=a.run.resolve();out=a.out.resolve();out.mkdir(parents=True,exist_ok=True)
  cells=[]
  def md(s):cells.append(n.v4.new_markdown_cell(s))

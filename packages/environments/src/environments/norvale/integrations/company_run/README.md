@@ -29,7 +29,7 @@ On the first invocation the injector stops the generator after observing a full 
   test -f "$business/config.json"
   if [[ ! -f "$business/ordinary-release-interruption.json" ]]; then
     first_log=$(mktemp "$run/release-interruption.XXXXXX.log")
-    if python3 -m integrations.company_run.release_recovery "$business" >"$first_log" 2>&1; then
+    if uv run python -m environments.norvale.integrations.company_run.release_recovery "$business" >"$first_log" 2>&1; then
       echo "Expected the first process to stop at the release. See $first_log" >&2
       exit 1
     fi
@@ -37,7 +37,7 @@ On the first invocation the injector stops the generator after observing a full 
     test -s "$business/ordinary-release-interruption.json"
   fi
   python3 generate.py --run "$business"
-  python3 -m integrations.company_run.verify "$run"
+  uv run python -m environments.norvale.integrations.company_run.verify "$run"
 )
 ```
 
@@ -57,10 +57,10 @@ cash postings can satisfy settlement without a bank clearance claim.
 
 ```bash
 export PYTHONPATH=".:native:integrations/lake"
-python3 -m unittest integrations.company_run.test_company_run
-python3 -m integrations.company_run "$demo/business" --through 2
-python3 -m integrations.company_run.lake "$demo/analytics.json" "$demo/lake"
-python3 -m integrations.company_run.verify "$demo"
+uv run python -m unittest environments.norvale.integrations.company_run.test_company_run
+uv run python -m environments.norvale.integrations.company_run "$demo/business" --through 2
+uv run python -m environments.norvale.integrations.company_run.lake "$demo/analytics.json" "$demo/lake"
+uv run python -m environments.norvale.integrations.company_run.verify "$demo"
 ```
 
 A–L responsibilities include native product and identity setup in A, the original clock and partial fill in B/C, observed measurements and cases in D/E, local acceptance inputs in F–H, revision, lot, and dispatch checks in I, and native writes, readback, independent history, and resume in J–L. Keep the inherited model path for ordinary engine runs.
@@ -113,7 +113,7 @@ Use fresh directories for timed runs.
 Run the entry-point re-open test without services or paid calls.
 
 ```bash
-PYTHONPATH=.:native:tests python3 -m unittest integrations.company_run.test_timing
+PYTHONPATH=.:native:tests uv run python -m unittest environments.norvale.integrations.company_run.test_timing
 ```
 
 ## Bulk manufacture and packing
@@ -151,9 +151,9 @@ transport responses for ERP, QMS, PLM and MES. The private Odoo fixture can
 independently exercise the physical transfer and two native MOs.
 
 ```bash
-PYTHONPATH=.:native python3 -m unittest discover -s tests -p 'test_company*.py'
+PYTHONPATH=.:native uv run python -m unittest discover -s contracts -p 'test_company*.py'
 # Against a fresh isolated integrations/mes fixture with MES_TEST_* set.
-python3 -m integrations.mes.test_bulk_live /path/to/fixture.json
+uv run python -m environments.norvale.integrations.mes.test_bulk_live /path/to/fixture.json
 ```
 
 ## Ordinary company run
@@ -173,7 +173,7 @@ and the staffed maintenance identities. To opt in an existing dedicated native
 company run, use the same private business directory.
 
 ```bash
-PYTHONPATH=.:native python3 -m integrations.company_run.provision_maintenance "$demo/business"
+PYTHONPATH=.:native uv run python -m environments.norvale.integrations.company_run.provision_maintenance "$demo/business"
 ```
 
 Keep `NORVALE_OFFLINE=1` on each invocation to use local purchasing and finance
@@ -349,9 +349,9 @@ planner's submitted BOM readback. A formulation-only intermediate stays an
 intermediate when its component quantities change.
 
 ```sh
-python3 -m integrations.company_run.definition_change RUN propose NV-EAST-BULK B BOM-ID
-python3 -m integrations.company_run.definition_change RUN review 42 REVIEW-REF --family NV-EAST-BULK
-python3 -m integrations.company_run.definition_change RUN approve 42 DECISION-REF --family NV-EAST-BULK --effective 2027-02-01
+uv run python -m environments.norvale.integrations.company_run.definition_change RUN propose NV-EAST-BULK B BOM-ID
+uv run python -m environments.norvale.integrations.company_run.definition_change RUN review 42 REVIEW-REF --family NV-EAST-BULK
+uv run python -m environments.norvale.integrations.company_run.definition_change RUN approve 42 DECISION-REF --family NV-EAST-BULK --effective 2027-02-01
 ```
 
 Use `--family ITEM` on registered-family decisions (including `reject`).
@@ -413,7 +413,7 @@ Fresh ordinary company setup provisions a dedicated QMS sample writer, the incom
 For an older **private ordinary run**, opt in to commissioning new references. Stop its ordinary clock and run these commands from the updated release against that run's isolated runtime.
 
     bash integrations/qms/provision.sh sample-writer-only /absolute/runtime/qms
-    PYTHONPATH=.:native:integrations/lake python3 -m integrations.company_run.configure /absolute/runtime --scoped-receipts --sample-writer
+    uv run python -m environments.norvale.integrations.company_run.configure /absolute/runtime --scoped-receipts --sample-writer
 
 The first command commissions the isolated QMS site and writes private sample-writer credentials in qms/sample-writer.json. The second binds the credentials to the operating ERP and refreshes the analytics settings. Without the binding, lots that lack a previously commissioned reference stay pending. Legacy drafts retain their original owner and mapping. They contain the ERP document and batch in remarks and lack historical ERP instance and row markers. Each use rechecks the submitted ERP row and the independently read QMS draft. Changes of ERP instance, QMS instance, or commissioned identities require separate reconciliation.
 

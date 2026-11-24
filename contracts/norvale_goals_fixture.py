@@ -9,15 +9,15 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from integrations.company_run.authority import Authority as NativeAuthority
-from integrations.company_run.operating import HIGH, LOW, Operating
-from integrations.company_run.quality import lot_specification
-from integrations.qms.adapter import INSPECTION, eligible
-from native.company import Engine as Company
-from native.company_bank import ACCOUNT, FEED_USER, TRANSACTION
-from native.company_erp import CompanyERP
-from native.company_records import SalesRecords
-from native.recurring_extensions import DAY, MIDNIGHT, RecurringSales
+from environments.norvale.integrations.company_run.authority import Authority as NativeAuthority
+from environments.norvale.integrations.company_run.operating import HIGH, LOW, Operating
+from environments.norvale.integrations.company_run.quality import lot_specification
+from components.qms import INSPECTION, eligible
+from environments.norvale.native.company import Engine as Company
+from environments.norvale.native.company_bank import ACCOUNT, FEED_USER, TRANSACTION
+from environments.norvale.native.company_erp import CompanyERP
+from environments.norvale.native.company_records import SalesRecords
+from environments.norvale.native.recurring_extensions import DAY, MIDNIGHT, RecurringSales
 
 
 class ERP:
@@ -233,7 +233,7 @@ class Authority(NativeAuthority):
                     submit_permitted=old == "active" and outcome == "armed")
 
     def scripted_transfer_lease(self, request, outcome, commit, *, actor="dispatcher"):
-        from integrations.qms.dispatch_lease import ENDPOINT
+        from environments.norvale.integrations.qms.dispatch_lease import ENDPOINT
 
         def get_value(entity, key, fields, *, for_update, as_dict=False, order_by=None):
             assert for_update
@@ -276,7 +276,7 @@ class Authority(NativeAuthority):
         return frappe.response["message"]
 
     def revoke_transfer_inspection(self, batch):
-        from integrations.qms.dispatch_lease import GUARD
+        from environments.norvale.integrations.qms.dispatch_lease import GUARD
 
         def throw(message):
             raise ValueError(message)
@@ -427,7 +427,7 @@ class CompanyFixture(Company):
 
 def start_queue(directory, company, providers, *, boundary=None):
     from engine import Engine
-    from native.system_transport import SystemTransport
+    from environments.norvale.native.system_transport import SystemTransport
 
     transport = SystemTransport()
     SalesRecords(company).bind(transport)
@@ -441,9 +441,9 @@ def start_queue(directory, company, providers, *, boundary=None):
 
 
 def schedule_order(test, run, quantity):
-    from native.production_profiles import ADAPTER
+    from environments.norvale.native.production_profiles import ADAPTER
     # RecurringSales uses this profile validation before admitting the ERP order.
     assert run.catalog["systems"]["erp"]["adapter"] == ADAPTER
-    test.enterContext(patch("native.recurring_extensions.profile",
+    test.enterContext(patch("environments.norvale.native.recurring_extensions.profile",
                             return_value=("bound", dict(item="FG", customer="Acme", order_roles=["sales"]))))
     test.schedule(run, "order", case="C1", quantity=quantity, rate=25, product="finished", role="sales")

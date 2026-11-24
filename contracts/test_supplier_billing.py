@@ -6,9 +6,9 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
 
-from native.company import Engine
-from native.company_erp import CompanyERP
-from norvale.loader.erp_client import ErpError
+from environments.norvale.native.company import Engine
+from environments.norvale.native.company_erp import CompanyERP
+from components.erp_client import ErpError
 
 
 class SupplierBillingTests(unittest.TestCase):
@@ -224,7 +224,7 @@ class SupplierBillingTests(unittest.TestCase):
         e.api['BUYER'].call.assert_not_called()
 
     def test_installment_import_respects_hold_and_persists_eligible_transfer_date(self):
-        from native.company_bank import BankReceipts
+        from environments.norvale.native.company_bank import BankReceipts
         e = self.engine
         e.company, e.config = self.invoice['company'], {'seed':42}
         e.date = lambda:'2027-01-14'

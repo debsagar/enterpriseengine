@@ -1,7 +1,7 @@
 """Offline behavior test: mocked JEV/LLM, no services or paid calls."""
 from copy import deepcopy
-from company import Engine
-import router
+from environments.norvale.native.company import Engine
+from environments.norvale.native import router
 p={'role':'SCM_MGR','effective_date':'2027-01-02','review_date':'2027-01-20','approval_limit':100,'reorder_target':10,'suppliers':['S'],'items':['M']}
 evidence={'supplier':'S','grand_total':50,'items':[{'item_code':'M','qty':5,'rate':10}],'coverage':[{'item_code':'M','released_raw_materials_qty':2,'quarantine_qty':0,'open_po_qty_excluding_this':0}]}
 e=Engine.__new__(Engine);e.day=3;e.state={'standing_policies':[p],'decisions':{}}

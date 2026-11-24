@@ -10,9 +10,9 @@ import unittest
 
 from engine import Engine
 from engine.__main__ import main
-from native.production_profiles import ADAPTER, registered
+from environments.norvale.native.production_profiles import ADAPTER, registered
+from packages.engine.tests.test_engine_resume_shifts import Consumer, open_engine
 from test_engine_goals import Native
-from test_engine_resume_shifts import Consumer, open_engine
 
 
 class Storage(unittest.TestCase):
@@ -26,7 +26,8 @@ class Storage(unittest.TestCase):
                 directory = root / "scheduled-additions"
                 directory.mkdir()
                 database = directory / "engine.sqlite3"
-                consumer = importlib.import_module(f"consumers.{name}").Consumer({})
+                consumer = importlib.import_module(f"environments.consumers.{name}").Consumer({})
+                self.assertIs(type(consumer), importlib.import_module(f"consumers.{name}").Consumer)
                 native = Native(root / "native.json")
 
                 def reopen():
@@ -48,7 +49,7 @@ class Storage(unittest.TestCase):
                                ("booked", "start", 3), ("pending", "start", 3),
                            ]]
                 checkpoint = {
-                    "consumer": [consumer.__class__.__module__, "Consumer", None],
+                    "consumer": [f"consumers.{name}", "Consumer", None],
                     "seed": 41, "config": {}, "now": 3, "sequence": 3,
                     "history": history, "state": {"prior": ["value"]},
                     "staff_available": {"operator": [1444]},

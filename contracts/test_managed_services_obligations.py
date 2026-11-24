@@ -3,7 +3,7 @@
 from unittest.mock import Mock, patch
 
 import test_engine_goals as fixtures
-from native.managed_services import ServiceTransport
+from environments.norvale.native.managed_services import ServiceTransport
 
 
 class ManagedServicesObligations(fixtures.Goals):

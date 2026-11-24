@@ -4,8 +4,8 @@ import json
 from types import SimpleNamespace
 import unittest
 
-from integrations.company_run.settlement import reconcile, read_settlements
-from integrations.lake.boundary import project
+from environments.norvale.integrations.company_run.settlement import reconcile, read_settlements
+from environments.norvale.integrations.lake.boundary import project
 
 
 def fixture():
