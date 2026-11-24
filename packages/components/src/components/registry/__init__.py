@@ -25,15 +25,23 @@ class RegistryError(ValueError):
         super().__init__(f"{path}: {message}")
 
 
-def _json(value, path):
-    if type(value) is dict:
-        for key, item in value.items():
-            if type(key) is not str:
-                raise RegistryError(path, "expected string object key")
-            _json(item, f"{path}.{key}")
-    elif type(value) is list:
-        for index, item in enumerate(value):
-            _json(item, f"{path}[{index}]")
+def _json(value, path, active=None):
+    if type(value) in (dict, list):
+        if active is None:
+            active = set()
+        identity = id(value)
+        if identity in active:
+            raise RegistryError(path, "circular JSON reference")
+        active.add(identity)
+        if type(value) is dict:
+            for key, item in value.items():
+                if type(key) is not str:
+                    raise RegistryError(path, "expected string object key")
+                _json(item, f"{path}.{key}", active)
+        else:
+            for index, item in enumerate(value):
+                _json(item, f"{path}[{index}]", active)
+        active.remove(identity)
     elif type(value) is float:
         if not isfinite(value):
             raise RegistryError(path, "expected finite number")

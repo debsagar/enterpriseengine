@@ -107,3 +107,10 @@ class RegistryTests(unittest.TestCase):
     def test_nonserializable_state(self):
         self.reviewer["state"]["reviewed"] = float("nan")
         self.assert_manifest_error("manifest.instances[1].state.reviewed", "expected finite number")
+
+    def test_circular_state(self):
+        self.descriptors[1]["state_schema"]["history"] = "array"
+        history = []
+        history.append(history)
+        self.reviewer["state"]["history"] = history
+        self.assert_manifest_error("manifest.instances[1].state.history[0]", "circular JSON reference")
