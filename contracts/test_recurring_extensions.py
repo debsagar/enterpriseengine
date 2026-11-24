@@ -15,7 +15,7 @@ import unittest
 from unittest.mock import patch
 from urllib.error import URLError
 
-import generate
+from environments.norvale import generate
 from environments.norvale.native import company
 from engine import DAY
 from environments.norvale.integrations.company_run.timing import DEFAULT_TIMING

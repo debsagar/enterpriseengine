@@ -21,3 +21,7 @@ Install the workspace with `uv sync --locked --all-packages`. Run the engine
 tests in `packages/engine/tests` and the cross-package replay tests in
 `contracts`. The package workflow lists the offline commands and also checks
 import direction and installed-wheel compatibility.
+
+Use `uv run norvale-generate` and `uv run norvale-simulate` from the workspace.
+See the [Norvale guide](docs/NORVALE.md) for prerequisites and the
+[release notes](docs/RELEASE_NOTES.md) for the wheel gate.

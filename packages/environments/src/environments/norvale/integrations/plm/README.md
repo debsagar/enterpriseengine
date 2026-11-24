@@ -134,4 +134,4 @@ restart: 2 revisions, old Part 10, new Part 13
   receipt IDs, and export matched the saved pre-restart snapshot.
 - Release offline checks passed (`scripts/check_data.py`,
   `native/check_core.py`, `native/check_routing.py`, `native/check_retry.py`,
-  and `generate.py --help`). Frozen business exports were left intact.
+  and `norvale-generate --help`). Frozen business exports were left intact.

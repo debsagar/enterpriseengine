@@ -3,7 +3,7 @@ import json
 from copy import deepcopy
 from unittest.mock import patch
 
-import generate
+from environments.norvale import generate
 from environments.norvale.integrations.company_run import release_recovery
 from test_engine_goals import Goals
 

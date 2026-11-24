@@ -36,7 +36,7 @@ On the first invocation the injector stops the generator after observing a full 
     grep -F 'InterruptedError: Qualification interrupted after QMS release and before ERP stock transfer:' "$first_log"
     test -s "$business/ordinary-release-interruption.json"
   fi
-  python3 generate.py --run "$business"
+  uv run norvale-generate --run "$business"
   uv run python -m environments.norvale.integrations.company_run.verify "$run"
 )
 ```
@@ -162,11 +162,11 @@ Set `NORVALE_COMPANY_OPERATING=1` for the fresh isolated provisioning command
 above. After provisioning, use the ordinary generator from the prepared release.
 
 ```bash
-NORVALE_OFFLINE=1 python3 generate.py --run "$demo/business"
+NORVALE_OFFLINE=1 uv run norvale-generate --run "$demo/business"
 ```
 
 The operating mode persists in the run configuration. When commissioning the
-sources separately, `generate.py --provision --company-operating` selects the
+sources separately, `norvale-generate --provision --company-operating` selects the
 same controller mode for a fresh business stack. Attach the native sources
 before running it. The company source configuration provisions private tickets
 and the staffed maintenance identities. To opt in an existing dedicated native
@@ -370,8 +370,8 @@ continue to accept externally managed definitions and acknowledgments.
 
 A registered production profile with a commissioned MES operator can set
 `"production_batch": {"target": 54, "backorder_not_before": 4}`.
-For a run provisioned with `generate.py --provision --company-operating`,
-the ordinary `generate.py --run` entry point reads this setting. The target
+For a run provisioned with `norvale-generate --provision --company-operating`,
+the ordinary `norvale-generate --run` entry point reads this setting. The target
 is in the product's ERP stock UOM. Each staffed operation is
 capped by the target, the native MO remainder and the configured shift
 capacity. Commission a target compatible with the output increment and

@@ -1,4 +1,4 @@
-"""Print a native Norvale scenario. Pipe it to a JSON file for simulate.py."""
+"""Print a native Norvale scenario. Pipe it to a JSON file for norvale-simulate."""
 import json
 
 

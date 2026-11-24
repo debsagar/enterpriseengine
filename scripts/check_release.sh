@@ -10,7 +10,7 @@ trap 'rm -rf "$work"' EXIT
 
 printf 'Candidate source: %s\n' "$(git rev-parse HEAD)"
 export SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)
-mkdir -p "$work/source" "$work/client/examples"
+mkdir -p "$work/source" "$work/client/docs/examples"
 git archive HEAD | tar -x -C "$work/source"
 cd "$work"
 
@@ -102,11 +102,11 @@ run_installed "$upgrade" "$candidate_version" check_release_checkpoint resume
 
 tests=(test_engine_resume_shifts test_engine_obligations test_obligation_cases)
 cp ../source/packages/engine/tests/test_engine_obligations.py ../source/contracts/test_obligation_cases.py .
-cp ../source/examples/obligation_cases.py examples/
+cp ../source/docs/examples/obligation_cases.py docs/examples/
 for case in warehouse sla; do
     for cutoff in 19 27; do
         printf 'Obligation example (%s, cutoff %s)\n' "$case" "$cutoff"
-        run_installed "$candidate" "$candidate_version" examples.obligation_cases \
+        run_installed "$candidate" "$candidate_version" docs.examples.obligation_cases \
             "$case" --run "$case-run" --until "$cutoff"
     done
 done

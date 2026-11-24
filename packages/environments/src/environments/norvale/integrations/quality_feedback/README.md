@@ -15,7 +15,7 @@ PYTHONPATH=. uv run python -m environments.norvale.integrations.quality_feedback
 The proof places an ERP shipment and QMS on one isolated site to exercise role-scoped native APIs. Production callers may supply distinct ERP and QMS clients. The inspection, customer complaint and historical shipment remain independently readable.
 
 For an existing recurring company configured with QMS credentials, use
-`python3 generate.py feedback --run RUN report --operation ID --delivery DN --line ROW --batch BATCH --description TEXT`.
+`uv run norvale-generate feedback --run RUN report --operation ID --delivery DN --line ROW --batch BATCH --description TEXT`.
 The command requires a confirmed shipment from that run, verifies the native
 outbound lot bundle, and opens the linked complaint and corrective action.
 The allocation quantity must match the shipped row in stock units. Its
@@ -45,9 +45,9 @@ pinned on the original outbound Delivery Note. Approval keeps the shipment
 and invoice in place and creates no stock posting.
 
 ```sh
-python3 generate.py feedback --run RUN authorize-withdrawal \
+uv run norvale-generate feedback --run RUN authorize-withdrawal \
   --complaint CASE --release INSPECTION --reason 'Collect affected units'
-python3 generate.py feedback --run RUN receive-return \
+uv run norvale-generate feedback --run RUN receive-return \
   --complaint CASE --delivery DN --line ROW --batch LOT \
   --quantity 2 --observation RECEIPT_ID --observed-on YYYY-MM-DD
 ```

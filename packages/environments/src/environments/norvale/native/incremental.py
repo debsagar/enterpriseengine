@@ -17,7 +17,7 @@ CONSUMERS = ("norvale", "managed_services")
 
 
 def main(argv=None, *, transport_factory=None):
-    parser = argparse.ArgumentParser(prog="generate.py incremental")
+    parser = argparse.ArgumentParser(prog="norvale-generate incremental")
     parser.add_argument("--run", type=Path, required=True, help="Distinct event run directory")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--extend", type=Path, help="Apply an addition to an existing run")

@@ -4,13 +4,13 @@ A shift tells the clock **when** someone can work. An event scope tells the engi
 
 ## Connect an employee to an ERP site
 
-The [operator registry](../examples/norvale-sales/host-registry.json) binds the role `counter-sales` to a particular ERPNext URL, Frappe site, and native employee. It names the environment variable holding the employee token. The [company extension](../examples/norvale-sales/extension.json) adds a sales desk, a 13:00–14:00 shift, the existing native item and one order event in a single command. Its only granted write scope is `write:warehouse-sales:order`.
+The [operator registry](examples/norvale-sales/host-registry.json) binds the role `counter-sales` to a particular ERPNext URL, Frappe site, and native employee. It names the environment variable holding the employee token. The [company extension](examples/norvale-sales/extension.json) adds a sales desk, a 13:00–14:00 shift, the existing native item and one order event in a single command. Its only granted write scope is `write:warehouse-sales:order`.
 
 To use these files on a disposable commissioned company, replace the example URL, site, employee and native masters with your installed ones. Supply the employee's token privately and choose an event minute in the run's future. Run from the same release as that company:
 
 ```sh
 export NORVALE_CONNECTIONS_FILE=/absolute/private/path/host-registry.json
-uv run python generate.py --run /absolute/private/company/business --extend examples/norvale-sales/extension.json
+uv run norvale-generate --run /absolute/private/company/business --extend docs/examples/norvale-sales/extension.json
 ```
 
 The ordinary controller dispatches the event when the clock reaches it. The adapter calls Frappe's logged-user API, compares the authenticated employee with the host binding, looks up the run-scoped operation marker, and creates or reconciles a draft Sales Order. Readback checks the stored order and its owner. A matching scope on a self-declared local role cannot substitute for the commissioned employee. See the [connection validator](../packages/environments/src/environments/norvale/native/software_connections.py), [native sales adapter](../packages/environments/src/environments/norvale/native/incremental_erp.py), and [recurring entry tests](../tests/test_recurring_extensions.py).

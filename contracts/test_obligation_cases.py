@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from examples.obligation_cases import FixtureRecords, ManagedServicesSLA, WarehouseShortage, open_run
+from docs.examples.obligation_cases import FixtureRecords, ManagedServicesSLA, WarehouseShortage, open_run
 
 
 class Interrupted(BaseException):
@@ -205,7 +205,7 @@ class ObligationCases(unittest.TestCase):
     def test_published_cli_resumes_both_examples(self):
         for app, desk in [("warehouse", WarehouseShortage()), ("sla", ManagedServicesSLA())]:
             with self.subTest(app=app), TemporaryDirectory() as tmp:
-                command = [sys.executable, "-m", "examples.obligation_cases", app, "--run", tmp, "--until"]
+                command = [sys.executable, "-m", "docs.examples.obligation_cases", app, "--run", tmp, "--until"]
                 initial = json.loads(subprocess.check_output([*command, "19"]))
                 final = json.loads(subprocess.check_output([*command, "27"]))
                 self.assertEqual(final[:len(initial)], initial)

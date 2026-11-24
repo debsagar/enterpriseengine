@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
-import generate
+from environments.norvale import generate
 from test_engine_goals import Native
 from components.erp_client import ErpClient
 
@@ -267,7 +267,7 @@ class CLI(unittest.TestCase):
 
     def test_legacy_help_and_incremental_help(self):
         for args, option in (([], "--provision"), (["incremental"], "--plan")):
-            output = subprocess.check_output([sys.executable, "generate.py", *args, "--help"], text=True)
+            output = subprocess.check_output([sys.executable, "-m", "environments.norvale.generate", *args, "--help"], text=True)
             self.assertIn(option, output)
 
     def test_native_orders_resume_after_readback_failure_and_isolate_runs(self):

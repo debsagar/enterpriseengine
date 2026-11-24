@@ -8,6 +8,10 @@ version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = ["enterpriseengine>=0.3.0", "enterpriseengine-components>=0.1.0"]
 
+[project.scripts]
+norvale-generate = "environments.norvale.generate:main"
+norvale-simulate = "environments.norvale.simulate:main"
+
 [project.optional-dependencies]
 lake = ["deltalake==1.2.1; python_version >= '3.11'", "pyarrow==25.0.0; python_version >= '3.11'"]
 
