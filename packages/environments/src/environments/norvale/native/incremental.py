@@ -2,6 +2,8 @@
 import argparse
 import importlib
 import json
+
+from engine.versioning import load_versioned, require_version, stamp
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic
@@ -42,11 +44,11 @@ def execute(directory, plan_path, until, transport_factory=None, *, extension_pa
     if plan_path is None:
         if not manifest.is_file() or not (directory / "engine.sqlite3").is_file():
             raise ValueError("Resume requires an existing incremental run and checkpoint")
-        identity = json.loads(manifest.read_text())
+        identity = load_versioned(manifest, "Incremental run manifest")
     else:
         if directory.exists():
             raise ValueError("A new incremental run requires a path that does not exist")
-        identity = {"namespace": uuid4().hex, "plan": json.loads(plan_path.read_text()),
+        identity = {**stamp(), "namespace": uuid4().hex, "plan": json.loads(plan_path.read_text()),
                     "transport": "injected" if transport_factory else "erpnext-sales"}
     mode = "injected" if transport_factory else "erpnext-sales"
     if identity["transport"] != mode:
@@ -139,8 +141,9 @@ def execute(directory, plan_path, until, transport_factory=None, *, extension_pa
 
 
 def validate(plan):
+    require_version(plan, "Incremental scenario")
     if (not isinstance(plan, dict)
-            or set(plan) - {"consumer", "seed", "config", "events", "erp"}
+            or set(plan) - {*stamp(), "consumer", "seed", "config", "events", "erp"}
             or plan.get("consumer") not in CONSUMERS
             or type(plan.get("seed")) is not int
             or not isinstance(plan.get("config"), dict)

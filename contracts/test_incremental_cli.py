@@ -2,6 +2,8 @@
 from contextlib import redirect_stderr, redirect_stdout
 import io
 import json
+
+from engine.versioning import stamp
 import os
 from pathlib import Path
 import subprocess
@@ -95,7 +97,7 @@ class CLI(unittest.TestCase):
         return json.loads(output.getvalue())["records"]
 
     def sales_plan(self):
-        return {"consumer": "norvale", "seed": 41, "config": {},
+        return {**stamp(), "consumer": "norvale", "seed": 41, "config": {},
                 "erp": {"url": "http://isolated.test", "site": "isolated.test",
                         "company": "Norvale Consumer Care BV", "customer": "Demo Retail",
                         "item": "SKU-1", "warehouse": "Finished Goods - NCC"},
@@ -332,7 +334,7 @@ class CLI(unittest.TestCase):
         def transport(namespace, plan):
             return Native(self.root / (namespace + "-double.json"))
 
-        plan = {"consumer": "managed_services", "seed": 41, "config": {},
+        plan = {**stamp(), "consumer": "managed_services", "seed": 41, "config": {},
                 "events": [
                     {"id": "contract", "kind": "contract", "at": 540,
                      "payload": {"case": "MS-21", "response_minutes": 60, "rate": 95}},

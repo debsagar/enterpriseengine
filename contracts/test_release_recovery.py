@@ -1,5 +1,7 @@
 """Interrupt an ordinary recurring inspection and resume with the original ERP records."""
 import json
+
+from engine.versioning import stamp
 from copy import deepcopy
 from unittest.mock import patch
 
@@ -194,7 +196,7 @@ class ReleaseRecovery(Goals):
         (company.run/'env/company-sources.json').write_text('{}')
         company.state['completed'] = []
         company.persist()
-        (company.run/'config.json').write_text(json.dumps(company.config))
+        (company.run/'config.json').write_text(json.dumps({**stamp(), **company.config}))
         company.events = lambda: [(0, 'd0000:inspections', company.company_erp.inspections)]
         with patch('environments.norvale.native.company.Engine', return_value=company):
             if hard_exit:

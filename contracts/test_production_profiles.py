@@ -3,6 +3,8 @@ from contextlib import ExitStack, redirect_stdout
 from copy import deepcopy
 from io import StringIO
 import json
+
+from engine.versioning import stamp
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -571,7 +573,7 @@ class ProductionProfiles(TestCase):
                     mes={'source_id': 'primary', 'url': 'http://primary-mes.test', 'db': 'mes'},
                     operator={'source_id': 'primary'}, products={})))
                 (run/'env/controller-token.json').write_text('{"token":"offline"}')
-            (run/'config.json').write_text(json.dumps(cfg))
+            (run/'config.json').write_text(json.dumps({**stamp(), **cfg}))
             engine = company.Engine.__new__(company.Engine)
             engine.run, engine.config, engine.day, engine.event = run, cfg, 0, 'setup'
             engine.additions = None

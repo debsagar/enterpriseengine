@@ -2,11 +2,13 @@
 import json
 import subprocess
 
+from components.images import PINS
+
 IMAGES = {
-    "erp": "nv11-erp:15.124.1",           # frappe/erpnext v15.124.1 + libfaketime 0.9.13 (Dockerfile.erp, copied from codex T9.1)
-    "calendar": "nv11-calendar:3.9.0",    # Radicale 3.9.0
-    "mail": "ghcr.io/docker-mailserver/docker-mailserver:16.0.1",
-    "matrix": "ghcr.io/element-hq/synapse:v1.164.1",
+    "erp": PINS["erpnext_clock"],           # frappe/erpnext v15.124.1 + libfaketime 0.9.13 (Dockerfile.erp, copied from codex T9.1)
+    "calendar": PINS["calendar"],    # Radicale 3.9.0
+    "mail": PINS["mail"],
+    "matrix": PINS["matrix"],
     "db": "mariadb:10.6",
     "redis": "redis:7-alpine",
 }

@@ -8,15 +8,16 @@ import shutil
 import subprocess
 import sys
 
+from components.images import PINS, require_image
+from engine.versioning import load_versioned, stamp
+
 from .paths import CHECKOUT, PACKAGE, SOURCE_LAYOUT
 
 
 def load_scenario(path):
-    cfg = json.loads(path.read_text())
-    if not isinstance(cfg, dict) or set(cfg) != {"version", "days", "seed", "opening_orders"}:
-        raise ValueError("Expected version, days, seed and opening_orders")
-    if type(cfg["version"]) is not int or cfg["version"] != 1:
-        raise ValueError("Unsupported scenario version")
+    cfg = load_versioned(path, "Norvale scenario")
+    if not isinstance(cfg, dict) or set(cfg) != {*stamp(), "days", "seed", "opening_orders"}:
+        raise ValueError("Expected engine_version, schema_version, days, seed and opening_orders")
     if type(cfg["days"]) is not int or not 1 <= cfg["days"] <= 365 or type(cfg["seed"]) is not int:
         raise ValueError("Expected 1..365 days and an integer seed")
     from environments.norvale.walkthrough import EnterpriseSimV4
@@ -36,6 +37,16 @@ def load_scenario(path):
     return cfg
 
 
+def validate_images(images):
+    if type(images) is not dict or set(images) != PINS.keys():
+        raise ValueError("Norvale run manifest requires the complete application image pins")
+    for application, image in images.items():
+        require_image(application, image)
+    for application, variable in (("odoo", "MES_ODOO_IMAGE"), ("qms", "QMS_IMAGE")):
+        if variable in os.environ:
+            require_image(application, os.environ[variable])
+
+
 def main(*, checkout=CHECKOUT):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--scenario", type=Path, default=PACKAGE / "scenarios/norvale-q1.json")
@@ -48,6 +59,15 @@ def main(*, checkout=CHECKOUT):
     try:
         if runtime.is_relative_to(checkout) or checkout.is_relative_to(runtime):
             raise ValueError("Choose a private run directory outside the checkout")
+        if runtime.exists() and (a.services or not a.plan):
+            manifest = runtime / "run-manifest.json"
+            if not manifest.is_file():
+                raise ValueError("Norvale run manifest requires engine_version >= 0.3.0; "
+                                 "choose a new run directory")
+            document = load_versioned(manifest, "Norvale run manifest")
+            validate_images(document.get("images"))
+            if (runtime / "revision").read_text().strip() != document.get("revision"):
+                raise ValueError("Norvale run revision differs from its manifest")
         if a.services:
             from environments.norvale.integrations.company_run.services import manage
             launcher_run = (runtime / "scenario.json").is_file() and (runtime / "revision").is_file()
@@ -57,11 +77,12 @@ def main(*, checkout=CHECKOUT):
             with (runtime / "simulate.lock").open("a") as lock:
                 if a.services != "status":
                     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                rows = manage(runtime, a.services)
+                rows = manage(runtime, a.services, verify_images=a.services != "stop")
                 if a.services == "status":
                     print(json.dumps(rows, indent=2))
             return
         cfg = load_scenario(a.scenario)
+        validate_images(PINS)
         if a.plan:
             print(json.dumps(dict(scenario=cfg, run=str(runtime), mode="live", archive=str(runtime / "lake")), indent=2))
             return
@@ -88,9 +109,13 @@ def main(*, checkout=CHECKOUT):
                 raise ValueError("Run already exists with different or missing scenario")
             if not (runtime / "commissioned").is_file():
                 raise ValueError("Commissioning was interrupted; inspect provision.log before resuming the same services")
+            from environments.norvale.integrations.company_run.services import manage
+            manage(runtime, "status", verify_images=True)
         else:
             revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=checkout, text=True).strip()
             release.mkdir()
+            (runtime / "run-manifest.json").write_text(
+                json.dumps({**stamp(), "revision": revision, "images": PINS}, indent=2) + "\n")
             (runtime / "revision").write_text(revision + "\n")
             (runtime / "scenario.json").write_text(json.dumps(cfg, indent=2) + "\n")
             subprocess.run(["git", "archive", revision, "-o", str(runtime / "source.tar")], cwd=checkout, check=True)

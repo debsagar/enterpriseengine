@@ -2,11 +2,23 @@
 import json
 import subprocess
 
+from components.images import require_image
+
 from environments.norvale.native.company import project
 from environments.norvale.paths import SOURCE_LAYOUT
 
 
-def manage(runtime, action):
+APPLICATIONS = {
+    "erp": {**dict.fromkeys(("backend", "queue-short", "queue-long", "websocket", "frontend"),
+                           "erpnext_clock"), "tickets": "gitea", "mail": "mail",
+            "matrix": "matrix", "calendar": "calendar"},
+    "mes": {"odoo": "odoo"},
+    "plm": {"plm": "inventree"},
+    "qms": {"qms": "qms"},
+}
+
+
+def manage(runtime, action, *, verify_images=False):
     release = runtime / "release"
     source = release / SOURCE_LAYOUT
     integrations = (source if source.is_dir() else release) / "integrations"
@@ -43,7 +55,13 @@ def manage(runtime, action):
             [*command, "--format", fmt], text=True).splitlines()]
         if len({row[2] for row in records}) > 1:
             raise ValueError(f"Ambiguous {system} projects for {file}")
-        rows.extend(dict(id=i, state=state, project=p, service=s) for i, state, p, s in records)
+        for container, state, project_name, service in records:
+            app = APPLICATIONS[system].get(service)
+            if verify_images and app:
+                image = subprocess.check_output(
+                    ["docker", "inspect", "--format", "{{.Config.Image}}", container], text=True).strip()
+                require_image(app, image)
+            rows.append(dict(id=container, state=state, project=project_name, service=service))
     if action == "status":
         return rows
     infrastructure = {"db", "redis", "redis-cache", "redis-queue"}

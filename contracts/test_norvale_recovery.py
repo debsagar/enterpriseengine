@@ -12,6 +12,8 @@ from email.policy import SMTP as SMTP_POLICY, default as DEFAULT_POLICY
 import hashlib
 from urllib.parse import urlsplit, parse_qs, unquote
 import json
+
+from engine.versioning import stamp
 import operator
 import tempfile
 import unittest
@@ -333,11 +335,11 @@ class RecoveryTests(unittest.TestCase):
             with self.subTest(crash=crash), tempfile.TemporaryDirectory() as tmp:
                 run = Path(tmp)
                 config = dict(company.DEFAULT_CONFIG, days=91)
-                (run / 'config.json').write_text(json.dumps(config))
+                (run / 'config.json').write_text(json.dumps({**stamp(), **config}))
                 # All earlier phases are complete; the normal step selects weekly management.
                 completed = ['seed', 'recurring-setup'] + [f'd{d:04}:{phase}' for d in range(91) for phase in ['service','arrivals','inspections','demand','fulfillment','production','replenishment','approvals','settlements','management'] if (d, phase) != (90, 'management')]
                 state = {'docs': {}, 'completed': completed, 'physical': {}, 'decisions': {}, 'day': 90, 'management_quarter': 0}
-                (run / 'state.json').write_text(json.dumps(state))
+                (run / 'state.json').write_text(json.dumps({**stamp(), **state}))
                 records, mails, failed = {}, [], [False]
                 class Clock:
                     def now(self):

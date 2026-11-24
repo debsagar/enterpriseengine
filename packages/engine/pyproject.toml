@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "enterpriseengine"
-version = "0.3.0"
+dynamic = ["version"]
 description = "A durable business-time simulation engine for modeling enterprise decisions and generating inspectable histories"
 readme = "src/engine/README.md"
 requires-python = ">=3.10"
@@ -18,3 +18,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 engine = ["adapter_specs.json"]
+
+[tool.setuptools.dynamic]
+version = { file = ["VERSION"] }

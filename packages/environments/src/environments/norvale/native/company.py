@@ -1,5 +1,7 @@
 """Native Norvale engine. One durable event sequence for notebook and batch."""
 import sys, json, hashlib, time, os, random, math, fcntl
+from engine.versioning import load_versioned, require_version, stamp
+
 from pathlib import Path
 from functools import cached_property
 from html import escape
@@ -52,19 +54,19 @@ class Engine:
     def __init__(self, run=ACTIVE_RUN, *, company_authority=None):
         self.run = Path(run)
         path = self.run/'config.json'
-        self.config = json.loads(path.read_text()) if path.exists() else None
+        self.config = load_versioned(path, "Norvale environment") if path.exists() else None
         if self.config:
             self.validate_config(self.config)
         checkpoint = self.run/'state.json'
         if checkpoint.exists():
             from environments.norvale.native.company_world import check_binding
-            check_binding(self.config or {}, json.loads(checkpoint.read_text()))
+            check_binding(self.config or {}, load_versioned(checkpoint, "Norvale company checkpoint"))
         self.additions = None
         self.company_erp = self.make_company_erp(company_authority)
         self.run=Path(run); self.stack=Stack(self.run); self.stack.project=project(self.run)
         self.eps=self.stack.endpoints()
         self.catalog=EnterpriseSimV4(seed=self.config['seed'] if self.config else 42, days=30, mode='dry-run')
-        self.state=json.loads((self.run/'state.json').read_text()) if (self.run/'state.json').exists() else {'docs':{},'completed':[], 'physical':{}, 'decisions':{}, 'day':0}
+        self.state=load_versioned(self.run/'state.json', "Norvale company checkpoint") if (self.run/'state.json').exists() else {'docs':{},'completed':[], 'physical':{}, 'decisions':{}, 'day':0}
         self.docs=self.state['docs']; self.api={}; self.event='setup'; self.day=self.state['day']
         self.wh={k:f'{v} - NCC' for k,v in [('rm','Raw Materials'),('fg','Finished Goods'),('wip','Work In Progress'),('hold','Quarantine')]}
         self.roles={role:list(permissions) for role,permissions in ERP_ROLES.items()}
@@ -92,7 +94,7 @@ class Engine:
         factory = (self.config or {}).get('company_authority')
         checkpoint = self.run/'state.json'
         if checkpoint.exists():
-            state = json.loads(checkpoint.read_text())
+            state = load_versioned(checkpoint, "Norvale company checkpoint")
             integrated = 'company_erp' in state
             if integrated and not factory:
                 raise ValueError('Existing company lot integration requires company_authority')
@@ -129,7 +131,7 @@ class Engine:
         if (getattr(self, 'config', None) or {}).get('world') and 'world_binding' not in self.state:
             from environments.norvale.native.company_world import binding
             self.state['world_binding'] = binding(self.config)
-        self.state['day']=self.day;save(self.run/'state.json',self.state)
+        self.state['day']=self.day;self.state.update(stamp());save(self.run/'state.json',self.state)
 
     def write(self,key,dt,data,role=None,submit=False,*,before_submit=None):
         api=self.api[role] if role else self.admin
@@ -1408,7 +1410,7 @@ class Engine:
         with (self.run/'execution.lock').open('w') as lock:
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
             if (self.run/'state.json').exists():
-                self.state=json.loads((self.run/'state.json').read_text());self.docs=self.state['docs'];self.day=self.state['day']
+                self.state=load_versioned(self.run/'state.json', "Norvale company checkpoint");self.docs=self.state['docs'];self.day=self.state['day']
             completed = set(self.state['completed'])
             if expected and expected in completed:
                 return {'event': expected, 'already_completed': True}
@@ -1514,12 +1516,13 @@ def writable_run(path):
 def initialize(path, config=None, *, company_authority=None):
     path=writable_run(path)
     if (path/'config.json').exists():
-        existing=json.loads((path/'config.json').read_text())
-        if config is not None and config!=existing:raise ValueError('Existing run config differs; choose a new directory or explicitly extend the finished horizon')
+        existing=load_versioned(path/'config.json', 'Norvale environment')
+        if config is not None and {**stamp(), **config}!=existing:raise ValueError('Existing run config differs; choose a new directory or explicitly extend the finished horizon')
     elif (path/'state.json').exists() or (path/'env').exists():raise ValueError('Refusing to repurpose an existing non-recurring run')
     else:
         if path.exists() and any(path.iterdir()):raise ValueError('New run directory must be empty')
-        config=dict(DEFAULT_CONFIG) if config is None else config
+        config={**stamp(), **(DEFAULT_CONFIG if config is None else config)}
+        require_version(config, 'Norvale environment')
         Engine.validate_config(config);save(path/'config.json',config)
     if not (path/'env/site-created').exists():provision(path)
     return Engine(path, company_authority=company_authority)
@@ -1569,7 +1572,7 @@ def main(argv=None):
         if a.demand_scale is not None and a.days is None:
             p.error('--demand-scale on an existing run requires --days to extend its future')
         config_path = a.run/'config.json'
-        if config_path.exists() and json.loads(config_path.read_text()).get('company_operating'):
+        if config_path.exists() and load_versioned(config_path, 'Norvale environment').get('company_operating'):
             os.umask(0o077)
             if not (a.run/'env/company-sources.json').is_file():
                 p.error('Configure native company sources before running the operating participants')

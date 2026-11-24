@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "enterpriseengine-environments"
-version = "0.1.0"
+dynamic = ["version"]
 requires-python = ">=3.10"
-dependencies = ["enterpriseengine>=0.3.0", "enterpriseengine-components>=0.1.0"]
+dependencies = ["enterpriseengine>=0.3.0", "enterpriseengine-components>=0.3.0"]
 
 [project.scripts]
 norvale-generate = "environments.norvale.generate:main"
@@ -29,3 +29,6 @@ exclude = ["*.addons*", "*.odoo_addons*", "*.images", "*.scenarios"]
 "environments.norvale.environment" = ["images/Dockerfile.*"]
 "environments.norvale.integrations.mes" = ["addons/*/*.py", "addons/*/security/*.xml", "addons/*/security/*.csv"]
 "environments.norvale.integrations.revisions" = ["odoo_addons/*/*.py"]
+
+[tool.setuptools.dynamic]
+version = { file = ["VERSION"] }

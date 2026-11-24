@@ -4,6 +4,8 @@ from copy import deepcopy
 from datetime import timedelta
 from io import StringIO
 import json
+
+from engine.versioning import stamp
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -59,7 +61,7 @@ class TimedCompany(unittest.TestCase):
                                                'LAB': [[620, 640], [690, 700]]}, lab_minutes=30))
         if operating:
             cfg['company_operating'] = True
-        save(run/'config.json', cfg)
+        save(run/'config.json', {**stamp(), **cfg})
         save(run/'env/controller-token.json', {'token': 'offline'})
         refs = {batch: batch for batch in ('RAW', 'lot-lotion', 'lot-shampoo')}
         save(run/'env/company-sources.json', dict(mes={'source_id':'operator-source'}, operator={}, company_id=1,
@@ -67,7 +69,7 @@ class TimedCompany(unittest.TestCase):
         (run/'env/site-created').touch()
         (run/'ticket-check.json').touch()
         raw = dict(item='oil', batch='RAW', kind='raw')
-        save(run/'state.json', dict(day=0, docs={}, physical={}, decisions={},
+        save(run/'state.json', dict(**stamp(), day=0, docs={}, physical={}, decisions={},
                                    completed=['seed', 'recurring-setup'],
                                    acceptance_assays={'RAW': dict(state='Released')},
                                    ops=dict(maintenance={}, orders={'L': {'item': 'lotion'}, 'S': {'item': 'shampoo'}}),

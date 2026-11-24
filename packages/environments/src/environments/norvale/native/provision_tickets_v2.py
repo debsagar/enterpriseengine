@@ -1,5 +1,6 @@
 """Provision the isolated real Gitea application; no simulation events."""
 import json, subprocess, time, urllib.request
+from components.images import PINS
 from environments.norvale.native.systems_v2 import RUN, stack_for, save
 from environments.norvale.environment import docker
 import sys
@@ -7,7 +8,7 @@ from pathlib import Path
 if len(sys.argv)>1:RUN=Path(sys.argv[1]).resolve()
 s = stack_for(RUN)
 c = json.loads(s.file.read_text())
-c['services']['tickets'] = {'image':'gitea/gitea:1.22.6','restart':'unless-stopped',
+c['services']['tickets'] = {'image':PINS["gitea"],'restart':'unless-stopped',
     'networks':['office'], 'volumes':['ticket-data:/data'],
     'environment':{'GITEA__security__INSTALL_LOCK':'true','GITEA__database__DB_TYPE':'sqlite3',
                    'GITEA__service__DISABLE_REGISTRATION':'true'}}

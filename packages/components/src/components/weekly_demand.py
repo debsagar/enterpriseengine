@@ -1,5 +1,6 @@
 """Seeded weekly demand, installed by a consumer on the engine's world tick."""
 
+from engine.versioning import stamp
 from engine.world import WEEK, stream
 
 from .registry import Registry, VERSION
@@ -34,7 +35,7 @@ class WeeklyDemand:
                 or len(roles) != len(set(roles))):
             raise ValueError("world_demand roles must be distinct nonempty role names")
         Registry([DESCRIPTOR]).resolve({
-            "version": VERSION, "adapters": [],
+            **stamp(), "version": VERSION, "adapters": [],
             "instances": [{
                 "id": "weekly_demand", "type": DESCRIPTOR["type"], "config": {"roles": roles},
                 "state": {}, "parameters": {}, "policies": {}, "relations": {},

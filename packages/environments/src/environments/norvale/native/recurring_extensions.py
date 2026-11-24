@@ -2,6 +2,8 @@
 from datetime import date, datetime, time, timedelta, timezone
 from hashlib import sha256
 import json
+
+from engine.versioning import load_versioned
 from time import monotonic
 from urllib.error import URLError
 
@@ -152,7 +154,7 @@ def submit(run, filename):
     config_path = run/'config.json'
     if not config_path.is_file() or not (run/'env/site-created').is_file():
         raise ValueError('Extensions require a provisioned recurring run')
-    config = json.loads(config_path.read_text())
+    config = load_versioned(config_path, "Norvale environment")
     Company.validate_config(config)
     command = json.loads(filename.read_text())
     if not isinstance(command, dict) or 'id' not in command or set(command)-{
@@ -166,7 +168,7 @@ def submit(run, filename):
     if not isinstance(events, list):
         raise ValueError('events must be an array')
     state_path = run/'state.json'
-    state = json.loads(state_path.read_text()) if state_path.exists() else {'day': 0}
+    state = load_versioned(state_path, "Norvale company checkpoint") if state_path.exists() else {'day': 0}
     catalog = open_catalog(run, config, state)
     current = catalog.catalog
     products = {**current['products'], **sections['products']}

@@ -3,6 +3,8 @@ from contextlib import redirect_stdout
 from datetime import datetime, timezone
 import io
 import json
+
+from engine.versioning import stamp
 import os
 from pathlib import Path
 import sqlite3
@@ -39,12 +41,12 @@ class RecurringExtensions(unittest.TestCase):
         config = dict(company.DEFAULT_CONFIG, days=9, company_operating=True,
                       company_timing=DEFAULT_TIMING,
                       company_authority='integrations.company_run.authority:Authority')
-        (run/'config.json').write_text(json.dumps(config))
+        (run/'config.json').write_text(json.dumps({**stamp(), **config}))
         controller = company.Engine.__new__(company.Engine)
         controller.config, controller.state = config, {'completed': []}
         state = {'day': 8, 'docs': {}, 'completed': [
             key for _, key, _ in controller.recurring_events() if key != 'd0008:native-clock']}
-        (run/'state.json').write_text(json.dumps(state))
+        (run/'state.json').write_text(json.dumps({**stamp(), **state}))
 
         registry = root/'registry.json'
         employee = {'user': 'counter@warehouse.test', 'role': 'counter-sales'}
@@ -190,7 +192,7 @@ class RecurringExtensions(unittest.TestCase):
             (run/'env/site-created').touch()
             (run/'env/controller-token.json').write_text('{"token":"offline"}')
             config = dict(company.DEFAULT_CONFIG, days=2)
-            (run/'config.json').write_text(json.dumps(config))
+            (run/'config.json').write_text(json.dumps({**stamp(), **config}))
             original_config = (run/'config.json').read_bytes()
             stages = ['service', 'arrivals', 'inspections', 'demand', 'fulfillment',
                       'production', 'replenishment', 'approvals', 'settlements', 'management']
@@ -198,7 +200,7 @@ class RecurringExtensions(unittest.TestCase):
                                             *[f'd0000:{stage}' for stage in stages]],
                      'docs': {'existing': {'doctype': 'Sales Order', 'name': 'SO-original'}},
                      'physical': {'existing': 5}, 'decisions': {'existing': 'approve'}}
-            (run/'state.json').write_text(json.dumps(prior))
+            (run/'state.json').write_text(json.dumps({**stamp(), **prior}))
             prior_bytes = (run/'state.json').read_bytes()
             registry = root/'registry.json'
             registry.write_text(json.dumps({'warehouse-sales': {

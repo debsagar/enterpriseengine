@@ -2,6 +2,8 @@
 from contextlib import redirect_stdout
 import io
 import json
+
+from engine.versioning import stamp
 from pathlib import Path
 import tempfile
 import unittest
@@ -17,7 +19,7 @@ class IncrementalExtension(unittest.TestCase):
             plan = root / 'plan.json'
             run = root / 'run'
             extension = root / 'extension.json'
-            plan.write_text(json.dumps({'consumer': 'norvale', 'seed': 41,
+            plan.write_text(json.dumps({**stamp(), 'consumer': 'norvale', 'seed': 41,
                                         'config': {}, 'events': []}))
             extension.write_text(json.dumps({
                 'id': 'additional-orders', 'systems': {}, 'roles': {}, 'products': {},

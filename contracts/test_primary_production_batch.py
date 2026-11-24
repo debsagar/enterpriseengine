@@ -3,6 +3,8 @@ from contextlib import ExitStack, redirect_stdout
 from copy import deepcopy
 from io import StringIO
 import json
+
+from engine.versioning import stamp
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -156,7 +158,7 @@ class PrimaryProduction(TestCase):
         mes = self.mes = PrimaryMES()
         cfg = dict(company.DEFAULT_CONFIG, days=7, company_operating=True, company_authority=FACTORY,
                    company_timing=dict(shifts={'PRODUCTION': [[720, 722], [750, 760]], 'LAB': [[540, 600]]}, lab_minutes=30))
-        company.save(run / 'config.json', cfg)
+        company.save(run / 'config.json', {**stamp(), **cfg})
         self.settings = dict(source='primary-plm', products={'PRIMARY': {'hold_location_id': 9}},
                              mes=dict(url='http://mes.test', db='mes', login='planner', source_id='primary'),
                              stock=8, company_id=1, center=4, uoms={'Nos': 1}, units={'Units': 'Nos'})
@@ -186,7 +188,7 @@ class PrimaryProduction(TestCase):
         seed.company_erp.state['work']['work'] = work
         seed.company_erp.state['lots'].update(lots)
         seed.company_erp.state['synced'] = {row['batch']: row['disposition'] for row in inputs}
-        company.save(run / 'state.json', state)
+        company.save(run / 'state.json', {**stamp(), **state})
 
         self.controllers = []
         original_init = company.Engine.__init__

@@ -11,6 +11,7 @@ import sqlite3
 
 from . import _journal
 from . import world
+from .versioning import stamp
 from ._extension import SECTIONS, name, validate_entries, validate_event, validate_json
 
 
@@ -116,7 +117,7 @@ class Engine:
             db.execute("BEGIN")
             db.execute("CREATE TABLE IF NOT EXISTS checkpoint (id INTEGER PRIMARY KEY, data TEXT)")
             db.execute("CREATE TABLE IF NOT EXISTS writes (id TEXT PRIMARY KEY, data TEXT)")
-            initial = {"consumer": self._consumer_identity, "now": start, "sequence": 0,
+            initial = {**stamp(), "consumer": self._consumer_identity, "now": start, "sequence": 0,
                        "queue": [], "history": [], "state": {}, "seed": seed,
                        "config": self.config, "world_process": self._world_process_identity}
             created = db.execute("INSERT OR IGNORE INTO checkpoint VALUES (1, ?)", (_json(initial),)).rowcount
@@ -203,7 +204,7 @@ class Engine:
             yield
 
     def _load(self):
-        return json.loads(self._db.execute("SELECT data FROM checkpoint WHERE id = 1").fetchone()[0])
+        return _journal.read_checkpoint(self._db)
 
     def _restore(self, checkpoint):
         if "consumer" not in checkpoint:
@@ -920,7 +921,7 @@ class Engine:
         if self._active is not None:
             raise PermissionError("Extractor inspection is available outside event handlers")
         with _journal.snapshot(self._database) as db:
-            checkpoint = json.loads(db.execute("SELECT data FROM checkpoint WHERE id = 1").fetchone()[0])
+            checkpoint = _journal.read_checkpoint(db)
             cutoff = checkpoint["now"] if as_of is None else as_of
             if type(cutoff) is not int or not 0 <= cutoff <= checkpoint["now"]:
                 raise ValueError("Extractor cutoff must be a committed business minute")

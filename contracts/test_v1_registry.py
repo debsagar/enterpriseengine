@@ -1,6 +1,7 @@
 import json
 import unittest
 
+from engine.versioning import stamp
 from components.registry import Registry, RegistryError
 
 
@@ -36,7 +37,7 @@ class RegistryTests(unittest.TestCase):
                 {"effective_from": "2027-01-01", "effective_until": "2027-02-01", "value": 5.5},
             ]},
         )
-        self.manifest = dict(version=1, adapters=["records@1"],
+        self.manifest = dict(**stamp(), version=1, adapters=["records@1"],
                              instances=[instance("source", "station@1"), self.reviewer])
 
     def assert_manifest_error(self, path, message):

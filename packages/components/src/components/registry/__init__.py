@@ -3,6 +3,9 @@
 from copy import deepcopy
 from datetime import date
 from math import isfinite
+import re
+
+from engine.versioning import require_version, stamp
 
 
 VERSION = 1
@@ -147,7 +150,13 @@ class Registry:
                 "version", "type", "instance_schema", "state_schema", "handles",
                 "emits", "parameters", "policies", "relations", "requires_adapters",
                 "provides_adapters", "provenance",
+                *(("image",) if "image" in descriptor else ()),
             ))
+            if "image" in descriptor:
+                image = descriptor["image"]
+                _name(image, f"{path}.image")
+                if not re.fullmatch(r"[^@ ]+@sha256:[a-f0-9]{64}|[^@ ]+:[vV]?[0-9]+\.[0-9]+(?:\.[0-9]+)?", image):
+                    raise RegistryError(f"{path}.image", "requires an exact image tag or digest")
             _version(descriptor["version"], f"{path}.version")
             type_id = descriptor["type"]
             _name(type_id, f"{path}.type")
@@ -170,14 +179,18 @@ class Registry:
     def resolve(self, manifest):
         """Return an ordered-by-input mapping of instance IDs to declarations."""
         _json(manifest, "manifest")
-        _object(manifest, "manifest", ("version", "instances", "adapters"))
+        require_version(manifest, "Component manifest")
+        _object(manifest, "manifest", ("version", "instances", "adapters", *stamp()))
         _version(manifest["version"], "manifest.version")
         provided = _adapters(manifest["adapters"], "manifest.adapters")
         resolved = {}
         events = {}
         for index, instance in _array(manifest["instances"], "manifest.instances"):
             path = f"manifest.instances[{index}]"
-            _object(instance, path, ("id", "type", "config", "state", "parameters", "policies", "relations"))
+            _object(instance, path)
+            for field in ("id", "type"):
+                if field not in instance:
+                    raise RegistryError(f"{path}.{field}", "required field")
             instance_id = instance["id"]
             _name(instance_id, f"{path}.id")
             if instance_id in resolved:
@@ -187,6 +200,12 @@ class Registry:
             if type_id not in self._types:
                 raise RegistryError(f"{path}.type", "unregistered component type")
             descriptor, descriptor_path = self._types[type_id]
+            fields = ("id", "type", "config", "state", "parameters", "policies", "relations")
+            if "image" in descriptor:
+                fields += ("image",)
+            _object(instance, path, fields)
+            if "image" in descriptor and instance["image"] != descriptor["image"]:
+                raise RegistryError(f"{path}.image", f"requires {descriptor['image']}")
             for field, schema in (("config", "instance_schema"), ("state", "state_schema"),
                                   ("parameters", "parameters")):
                 _record(instance[field], descriptor[schema], f"{path}.{field}")

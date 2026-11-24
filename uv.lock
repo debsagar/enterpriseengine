@@ -135,12 +135,10 @@ wheels = [
 
 [[package]]
 name = "enterpriseengine"
-version = "0.3.0"
 source = { editable = "packages/engine" }
 
 [[package]]
 name = "enterpriseengine-components"
-version = "0.1.0"
 source = { editable = "packages/components" }
 dependencies = [
     { name = "enterpriseengine" },
@@ -151,7 +149,6 @@ requires-dist = [{ name = "enterpriseengine", editable = "packages/engine" }]
 
 [[package]]
 name = "enterpriseengine-environments"
-version = "0.1.0"
 source = { editable = "packages/environments" }
 dependencies = [
     { name = "enterpriseengine" },

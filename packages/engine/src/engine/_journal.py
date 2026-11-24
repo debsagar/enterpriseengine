@@ -4,6 +4,8 @@ from collections import Counter, defaultdict
 from contextlib import closing, contextmanager
 from html import escape
 import json
+
+from .versioning import require_version
 from math import ceil
 import os
 from pathlib import Path
@@ -100,8 +102,16 @@ def finish(db, id, row, elapsed):
         db.execute("UPDATE call_journal SET data = ? WHERE id = ?", (encode(row), id))
 
 
+def read_checkpoint(db):
+    row = db.execute("SELECT data FROM checkpoint WHERE id = 1").fetchone()
+    if row is None:
+        raise ValueError("Missing engine checkpoint")
+    return require_version(json.loads(row[0]), "Engine checkpoint")
+
+
 def read(path):
     with snapshot(Path(path)) as db:
+        read_checkpoint(db)
         tables = {name for name, in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         calls = [json.loads(data) for data, in db.execute(
             "SELECT data FROM call_journal ORDER BY id")] if "call_journal" in tables else []

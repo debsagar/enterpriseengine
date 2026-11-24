@@ -20,6 +20,8 @@ export PLM_PUBLISHER_PASSWORD=$(cat "$run/publisher") PLM_READER_PASSWORD=$(cat 
 export PLM_ENGINEERING_PASSWORD=$(cat "$run/engineering") PLM_APPROVER_PASSWORD=$(cat "$run/approver")
 export NORVALE_PLM_CHANGE_GUARD=${NORVALE_COMPANY_OPERATING:-0}
 pc(){ docker compose -p "$plm_project" -f "$integrations/plm/compose.yaml" "$@"; }
+"$python" -c 'from environments.norvale.simulate import PINS, validate_images; validate_images(PINS)'
+"$python" -c 'import sys; from components.images import require_image; require_image("inventree", sys.argv[1])' "$(pc config --images)"
 pc run --rm --no-deps plm python3 src/backend/InvenTree/manage.py migrate --noinput
 pc up -d
 curl -fsS --retry 90 --retry-all-errors --retry-delay 1 "http://127.0.0.1:$PLM_PORT/api/" >/dev/null
@@ -28,6 +30,7 @@ export MES_PORT=$(port) MES_TEST_PASSWORD=$(cat "$run/mes-password") MES_DB_PASS
 export MES_REWORK_PASSWORD=$(cat "$run/mes-rework-password")
 export MES_ANALYTICS_PASSWORD=$(cat "$run/mes-analytics-password")
 mc(){ docker compose -p "$mes_project" -f "$integrations/mes/compose.yaml" "$@"; }
+"$python" -c 'import sys; from components.images import require_image; require_image("odoo", sys.argv[1])' "$(mc config --format json | "$python" -c 'import json, sys; print(json.load(sys.stdin)["services"]["odoo"]["image"])')"
 mc run --rm -T odoo --database=norvale_mes --init=norvale_mes,norvale_revision_receiver --without-demo=all --stop-after-init --no-http
 mc run --rm -T -e MES_TEST_PASSWORD -e MES_REWORK_PASSWORD -e MES_ANALYTICS_PASSWORD odoo odoo shell -d norvale_mes --no-http < "$integrations/mes/fixture.py" >"$run/mes-fixture.json"
 mc run --rm -T odoo odoo shell -d norvale_mes --no-http < "$integrations/company_run/mes_precision.py"
