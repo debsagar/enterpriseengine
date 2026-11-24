@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 import subprocess
 from tempfile import TemporaryDirectory
-from threading import Barrier
+from threading import Barrier, Lock
 import unittest
 from urllib.parse import parse_qs, urlsplit
 
@@ -38,6 +38,7 @@ class Fake:
         self.comments = {}
         self.reviews = {}
         self.checks = {}
+        self.github_lock = Lock()
         self.calls = []
         self.worker_runs = []
         self.reviewer_runs = []
@@ -104,8 +105,9 @@ class Fake:
             return 0, json.dumps({"passed": True, "command": "python -m unittest",
                                   "output": "Ran 1 test\nOK\nexit 0\npassword=hidden"})
         assert args[:2] == ["gh", "api"], args
-        response = self.api(args[3], args[4], json.loads(stdin) if stdin else None)
-        return response if isinstance(response, tuple) else (0, json.dumps(response))
+        with self.github_lock:
+            response = self.api(args[3], args[4], json.loads(stdin) if stdin else None)
+            return response if isinstance(response, tuple) else (0, json.dumps(response))
 
     @staticmethod
     def assert_prompt(prompt, payload):
@@ -124,6 +126,9 @@ class Fake:
             return [{"type": "required_status_checks", "parameters": {"required_status_checks": [
                 {"context": "Policy gate", "integration_id": 1},
             ]}}]
+        if path == "actions/workflows/package.yml/runs":
+            assert query["event"] == ["pull_request"]
+            return {"workflow_runs": [{"check_suite_id": 2}]}
         if path == "issues":
             return [item for item in self.issues.values() if item["state"] == "open"]
         if path == "pulls":
@@ -176,9 +181,13 @@ class Fake:
             if kind == "status":
                 return {"statuses": []}
             return {"check_runs": [
-                {"name": name, "app": {"id": 1}, "conclusion": status,
+                {"id": index, "check_suite": {"id": 2},
+                 "name": name, "app": {"id": 1}, "conclusion": status,
                  "status": "in_progress" if status is None else "completed"}
-                for name, status in self.checks.get(head, {}).items()
+                for index, (name, status) in enumerate(self.checks.get(head, {}).items())
+            ] + [
+                {"id": 30, "check_suite": {"id": 1}, "name": "Offline workspace tests",
+                 "app": {"id": 1}, "conclusion": "skipped", "status": "completed"},
             ]}
         raise AssertionError((method, target))
 

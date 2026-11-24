@@ -376,14 +376,21 @@ class Runner:
         prefix = f"{self.repo}/commits/{head}"
         checks = [check for page in self.api(prefix + "/check-runs?filter=latest&per_page=100", pages=True)
                   for check in page["check_runs"]]
+        package_runs = self.api(
+            f"{self.repo}/actions/workflows/package.yml/runs?head_sha={head}&event=pull_request"
+        )["workflow_runs"]
+        package_suites = {run["check_suite_id"] for run in package_runs}
         states = {}
-        for check in checks:
+        for check in sorted(checks, key=lambda run: run["id"], reverse=True):
+            if check["name"] in PACKAGE_CHECKS and check["check_suite"]["id"] not in package_suites:
+                continue
             state = check["conclusion"] if check["status"] == "completed" else "pending"
-            states[check["name"], (check["app"] or {}).get("id")] = state
+            states.setdefault((check["name"], (check["app"] or {}).get("id")), state)
         statuses = self.api(prefix + "/status?per_page=100", pages=True)
         for page in statuses:
             for status in page["statuses"]:
-                states[status["context"], None] = status["state"]
+                if status["context"] not in PACKAGE_CHECKS:
+                    states[status["context"], None] = status["state"]
 
         missing = any(not any(context == name and (app is None or app == actual_app)
                               for context, actual_app in states)
