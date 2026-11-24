@@ -3,12 +3,12 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stdout
 from copy import deepcopy
-import importlib.util
 import io
 import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 from tempfile import TemporaryDirectory
 from threading import Barrier, Lock
 import unittest
@@ -16,9 +16,10 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 
-spec = importlib.util.spec_from_file_location("swarm", Path(__file__).resolve().parents[1] / "run.py")
-swarm = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(swarm)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import provenance
+import run as swarm
+from trace import timeline
 
 
 def git(path, *args):
@@ -44,8 +45,8 @@ class Fake:
         self.calls = []
         self.worker_runs = []
         self.reviewer_runs = []
-        self.verdicts = {}
-        self.dirty_main = False
+        self.default_verdict = "APPROVE"
+        self.worker_hook = None
         self.claim_gate = None
         self.drop_create_reply = False
 
@@ -105,19 +106,24 @@ class Fake:
                 if self.worker_runs[-1][1] == "danger-full-access":
                     assert sandbox == "danger-full-access"
                 self.reviewer_runs.append(sha)
-                verdict = self.verdicts.get(sha, "APPROVE")
-                return 0, json.dumps({"verdict": verdict, "findings": "Specific findings."})
+                verdict = self.default_verdict
+                return self.model_reply({"verdict": verdict, "findings": "Specific findings."})
             self.worker_runs.append((number, sandbox, payload["repair_findings"]))
-            if self.dirty_main:
-                (self.clone / "README.md").write_text("unexpected change\n")
+            if self.worker_hook:
+                self.worker_hook(number, cwd)
             if sandbox in {"workspace-write", "danger-full-access"}:
                 (cwd / "result.txt").write_text(f"implementation {len(self.worker_runs)}\n")
-            return 0, json.dumps({"passed": True, "command": "python -m unittest",
-                                  "output": "Ran 1 test\nOK\nexit 0\npassword=hidden"})
+            return self.model_reply({"passed": True, "command": "python -m unittest",
+                                     "output": "Ran 1 test\nOK\nexit 0\npassword=hidden"})
         assert args[:2] == ["gh", "api"], args
         with self.github_lock:
             response = self.api(args[3], args[4], json.loads(stdin) if stdin else None)
             return response if isinstance(response, tuple) else (0, json.dumps(response))
+
+    @staticmethod
+    def model_reply(report):
+        return 0, json.dumps({"type": "item.completed", "item": {
+            "type": "agent_message", "text": json.dumps(report)}})
 
     @staticmethod
     def assert_prompt(prompt, payload):
@@ -131,13 +137,14 @@ class Fake:
         if path == "user":
             return {"login": "bot"}
         if path == "branches/dev":
-            return {"protection": {"required_status_checks": {"contexts": ["Owner gate"]}}}
+            return {"commit": {"sha": git(self.remote, "rev-parse", "dev")},
+                    "protection": {"required_status_checks": {"contexts": ["Owner gate"]}}}
         if path == "rules/branches/dev":
             return [{"type": "required_status_checks", "parameters": {"required_status_checks": [
                 {"context": "Policy gate", "integration_id": 1},
             ]}}]
         if path == "actions/workflows/package.yml/runs":
-            assert query["event"] == ["pull_request"]
+            assert query["event"] in (["pull_request"], ["push"])
             return {"workflow_runs": [{"check_suite_id": 2}]}
         if path == "issues":
             return [item for item in self.issues.values() if item["state"] == "open"]
@@ -152,7 +159,9 @@ class Fake:
             pr = {
                 **data, "number": 100 + len(self.pulls), "body": data["body"],
                 "base": {"sha": git(self.remote, "rev-parse", "dev")},
-                "head": {"ref": data["head"]}, "merged_at": None, "state": "open", "labels": [],
+                "head": {"ref": data["head"], "repo": {"full_name": swarm.REPO}},
+                "user": {"login": "bot"}, "created_at": "2026-11-24T10:00:00Z",
+                "merged_at": None, "state": "open", "labels": [],
             }
             self.pulls[pr["number"]] = pr
             if self.drop_create_reply:
@@ -171,13 +180,15 @@ class Fake:
                     records.append(record)
                     return record
                 return records
+            if subpath == "timeline":
+                return []
             obj = self.issues.get(number) or self.pulls[number]
             if subpath == "labels" and method == "POST":
                 obj["labels"] += [{"name": label} for label in data["labels"]
                                   if label not in swarm.labels(obj)]
                 return obj["labels"]
-            if subpath == "labels/blocked" and method == "DELETE":
-                obj["labels"] = [label for label in obj["labels"] if label["name"] != swarm.BLOCKED]
+            if (subpath or "").startswith("labels/") and method == "DELETE":
+                obj["labels"] = [label for label in obj["labels"] if label["name"] != subpath.split("/")[1]]
                 return obj["labels"]
             assert not subpath, (method, target)
             if method == "PATCH":
@@ -204,12 +215,12 @@ class Fake:
     def pull(self, pull):
         result = deepcopy(pull)
         match = re.fullmatch(r"swarm/issue-(\d+)", result["head"]["ref"])
-        if match:
+        if match and "sha" not in result["head"]:
             result["head"]["sha"] = self.head(match[1])
         return result
 
     def ci(self, head, status="success"):
-        self.checks[head] = dict.fromkeys(swarm.PACKAGE_CHECKS | {"Owner gate", "Policy gate"}, status)
+        self.checks[head] = dict.fromkeys(swarm.PACKAGE_CHECKS | {provenance.CHECK, "Owner gate", "Policy gate"}, status)
 
 
 class SwarmTest(unittest.TestCase):
@@ -222,30 +233,35 @@ class SwarmTest(unittest.TestCase):
         redirect.__enter__()
         self.addCleanup(redirect.__exit__, None, None, None)
 
-    def test_danger_full_access_skips_preflight_and_checks_model_runs(self):
+    def test_guard_ignores_clone_fast_forward_and_detects_protected_path(self):
         fake = self.fake
         fake.issue(1, swarm.READY)
         fake.issue(2, swarm.READY)
+        root = fake.root / "protected"
+        root.mkdir()
+        (root / "dataset").write_text("original")
 
-        def command(args, cwd, stdin=None, *, lock_fd=None):
-            self.assertNotEqual(args[:2], ["codex", "sandbox"])
-            if args[:2] == ["codex", "exec"] and json.loads(stdin)["number"] == 2:
-                fake.dirty_main = True
-            return fake.command(args, cwd, stdin, lock_fd=lock_fd)
+        other = fake.make_clone("unrelated")
 
-        with patch.multiple(swarm, CLONE=fake.clone, WORKTREES=fake.root / "trees",
-                            STATE=fake.root / "state", execute=command), patch(
-            "sys.argv", ["run.py", "--once", "--sandbox", "danger-full-access"]
-        ):
-            self.assertEqual(swarm.main(), 0)
+        def mutate(number, cwd):
+            if number == 1:
+                git(other, "commit", "--allow-empty", "-m", "Unrelated checkout update")
+                git(other, "push", "origin", "dev")
+                git(fake.clone, "pull", "--ff-only", "origin", "dev")
+            else:
+                (root / "dataset").write_text("changed")
+
+        fake.worker_hook = mutate
+        runner = fake.runner()
+        runner.sandbox = "danger-full-access"
+        runner.protected_paths = (root,)
+        runner.poll(1)
 
         self.assertEqual(swarm.labels(fake.issues[1]), {swarm.ACTIVE})
         self.assertEqual(swarm.labels(fake.issues[2]), {swarm.BLOCKED})
         self.assertEqual(len(fake.pulls), 1)
         self.assertEqual(len(fake.reviewer_runs), 1)
-        journal = swarm.Journal(fake.root / "state" / "log.jsonl")
-        blocked = journal.last(2, "clone-check")
-        self.assertNotEqual(blocked["before"]["status_sha256"], blocked["after"]["status_sha256"])
+        self.assertIn("Protected filesystem", runner.journal.last(2, "blocked")["reason"])
 
     def test_atomic_claim_race_and_restart(self):
         fake = self.fake
@@ -273,7 +289,7 @@ class SwarmTest(unittest.TestCase):
     def test_skip_dependencies_restart_delayed_ci_and_unblock(self):
         fake = self.fake
         fake.issue(1, swarm.READY, "ml-review", body="## Acceptance\nRun the suite.")
-        fake.issue(2, swarm.READY, swarm.BLOCKED, body="## Dependencies\n#1")
+        fake.issue(2, swarm.READY, swarm.BLOCKED, body="## Dependencies\n- [ ] #1\n- [x] manual: confirmed")
         fake.issue(3, swarm.READY, swarm.ACTIVE)
         fake.issue(4, swarm.READY, swarm.HUMAN)
         fake.issue(5, swarm.READY, body="## Dependencies\n#1\n\n## Acceptance\nUse the suite.")
@@ -285,7 +301,8 @@ class SwarmTest(unittest.TestCase):
         self.assertIn("#1: would claim", self.stdout.getvalue())
         self.assertIn("#5: wait for", self.stdout.getvalue())
         self.assertIn("#7: wait for", self.stdout.getvalue())
-        self.assertTrue(all(call[:4] == ("gh", "api", "-X", "GET") for call in fake.calls))
+        self.assertTrue(all(call[:4] == ("gh", "api", "-X", "GET")
+                            for call in fake.calls if call[0] != "git"))
         self.assertFalse(fake.runner(dry=True).journal.path.exists())
 
         fake.runner().poll(3)
@@ -308,41 +325,66 @@ class SwarmTest(unittest.TestCase):
         self.assertEqual(len(fake.worker_runs), 1)
         self.assertEqual(sum(call[:3] == ("git", "worktree", "add") for call in fake.calls), 1)
 
-        fake.pulls[100].update(state="closed", merged_at="now")
-        fake.runner().poll(3)
+        fake.pulls[100].update(state="closed", merged_at="now", merged_by={"login": "maintainer"})
+        fake.issues[1]["state"] = "closed"
+        restart = fake.runner()
+        restart.poll(3)
+        terminal = [e for e in restart.journal.events[1] if e["event"] == "terminal"]
+        self.assertEqual(len(terminal), 1)
+        self.assertEqual(terminal[0]["by"], "maintainer")
         self.assertEqual(fake.issues[1]["state"], "closed")
         self.assertEqual(swarm.labels(fake.issues[2]), {swarm.READY})
         self.assertEqual(swarm.labels(fake.issues[6]), {swarm.BLOCKED})
-        self.assertEqual(len(fake.pulls), 1)
+        self.assertEqual(len(fake.pulls), 2)  # Unblocked #5 was already ready when #1 closed.
         fake.runner().poll(3)
+        self.assertEqual(sum(e["event"] == "terminal" for e in swarm.Journal(restart.journal.path).events[1]), 1)
         self.assertEqual(fake.worker_runs[0][0], 1)
         self.assertCountEqual([args[0] for args in fake.worker_runs[1:]], [2, 5])
         self.assertEqual(len(fake.pulls), 3)
         self.assertFalse(any("merge" in args for args in fake.calls))
 
-    def test_stale_approval_failing_ci_and_two_fix_cap(self):
+    def test_external_head_is_held_without_review(self):
         fake = self.fake
-        fake.issue(1, swarm.READY, body="## Acceptance\nRun the suite.")
+        fake.issue(1, swarm.READY)
         runner = fake.runner()
         runner.poll(1)
         original = fake.head(1)
         fake.ci(original)
         runner.poll(1)
         self.assertIn(swarm.HUMAN, swarm.labels(fake.pulls[100]))
-
-        current = fake.external_push(1)
-        fake.verdicts[current] = "REQUEST_CHANGES"
+        fake.external_push(1)
         runner.poll(1)
         self.assertNotIn(swarm.HUMAN, swarm.labels(fake.pulls[100]))
-        self.assertEqual(fake.reviewer_runs, [original, current])
-        self.assertIn(current, fake.pulls[100]["body"])
+        self.assertEqual(fake.reviewer_runs, [original])
+        self.assertEqual(runner.journal.terminal(1)["outcome"], "blocked")
+
+    def test_review_repair_ci_infra_pause_and_fix_cap(self):
+        fake = self.fake
+        fake.issue(1, swarm.READY)
+        runner = fake.runner()
+        fake.default_verdict = "REQUEST_CHANGES"
+        runner.poll(1)
+        original = fake.head(1)
+        fake.default_verdict = "APPROVE"
         runner.poll(1)
         first_fix = fake.head(1)
-        self.assertNotEqual(first_fix, current)
+        self.assertNotEqual(first_fix, original)
         self.assertIn("Specific findings", fake.worker_runs[-1][2])
 
-        fake.ci(first_fix, "failure")
-        fake.runner().poll(1)
+        dev = git(fake.remote, "rev-parse", "dev")
+        fake.ci(dev)
+        fake.ci(first_fix)
+        fake.checks[dev]["Offline workspace tests"] = "failure"
+        fake.checks[first_fix]["Offline workspace tests"] = "failure"
+        runner.poll(1)
+        self.assertEqual(runner.journal.last(1, "ci")["status"], "infra-failure")
+        self.assertEqual(runner.journal.last(1, "start")["round"], 1)
+        self.assertEqual(runner.journal.status()[0]["stage"], "ci")
+        self.assertEqual(fake.head(1), first_fix)
+
+        fake.ci(dev)
+        runner = fake.runner()
+        runner.poll(1)
         second_fix = fake.head(1)
         self.assertNotEqual(second_fix, first_fix)
         self.assertIn("CI failed", fake.worker_runs[-1][2])
@@ -350,11 +392,90 @@ class SwarmTest(unittest.TestCase):
         fake.runner().poll(1)
         self.assertEqual(swarm.labels(fake.issues[1]), {swarm.BLOCKED})
         self.assertIn("Fix limit exhausted", fake.comments[1][-1]["body"])
-        self.assertEqual([mode for _, mode, _ in fake.worker_runs].count("workspace-write"), 3)
+        self.assertEqual(len(fake.worker_runs), 3)
         self.assertEqual(len(fake.pulls), 1)
-        self.assertEqual(sum(call[:3] == ("git", "worktree", "add") for call in fake.calls), 1)
-        self.assertNotIn(swarm.HUMAN, swarm.labels(fake.pulls[100]))
         self.assertFalse(any("merge" in args for args in fake.calls))
+
+    def test_foreign_prs_and_closed_issues_are_untouched(self):
+        fake = self.fake
+        fake.issue(1, swarm.READY, state="closed")
+        fake.issue(2, swarm.READY)
+        fake.issue(3, swarm.READY)
+        fake.pulls[100] = {"number": 100, "head": {"ref": "chat/maintenance"},
+                           "body": "Fixes debsagar/enterpriseengine#2", "state": "open"}
+        fake.pulls[101] = {"number": 101, "head": {"ref": "swarm/issue-3", "sha": "external"},
+                           "body": "", "state": "open"}
+        fake.runner().poll(1)
+        self.assertFalse(fake.worker_runs)
+        self.assertFalse(any(call[:4] in (("gh", "api", "-X", "POST"), ("gh", "api", "-X", "PATCH"))
+                             for call in fake.calls))
+
+    def test_provenance_trailers_redaction_and_shared_log(self):
+        fake = self.fake
+        fake.issue(1, swarm.READY)
+        fake.issue(2, swarm.READY, body="token=do-not-retain")
+        runner = fake.runner()
+        fake.worker_hook = lambda number, cwd: (cwd / "PROJECT-LOG.jsonl").touch() if number == 1 else None
+        runner.poll(1)
+        self.assertEqual(runner.journal.terminal(1)["outcome"], "blocked")
+        record = runner.record(2)
+        pr = fake.pulls[100]
+        commits = [{"sha": sha, "commit": {"message": git(fake.clone, "show", "-s", "--format=%B", sha)}}
+                   for sha in git(fake.clone, "rev-list", f"{record['base']}..{fake.head(2)}").splitlines()]
+        provenance.check(pr["body"], commits)
+        with self.assertRaisesRegex(ValueError, "cannot change"):
+            provenance.check(pr["body"], commits, shared_log=True)
+        with self.assertRaisesRegex(ValueError, "matching Change-Actor"):
+            provenance.check(pr["body"], [{"sha": fake.head(2), "commit": {"message": "missing"}}])
+        transcript = (runner.records / f"{record['run']}.jsonl").read_text()
+        self.assertNotIn("do-not-retain", transcript)
+        self.assertNotIn("hidden", transcript)
+        self.assertIn("model-output", transcript)
+        self.assertIn(record["transcript"], fake.comments[100][0]["body"])
+        self.assertEqual(swarm.dependencies("## Dependencies\n- [x] manual: done", unblocking=True),
+                         (set(), False))
+        self.assertEqual(swarm.redact({"access_token": "unmarked", "output": "OK"}), {"output": "OK"})
+        self.assertEqual(swarm.dependencies("## Dependencies\n- [ ] manual: also #2"), (set(), True))
+
+    def test_trace_joins_pr_and_journal(self):
+        fake = self.fake
+        fake.issue(1, swarm.READY)
+        runner = fake.runner()
+        runner.poll(1)
+        sha = fake.head(1)
+
+        def api(endpoint, *, pages=False):
+            if endpoint.endswith("/pulls/100"):
+                return {**fake.pull(fake.pulls[100]), "merged_at": "2026-11-24T11:00:00Z",
+                        "merged_by": {"login": "maintainer"}, "merge_commit_sha": sha}
+            if endpoint.endswith("/check-runs?per_page=100"):
+                return [{"check_runs": []}]
+            return [[]]
+
+        result = timeline(api, "100", runner.journal.path.parent)
+        self.assertIn("model-start", result)
+        self.assertIn("PR opened by bot", result)
+        self.assertIn("merged by maintainer", result)
+
+    def test_wrong_runner_pin_leaves_claim_open(self):
+        fake = self.fake
+        fake.issue(1, swarm.READY)
+        owner = fake.runner()
+        owner.poll(1)
+        new_runner = fake.runner()
+        new_runner.runner_sha = "f" * 40
+        new_runner.poll(1)
+        self.assertIsNone(new_runner.journal.terminal(1))
+        self.assertEqual(new_runner.journal.status()[0]["status"], "paused")
+        self.assertEqual(new_runner.journal.status()[0]["runner"], owner.runner_sha)
+        self.assertEqual(len(fake.worker_runs), 1)
+
+    def test_human_template_and_no_issue_reason(self):
+        record = {"actor": "human", "issue": "none", "issue_reason": "Routine cleanup", "base": "a" * 40}
+        commits = [{"sha": "b" * 40, "commit": {"message": provenance.commit_message("Cleanup", record)}}]
+        provenance.check(provenance.block(record), commits)
+        with self.assertRaisesRegex(ValueError, "issue_reason"):
+            provenance.check(provenance.block({**record, "issue_reason": ""}), commits)
 
 
 if __name__ == "__main__":

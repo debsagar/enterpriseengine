@@ -23,3 +23,6 @@ env-cache/
 **/dist/
 .pytest_cache/
 .coverage
+
+.swarm/
+.swarm-runs/

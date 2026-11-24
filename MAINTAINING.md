@@ -15,7 +15,9 @@ Assign one `agent-ready` issue per worktree based on `origin/dev`. Record the
 goal, acceptance command, affected packages and dependencies in the issue.
 Open the pull request against `dev`, include the test result and compatibility
 notes, then request review from a different model. A human merges after review
-and the required checks pass.
+and the required checks pass. Agent and human PRs carry the metadata block and
+commit trailers described in the [provenance guide](scripts/swarm/README.md#provenance).
+Agents keep execution evidence in their run records and leave the shared project log to maintainers.
 
 Install the workspace with `uv sync --locked --all-packages`. Run the engine
 tests in `packages/engine/tests` and the cross-package replay tests in

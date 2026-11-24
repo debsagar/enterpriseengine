@@ -14,6 +14,6 @@ Read README.md → docs/HANDOFF.md → docs/ARCHITECTURE.md before changing beha
 - Keep changes simple: reuse native product features and existing clients. No speculative generic company framework or mandatory nested routers.
 - Notebook inspection stays read-only. Explain generated tables directly underneath their outputs. No unnecessary ZIP deliverables.
 - Run appropriate offline checks from README.md. Report what was actually checked, not just saved historical pass results.
-- Project state lives in PROJECT-LOG.jsonl (append-only). Read relevant recent events and append meaningful changes with evidence paths; do not rewrite history.
+- Project state lives in PROJECT-LOG.jsonl (append-only). Read relevant recent events. Keep agent PR evidence in the retained provenance record and trailers. Maintainers own updates to the shared log.
 
 For code changes, completion notes should name affected A–L blocks, changed behavior, validation and remaining limits. Update architecture/docs only where the implementation or intended contract changed.
