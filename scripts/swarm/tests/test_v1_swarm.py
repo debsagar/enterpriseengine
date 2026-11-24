@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import provenance
 import run as swarm
 from trace import timeline
-from roles import Issues, Merger, Swarm
+from roles import Issues, Merger, Swarm, eligible_reviewers, verdict_record
 
 
 def git(path, *args):
@@ -42,13 +42,18 @@ class Fake:
         self.comments = {}
         self.reviews = {}
         self.checks = {}
+        self.statuses = {}
+        self.repo_labels = set()
+        self.claude_errors = {}
+        self.review_calls = []
+        self.author_calls = []
         self.github_lock = Lock()
         self.calls = []
         self.worker_runs = []
         self.validation_runs = []
         self.issue_plans = {}
         self.merge_runs = []
-        self.merger_login = "integrator"
+        self.merger_login = "bot"
         self.strict = True
         self.default_verdict = True
         self.worker_hook = None
@@ -65,7 +70,9 @@ class Fake:
         git(clone, "config", "user.name", "Swarm Test")
         if seed:
             (clone / "README.md").write_text("dev\n")
-            git(clone, "add", "README.md")
+            (clone / "SPEC.md").write_text("Owner specification")
+            (clone / "DECISIONS.md").write_text("Owner decisions")
+            git(clone, "add", "README.md", "SPEC.md", "DECISIONS.md")
             git(clone, "commit", "-m", "Seed dev")
             git(clone, "remote", "add", "origin", str(self.remote))
             git(clone, "push", "origin", "dev")
@@ -80,8 +87,10 @@ class Fake:
                 return 0, json.dumps({"login": self.merger_login})
             return self.command(args, cwd, stdin, lock_fd=lock_fd)
 
-        return role(clone or self.clone, location / "worktrees", swarm.Journal(location / log),
-                    command=command, dry=dry)
+        runner = role(clone or self.clone, location / "worktrees", swarm.Journal(location / log),
+                      command=command, dry=dry)
+        runner.protected_paths = (self.root / "protected-data",)
+        return runner
 
     def issue(self, number, *labels, body="", state="open"):
         self.issues[number] = {
@@ -120,6 +129,19 @@ class Fake:
             self.pulls[number].update(state="closed", merged_at="now", merge_commit_sha=head,
                                       merged_by={"login": self.merger_login})
             return 0, ""
+        if args[0] == "claude":
+            _, payload = stdin.split("\n\n", 1)
+            payload = json.loads(payload)
+            number = payload["number"]
+            assert args[:6] == ["claude", "-p", "--model", "claude-opus-5-5", "--effort", "low"]
+            assert args[args.index("--tools") + 1] == "Read,Grep,Glob"
+            assert payload["SPEC.md"] == "Owner specification" and payload["DECISIONS.md"] == "Owner decisions"
+            assert "Acceptance test command" in payload["body"] and "diff --git" in payload["diff"]
+            assert payload["acceptance_output"]["summary"] == "Checks passed."
+            self.review_calls.append((number, "claude-opus-5-5", "low"))
+            if number in self.claude_errors:
+                return 1, self.claude_errors[number]
+            return 0, json.dumps({"structured_output": {"passed": True, "findings": "Reviewed."}})
         if args[0] == "codex":
             payload = json.loads(stdin)
             number = payload["number"]
@@ -130,8 +152,12 @@ class Fake:
                 assert "ERP-changing" in args[-1]
             sha = git(cwd, "rev-parse", "HEAD")
             model = args[args.index("-m") + 1]
+            effort = next(value.split('"')[1] for value in args if value.startswith("model_reasoning_effort="))
+            if "acceptance_output" in payload:
+                self.review_calls.append((number, model, effort))
+                return self.model_reply({"passed": True, "findings": "Fallback reviewed."})
             if "required_commands" in payload:
-                assert model == "gpt-6.2-sol" and sandbox == "workspace-write"
+                assert model == "gpt-6.2-sol" and sandbox == swarm.DEFAULT_SANDBOX
                 self.validation_runs.append((number, sha, list(payload["required_commands"])))
                 events = [json.dumps({"type": "item.completed", "item": {
                     "type": "command_execution", "command": command, "exit_code": 0,
@@ -139,19 +165,19 @@ class Fake:
                 _, result = self.model_reply({"passed": True, "command": "", "output": "Checks passed."})
                 return 0, "\n".join([*events, result])
             if "merge_report" in payload:
-                assert model == "gpt-6.2-sol" and sandbox == "read-only"
+                assert model == "gpt-6.2-sol" and sandbox == swarm.DEFAULT_SANDBOX
                 return self.model_reply({"summary": "Implemented the scoped change."})
             if "candidate" in payload:
-                assert model == "gpt-6.2-sol" and sandbox == "read-only"
+                assert model == "gpt-6.2-sol" and sandbox == swarm.DEFAULT_SANDBOX
                 self.validation_runs.append((number, sha, "second pass"))
                 return self.model_reply({"passed": self.default_verdict, "findings": "Verified evidence."})
             if "issues" in payload:
-                assert model == "gpt-6.2-astra" and sandbox == "read-only"
-                return self.model_reply(self.issue_plans.get(number, {
+                assert model == "gpt-6.2-astra" and sandbox == swarm.DEFAULT_SANDBOX
+                return self.model_reply({"size": "large", **self.issue_plans.get(number, {
                     "classification": "distinct", "duplicate": "", "impact": "Affects contracts.",
                     "prerequisites": "",
-                }))
-            assert model == "gpt-6.2-astra"
+                })})
+            self.author_calls.append((number, model, effort))
             self.worker_runs.append((number, sandbox, payload["repair_findings"]))
             if self.worker_hook:
                 self.worker_hook(number, cwd)
@@ -180,12 +206,24 @@ class Fake:
         query = parse_qs(url.query)
         if path == "user":
             return {"login": "bot"}
+        if path == "labels" and method == "POST":
+            self.repo_labels.add(data["name"])
+            return data
+        if path.startswith("labels/"):
+            name = path.split("/", 1)[1]
+            return {"name": name} if name in self.repo_labels else (1, "")
+        if path.startswith("statuses/"):
+            assert method == "POST"
+            statuses = self.statuses.setdefault(path.split("/", 1)[1], {})
+            statuses[data["context"]] = {**data, "creator": {"login": "bot"}}
+            return data
         if path == "branches/dev":
             return {"commit": {"sha": git(self.remote, "rev-parse", "dev")},
                     "protection": {"required_status_checks": {"contexts": ["Owner gate"]}}}
         if path == "rules/branches/dev":
             return [{"type": "required_status_checks", "parameters": {"required_status_checks": [
                 {"context": "Policy gate", "integration_id": 1},
+                *({"context": context} for context in swarm.VERDICT_CONTEXTS.values()),
             ], "strict_required_status_checks_policy": self.strict}}]
         if path == "actions/workflows/package.yml/runs":
             assert query["event"] in (["pull_request"], ["push"])
@@ -245,11 +283,14 @@ class Fake:
                     data = {**data, "labels": [{"name": label} for label in data["labels"]]}
                 obj.update(data)
             return self.pull(obj) if kind == "pulls" else obj
-        match = re.fullmatch(r"commits/([a-f0-9]+)/(check-runs|status)", path)
+        match = re.fullmatch(r"commits/([a-f0-9]+)/(check-runs|status|statuses)", path)
         if match:
             head, kind = match.groups()
+            if kind == "statuses":
+                return list(self.statuses.get(head, {}).values())
             if kind == "status":
-                return {"statuses": []}
+                return {"statuses": [{key: value for key, value in entry.items() if key != "creator"}
+                                     for entry in self.statuses.get(head, {}).values()]}
             return {"check_runs": [
                 {"id": index, "check_suite": {"id": 2},
                  "name": name, "app": {"id": 1}, "conclusion": status,
@@ -318,7 +359,7 @@ class SwarmTest(unittest.TestCase):
         second = fake.runner("second", clone=fake.make_clone("other"))
         fake.claim_gate = Barrier(2)
         with ThreadPoolExecutor(2) as pool:
-            results = list(pool.map(lambda runner: runner.claim(1, "swarm/issue-1"), [first, second]))
+            results = list(pool.map(lambda runner: runner.claim({"number": 1, "labels": []}, "swarm/issue-1"), [first, second]))
         self.assertEqual(results.count(None), 1)
         self.assertIn(fake.head(1), results)
         fake.claim_gate = None
@@ -501,12 +542,6 @@ class SwarmTest(unittest.TestCase):
             self.fake.issue(number, swarm.READY, body="### Acceptance test command\n\n`uv run python -m unittest`")
         self.fake.runner().poll()
 
-    def approve(self, number, head, who="reviewer"):
-        self.fake.reviews.setdefault(number, []).append({
-            "state": "APPROVED", "commit_id": head, "user": {"login": who},
-            "author_association": "COLLABORATOR",
-        })
-
     def test_role_permissions_and_swarm_verifies_pr_in_two_passes(self):
         fake = self.fake
         self.ready_prs(1)
@@ -528,7 +563,9 @@ class SwarmTest(unittest.TestCase):
         self.assertEqual(fake.head(1), head)
         self.assertEqual([step[0] for step in fake.validation_runs], [0, 100, 100])
         self.assertEqual(fake.validation_runs[-1][2], "second pass")
-        self.assertIn("swarm-validation:PASS", fake.comments[100][-1]["body"])
+        self.assertIn('"verdict": "PASS"', fake.comments[100][-1]["body"])
+        self.assertEqual(set(fake.statuses[head]), set(swarm.VERDICT_CONTEXTS.values()))
+        self.assertEqual(fake.reviews, {})
         self.assertFalse(any(call[:2] == ("git", "push") for call in fake.calls))
 
     def test_norvale_baseline_runs_when_tracked(self):
@@ -553,7 +590,8 @@ class SwarmTest(unittest.TestCase):
                         self.fail("second merger acquired the lock")
 
         old1, old2 = fake.head(1), fake.head(2)
-        self.approve(100, old1)
+        fake.runner(role=Swarm).poll()
+        self.assertEqual(set(fake.statuses[old1]), set(swarm.VERDICT_CONTEXTS.values()))
         fake.runner(role=Merger).poll()
         head = fake.head(1)
         self.assertNotEqual(head, old1)
@@ -569,13 +607,17 @@ class SwarmTest(unittest.TestCase):
         self.assertEqual(fake.merge_runs, [])
         fake.ci(head)
         fake.runner(role=Merger).poll()
-        fake.runner(role=Swarm).poll()
-        self.approve(100, head, who="bot")  # The PR author's approval is ignored.
-        fake.runner(role=Merger).poll()
+        merger = fake.runner(role=Merger)
+        self.assertEqual(merger.journal.last(100, "decision")["status"], "waiting for swarm/validate")
         self.assertEqual(fake.merge_runs, [])
+        fake.runner(role=Swarm).poll()
+        review_status = fake.statuses[head].pop("review/independent")
+        merger.poll()
+        self.assertEqual(merger.journal.last(100, "decision")["status"], "waiting for review/independent")
+        self.assertEqual(fake.merge_runs, [])
+        fake.statuses[head]["review/independent"] = review_status
         self.assertEqual(fake.head(2), old2)
 
-        self.approve(100, head)
         fake.strict = False
         merger = fake.runner(role=Merger)
         merger.poll()
@@ -591,24 +633,103 @@ class SwarmTest(unittest.TestCase):
         self.assertNotEqual(second, old2)
         self.assertEqual(git(fake.remote, "merge-base", head, second), head)
 
-    def test_ml_review_stops_queue_and_own_pr_is_bounced(self):
+    def test_verdict_comment_must_name_the_current_head(self):
+        fake = self.fake
+        self.ready_prs(1)
+        validator = fake.runner(role=Swarm)
+        validator.poll()
+        head, base = fake.head(1), validator.dev()
+        review = fake.comments[100][-1]
+        marker, rest = review["body"].split("\n", 1)
+        review["body"] = marker.replace(head, "f" * 40) + "\n" + rest
+        merger = fake.runner(role=Merger)
+        merger.login = "bot"
+        self.assertEqual(merger.gate(fake.pull(fake.pulls[100]), head, base)[0], "waiting for review/independent")
+
+    def test_ml_review_stops_queue(self):
         fake = self.fake
         self.ready_prs(1, 2)
         head, other = fake.head(1), fake.head(2)
         fake.pulls[100]["labels"] = [{"name": "ml-review"}]
         fake.ci(head)
         fake.runner(role=Swarm).poll()
-        self.approve(100, head)
         for _ in range(2):
             fake.runner(role=Merger).poll()
         self.assertEqual(swarm.labels(fake.pulls[100]), {"ml-review", swarm.HUMAN})
         self.assertEqual((fake.head(1), fake.head(2)), (head, other))
         self.assertEqual(fake.merge_runs, [])
-        fake.pulls[100]["labels"] = []
-        fake.merger_login = "bot"
+
+    def test_author_sizes_pin_model_effort_and_triage_normalizes_labels(self):
+        fake = self.fake
+        fake.issue(1, swarm.READY, swarm.SMALL, body="Reasoning effort: high")
+        fake.issue(2, swarm.READY, swarm.LARGE, body="ReasoningEffort: xhigh")
+        fake.issue(3, swarm.READY)
+        fake.issue(4, swarm.SMALL, swarm.LARGE)
+        fake.runner().poll()
+        self.assertEqual(fake.author_calls, [
+            (1, "gpt-6.2-sol", "medium"), (2, "gpt-6.2-astra", "xhigh"), (3, "gpt-6.2-astra", "medium"),
+        ])
+        for number, model, effort in fake.author_calls:
+            record = provenance.parse(fake.pulls[99 + number]["body"])
+            self.assertEqual((record["model"], record["effort"]), (model, effort))
+        fake.issue_plans[4] = {"size": "small", "classification": "distinct", "duplicate": "",
+                               "impact": "Scoped work.", "prerequisites": ""}
+        fake.runner(role=Issues).poll()
+        self.assertEqual(swarm.labels(fake.issues[4]), {swarm.SMALL})
+        self.assertIn(swarm.LARGE, swarm.labels(fake.issues[3]))
+
+    def test_review_eligibility_and_same_model_verdict_rejected(self):
+        fake = self.fake
+        self.assertEqual(eligible_reviewers("gpt-6.2-sol"), ("claude-opus-5-5", "gpt-6.2-astra"))
+        self.assertEqual(eligible_reviewers("gpt-6.2-astra"), ("claude-opus-5-5",))
+        self.assertEqual(eligible_reviewers(None), ())
+        self.ready_prs(1)
+        validator = fake.runner(role=Swarm)
+        validator.poll()
+        head, base = fake.head(1), validator.dev()
+        valid = validator.journal.last(100, "reviewer-verdict")
+        source = {**valid["provenance"], "model": "gpt-6.2-astra", "provider": "OpenAI",
+                  "effort": "medium", "reviewer_fallback": True, "fallback_reason": "quota"}
+        validator.journal.add(100, "reviewer-verdict", head=head, base=base, provenance=source, passed=True)
+        fake.comments[100][-1]["body"] = ("<!-- swarm-verdict " +
+                                         json.dumps(verdict_record(source, head, True)) + " -->\n" +
+                                         provenance.block(source))
+        merger = fake.runner(role=Merger)
+        merger.login = "bot"
+        self.assertEqual(merger.gate(fake.pull(fake.pulls[100]), head, base)[0], "waiting for review/independent")
+
+    def test_claude_fallback_and_astra_wait_does_not_block_other_prs(self):
+        fake = self.fake
+        for number, size in ((1, swarm.LARGE), (2, swarm.SMALL)):
+            fake.issue(number, swarm.READY, size, body="### Acceptance test command\n\n`uv run python -m unittest`")
+        fake.runner().poll()
         fake.runner(role=Merger).poll()
-        self.assertIn("identity opened this PR", fake.comments[100][-1]["body"])
-        self.assertEqual(fake.merge_runs, [])
+        fake.claude_errors = {100: "401 authentication failed", 101: "429 rate limit exceeded"}
+        with patch("roles.sleep") as wait:
+            fake.runner(role=Swarm).poll()
+        self.assertEqual([call.args[0] for call in wait.call_args_list], [2, 4, 2, 4])
+        self.assertEqual(fake.review_calls, [(100, "claude-opus-5-5", "low")] * 3 +
+                         [(101, "claude-opus-5-5", "low")] * 3 + [(101, "gpt-6.2-astra", "medium")])
+        self.assertIn(swarm.AWAITING_REVIEW, swarm.labels(fake.pulls[100]))
+        self.assertNotIn("review/independent", fake.statuses[fake.head(1)])
+        record = provenance.parse(fake.comments[101][-1]["body"])
+        self.assertTrue(record["reviewer_fallback"])
+        self.assertEqual(record["fallback_reason"], "Claude quota or rate limit")
+        merger = fake.runner(role=Merger)
+        merger.poll()
+        self.assertEqual(merger.journal.last(100, "release")["status"], "awaiting-review")
+        merger.poll()
+        head = fake.head(2)
+        fake.ci(head)
+        with patch("roles.sleep"):
+            fake.runner(role=Swarm).poll()
+        merger.poll()
+        self.assertEqual(fake.merge_runs, [101])
+        self.assertIn("Fallback review", (merger.journal.path.parent / "reports" / f"pr-101-{head}.md").read_text())
+        del fake.claude_errors[100]
+        fake.runner(role=Swarm).poll()
+        self.assertNotIn(swarm.AWAITING_REVIEW, swarm.labels(fake.pulls[100]))
+        self.assertEqual(fake.statuses[fake.head(1)]["review/independent"]["state"], "success")
 
     def test_ci_baseline_defers_and_author_can_repair_rebased_head(self):
         fake = self.fake
