@@ -73,3 +73,38 @@ Every contribution should state: **affected A–L blocks → input evidence → 
 ## Proposed company behavior and integrations
 
 [Company logic architecture](COMPANY-LOGIC.md) grounds the proposed MES, QMS, PLM and lakehouse integration in manufacturing workflows, record ownership, guards and failure recovery. It extends this A–L contract; it is not a claim of implemented integrations.
+
+## Component manifest preflight
+
+A host can call `components.registry.Registry(descriptors).resolve(manifest)`
+during setup (A), before starting the shared clock (B). The registry reads
+declarations and manifest values and returns an instance-ID mapping containing
+each validated instance and its descriptor. Invalid input raises
+`RegistryError` with the offending input path (L). Missing adapters point to
+the descriptor requirement, and event schema conflicts identify both descriptor
+declarations. Preflight creates no native
+records and requires no application connections. Existing launchers continue
+to use their current inputs.
+
+Both formats require integer `version: 1`. Each descriptor declares an exact
+`type` ID, a `provenance` source string, `instance_schema` for configuration,
+`state_schema` for initial serializable state, and `parameters` for static
+values. `handles` and `emits` map event names to payload schemas. Each schema is
+a closed mapping of required field names to JSON types (`string`, `integer`,
+`number`, `boolean`, `object`, `array`, `null`). Object and array contents must
+be JSON values. All declarations of the same event name in a composition must
+have equal payload schemas. Events may cross the composition boundary.
+
+A manifest has `instances` and an `adapters` list for host-supplied adapters.
+Each instance supplies `id`, `type`, `config`, `state`, `parameters`,
+`policies`, and `relations`. Descriptor relations map names to target type IDs.
+Instance relations map those names to target instance IDs. Each
+`requires_adapters` ID must appear in the manifest's `adapters` or a selected
+descriptor's `provides_adapters`. Hosts can encode adapter revisions in IDs.
+
+A descriptor's `policies` maps dated parameter names to their value types.
+An instance supplies a list of entries for each declared name with `value`,
+`effective_from`, and `effective_until`. Dates use YYYY-MM-DD. Intervals are
+half-open, allow an unbounded end with JSON null, and must be disjoint per
+instance and parameter. Empty declaration maps and lists express unused
+capabilities. The offline contract is exercised by `contracts/test_v1_registry.py`.
