@@ -82,10 +82,28 @@ def verdict_record(source, head, passed):
     return result
 
 
+def evidenced_pass(acceptance):
+    required = acceptance.get("required", [])
+    results = acceptance.get("commands", [])
+    return bool(required) and [r.get("command") for r in results] == required and all(
+        r.get("exit_code") == 0 for r in results)
+
+
+def current_pass(client, pr, acceptance):
+    if not evidenced_pass(acceptance):
+        return False
+    issue = linked_issue(pr)
+    body = client.issue(issue).get("body") if issue else ""
+    commands = accepted_commands(body or "") or accepted_commands(pr.get("body") or "")
+    return bool(commands) and all(command in acceptance["required"] for command in commands)
+
+
 def published_verdict(client, pr, head, base, role, trail):
     number = pr["number"]
     event = trail.last(number, role + "-verdict")
     if not event or (event["head"], event["base"]) != (head, base):
+        return None
+    if role == "swarm" and event["passed"] and not current_pass(client, pr, event.get("acceptance", {})):
         return None
     source = event["provenance"]
     if source.get("role") != role or source["base"] != base:
@@ -197,9 +215,11 @@ class Role(Client):
         self.event(self.role + "-verdict", head=head, base=base, passed=passed, **evidence)
         return self.journal.last(self.number, self.role + "-verdict")
 
-    def resume_publication(self, number, head, base):
+    def resume_publication(self, number, head, base, pr):
         intent = self.journal.last(number, self.role + "-publication")
         if not intent or (intent["head"], intent["base"]) != (head, base):
+            return
+        if self.role == "swarm" and intent["passed"] and not current_pass(self, pr, intent["evidence"].get("acceptance", {})):
             return
         self.begin(number, base, run=intent["provenance"]["run"])
         self.identity = intent["provenance"].copy()
@@ -282,7 +302,8 @@ class Swarm(Role):
         issue = linked_issue(pr) if pr else None
         if pr and (existing := published_verdict(self, pr, head, base, self.role, self.journal)):
             return existing
-        if pr and (resumed := self.resume_publication(number, head, base)):
+        if pr and (resumed := self.resume_publication(number, head, base, pr)):
+            self.file_advisories(resumed)
             return resumed
         self.start(number, base, issue)
         self.fetch(number, head, base)
@@ -309,19 +330,20 @@ class Swarm(Role):
             results = [self.command_result(command, path) for command in dict.fromkeys(required)]
             ran = {command_key(entry["command"]): entry["exit_code"] for entry in results}
             failed = [entry["command"] for entry in results if entry["exit_code"] != 0]
-            verified = not failed
+            acceptance = {"required": list(dict.fromkeys(required)), "commands": results}
+            verified = bool(commands) and evidenced_pass(acceptance)
             report = self.model(
                 path, MODELS[self.role], TASK_RULES +
                 "Inspect the diff against the requirements and recorded command results. Do not edit, "
                 "delegate, or rerun commands. Report unmet requirements and public evidence.",
                 {"number": number, "body": body, "base": base, "command_results": results,
                  "pr": (pr.get("title") if pr else None)}, WORKER_SCHEMA)
-            if not report and failed:
+            if not report and not verified:
                 report = {"passed": False, "output": "Requirement review unavailable."}
             if not report:
                 self.event("deferred", head=head, base=base, reason="No valid model result.")
                 return
-            acceptance = {"commands": results, "summary": safe_evidence(report["output"], 5000)}
+            acceptance["summary"] = safe_evidence(report["output"], 5000)
             details = acceptance["summary"]
             findings_pass = report["passed"]
             if pr:
@@ -337,7 +359,7 @@ class Swarm(Role):
                     {"number": number, "body": body, "base": base, "candidate": details,
                      "reported_pass": report["passed"], "failed_commands": failed,
                      "command_results": results}, SWARM_FINDINGS)
-                if not review and failed:
+                if not review and not verified:
                     review = {"blocking_findings": [], "advisory_findings": []}
                 if not review:
                     self.event("deferred", head=head, base=base, reason="Finding verification did not complete.")
@@ -351,22 +373,38 @@ class Swarm(Role):
         passed = verified and findings_pass
         if not verified:
             failures = [f"{entry['command']} (exit {entry['exit_code']})" for entry in results if entry["exit_code"]]
+            if not commands:
+                failures.append("no acceptance command")
             details = safe_evidence("Required commands failed:\n" + "\n".join(failures), 4000) + "\n\n" + details
         if pr:
+            requirement_ids = " ".join(re.findall(r"\bR\d+\b", pr.get("body") or body))
+            advisories = [{"source": issue or number, "finding": redact(finding), "pr_body": requirement_ids}
+                          for finding in review["advisory_findings"]]
             verdict = self.publish_verdict(head, base, passed,
                                         f"Swarm validation {'passed' if passed else 'failed'} at `{head}` "
-                                        f"against dev `{base}`.\n\n{details}", acceptance=acceptance)
+                                        f"against dev `{base}`.\n\n{details}", acceptance=acceptance, advisories=advisories)
             if not verdict:
                 return
-            for finding in review["advisory_findings"]:
-                try:
-                    self.advisory_issue(issue or number, finding, pr.get("body") or body)
-                except (ToolError, ValueError, KeyError, TypeError) as error:
-                    self.event("advisory-filing-failed", head=head, reason=str(error))
+            self.file_advisories(verdict)
             return verdict
         if not passed and self.dev() == base:
             self.report_regression(required, ran, details)
         self.event("verdict", head=head, base=base, passed=passed)
+
+    def file_advisories(self, verdict):
+        number = verdict["issue"]
+        run = verdict["provenance"]["run"]
+        filed = {e["index"] for e in self.journal.events[number]
+                 if e["event"] == "advisory-filed" and e["publication"] == run}
+        for index, payload in enumerate(verdict.get("advisories", [])):
+            if index in filed:
+                continue
+            try:
+                self.advisory_issue(**payload)
+            except (ToolError, ValueError, KeyError, TypeError) as error:
+                self.journal.add(number, "advisory-filing-failed", publication=run, reason=str(error))
+            else:
+                self.journal.add(number, "advisory-filed", publication=run, index=index)
 
     def advisory_issue(self, source, finding, pr_body):
         pattern = r"\bR(?:[1-9]|1[0-9]|20)\b"
@@ -443,6 +481,9 @@ class Swarm(Role):
     def poll(self):
         if not self.dry:
             for number in tuple(self.journal.events):
+                for event in list(self.journal.events[number]):
+                    if event["event"] == "swarm-verdict" and event.get("advisories"):
+                        self.file_advisories(event)
                 claim = self.journal.last(number, "validation-claim")
                 release = self.journal.last(number, "validation-release")
                 if claim and (not release or release["claim"] != claim["claim"]):
@@ -527,7 +568,7 @@ class Reviewer(Role):
         if not eligible:
             return
         if (published_verdict(self, pr, head, base, self.role, self.journal)
-                or self.resume_publication(number, head, base)):
+                or self.resume_publication(number, head, base, pr)):
             if AWAITING_REVIEW in labels(pr):
                 self.remove_label(number, AWAITING_REVIEW)
             return

@@ -189,7 +189,13 @@ class Fake:
             if self.worker_hook:
                 self.worker_hook(number, cwd)
             if sandbox in {"workspace-write", "danger-full-access"}:
-                (cwd / f"result-{number}.txt").write_text(f"implementation {len(self.worker_runs)}\n")
+                name = f"result-{number}.txt"
+                scope = payload["claim_scope"]
+                target = cwd / (scope[0] if scope and name not in scope else name)
+                if not target.suffix:
+                    target /= f"result-{number}.txt"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(f"implementation {len(self.worker_runs)}\n")
             code, reply = self.model_reply({"passed": True, "command": "python -m unittest",
                                      "output": "Ran 1 test\nOK\nexit 0\npassword=hidden"})
             event = {"type": "command_execution", "command": "uv run python -m unittest" if "uv run" in payload["body"] else "python -m unittest",
@@ -519,6 +525,38 @@ class SwarmTest(unittest.TestCase):
                      "Command\n\n```bash\ntrue\nfalse\n```"):
             self.assertEqual(swarm.accepted_commands(body), ["true", "false"])
 
+    def test_outside_claim_scope_rejected(self):
+        self.fake.issue(1, swarm.READY, body="### File scope\n- docs/a.md")
+        self.fake.worker_hook = lambda number, cwd: (cwd / "outside").touch()
+        self.fake.runner().poll()
+        self.assertFalse(self.fake.pulls)
+        self.assertIn("outside pinned claim scope: outside", str(self.fake.comments))
+
+    def test_each_command_in_mixed_acceptance_section_is_required(self):
+        self.ready_prs(1)
+        self.fake.issues[1]["body"] = "### Acceptance\n`true`\n```sh\ntrue\n```\n`false`"
+        self.commands.side_effect = lambda command, path: {
+            "command": command, "exit_code": int(command == "false"), "output": ""}
+        self.fake.runner(role=Swarm).poll()
+        self.assertIn("false (exit 1)", self.fake.comments[100][-1]["body"])
+
+    def test_no_acceptance_command(self):
+        self.ready_prs(1)
+        self.fake.issues[1]["body"] = ""
+        self.fake.pulls[100]["body"] = "Closes #1"
+        self.fake.runner(role=Swarm).poll()
+        self.assertIn("no acceptance command", self.fake.comments[100][-1]["body"])
+        self.assertIn('"verdict": "FAIL"', self.fake.comments[100][-1]["body"])
+
+    def test_existing_pass_after_acceptance_changes(self):
+        self.ready_prs(1)
+        self.fake.runner(role=Swarm).poll()
+        self.fake.issues[1]["body"] = "### Acceptance\n`false`"
+        self.commands.side_effect = lambda command, path: {
+            "command": command, "exit_code": int(command == "false"), "output": ""}
+        self.fake.runner(role=Swarm).poll()
+        self.assertIn("false (exit 1)", self.fake.comments[100][-1]["body"])
+
     def test_required_command_failure_overrides_model_pass(self):
         self.ready_prs(1)
         self.commands.side_effect = lambda command, path: {"command": command, "exit_code": 7, "output": "failed"}
@@ -535,12 +573,15 @@ class SwarmTest(unittest.TestCase):
     def test_advisory_error_after_publication(self):
         self.ready_prs(1)
         self.fake.findings["advisory_findings"] = [{"title": "Style", "evidence": "example", "impact": "clarity"}]
-        def fail(*args):
+        def fail(*args, **kwargs):
             self.assertIn('"verdict": "PASS"', self.fake.comments[100][-1]["body"])
             raise swarm.ToolError("unavailable")
         with patch.object(Swarm, "advisory_issue", side_effect=fail) as filing:
             self.fake.runner(role=Swarm).poll()
             filing.assert_called_once()
+        self.fake.runner(role=Swarm).poll()
+        self.fake.runner(role=Swarm).poll()
+        self.assertEqual(sum("swarm-advisory:" in item["body"] for item in self.fake.issues.values()), 1)
 
     def test_advisory_defaults_to_pr_requirement(self):
         self.ready_prs(1)
@@ -665,7 +706,9 @@ class SwarmTest(unittest.TestCase):
     def test_merger_rebase_conflict_starts_author_repair_on_current_dev(self):
         fake = self.fake
         fake.worker_hook = lambda number, cwd: (cwd / "README.md").write_text("author\n")
-        self.ready_prs(1)
+        fake.issue(1, swarm.READY, body="### Acceptance\n`uv run python -m unittest`\n\n"
+                   "### File scope\n- README.md\n- result-1.txt")
+        fake.runner().poll()
         original = fake.head(1)
         other = fake.make_clone("new-dev")
         (other / "README.md").write_text("new dev\n")
@@ -928,6 +971,7 @@ class SwarmTest(unittest.TestCase):
         self.ready_prs(1)
         fake = self.fake
         validator = fake.runner(role=Swarm)
+        fake.findings["advisory_findings"] = [{"title": "Style", "evidence": "example", "impact": "clarity"}]
         api = fake.api
 
         def fail_status(method, target, data):
@@ -951,6 +995,7 @@ class SwarmTest(unittest.TestCase):
         self.assertEqual([number for number, *_ in fake.validation_runs], [0])
         verdict = restarted.journal.last(100, "swarm-verdict")
         self.assertEqual(verdict["provenance"], intent["provenance"])
+        self.assertIn("swarm-advisory:", fake.issues[2]["body"])
         self.assertFalse(path.exists())
         self.assertTrue(any(event.get("status") == "interrupted" and event.get("claim") == "interrupted"
                             for event in restarted.journal.events[100]))

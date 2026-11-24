@@ -67,15 +67,23 @@ def accepted_commands(body):
     """Read a fenced or inline acceptance command, keeping prose as requirements."""
     section = re.search(r"(?ims)^#{1,6}[ \t]+Acceptance(?: test command)?[ \t]*\n(.*?)(?=^#{1,6}[ \t]|\Z)", body)
     if section:
-        fenced = re.findall(r"```[\w-]*\n(.*?)```", section[1], re.S)
-        if fenced:
-            return [command.strip() for block in fenced for command in block.splitlines() if command.strip()]
-    inline = re.search(r"(?im)^(?:Acceptance(?: test command)?\s*:\s*)?`([^`\n]+)`", section[1] if section else body)
+        commands = []
+        fenced = False
+        for line in section[1].splitlines():
+            line = line.strip()
+            if line.startswith("```"):
+                fenced = not fenced
+            elif fenced and line:
+                commands.append(line)
+            elif inline := re.match(r"^(?:Acceptance(?: test command)?\s*:\s*)?`([^`]+)`", line, re.I):
+                if command := inline[1].strip():
+                    commands.append(command)
+            elif re.match(r"^(?:(?:uv|python[\d.]*|bash|pytest|npm|make)\s|\./)", line):
+                commands.append(line)
+        return commands
+    inline = re.findall(r"(?im)^(?:Acceptance(?: test command)?\s*:\s*)?`([^`\n]+)`", body)
     if inline:
-        return [inline[1]]
-    if section:
-        return [line.strip() for line in section[1].splitlines()
-                if re.match(r"^\s*(?:(?:uv|python[\d.]*|bash|pytest|npm|make)\s|\./)", line)]
+        return [command.strip() for command in inline if command.strip()]
     evidence = re.search(r"(?m)^Command[ \t]*\n\s*?`{3}[\w-]*\n([\s\S]*?)^`{3}", body)
     if not evidence:
         evidence = re.search(r"(?m)^Command[ \t]*\n\n((?:    [^\n]+(?:\n|$))+)", body)
@@ -870,7 +878,10 @@ class Runner(Client):
         staged = self.call(["git", "diff", "-z", "--no-renames", "--cached", "--name-only"], cwd=path)[1].split("\0")
         committed = self.call(["git", "diff", "-z", "--no-renames", "--name-only", base, "HEAD"], cwd=path)[1].split("\0")
         paths = set(entries + staged + committed) - {""}
-        for filename in paths:
+        scope = self.journal.last(number, "claim").get("scope", [])
+        for filename in sorted(paths):
+            if scope and not any(filename == root or filename.startswith(root + "/") for root in scope):
+                raise JobError(f"Changed file outside pinned claim scope: {filename}")
             parts = Path(filename).parts
             if filename == "PROJECT-LOG.jsonl":
                 raise JobError("Agent changes to the shared project log are forbidden.")
