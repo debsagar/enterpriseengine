@@ -385,7 +385,10 @@ class SwarmTest(unittest.TestCase):
         fake.issue(1, swarm.READY)
         owner = first if results[0] else second
         loser = second if results[0] else first
+        fake.issue(2, swarm.READY, body="### File scope\n- scripts/run.py")
         loser.poll()
+        self.assertIsNone(loser.journal.last(2, "claim"))
+        self.assertEqual(loser.journal.status()[0]["stage"], "foreign-claim")
         self.assertEqual(swarm.labels(fake.issues[1]), {swarm.READY})
         restarted = fake.runner(owner.journal.path.parent.parent.name, clone=owner.clone)
         restarted.poll()

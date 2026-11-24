@@ -1132,6 +1132,8 @@ class Runner(Client):
             claim = self.journal.last(number, "claim")
             if not claim or not claim.get("run") or self.journal.last(number, "merged"):
                 continue
+            if (self.journal.terminal(number) or {}).get("outcome") == "claim-lost":
+                continue
             pr = self.pull(number)
             if pr or not self.journal.terminal(number):
                 issue = self.issue(number)
@@ -1152,7 +1154,8 @@ class Runner(Client):
             state = labels(item)
             # Old or foreign refs can exist before the in-progress label.
             claim = self.journal.last(number, "claim")
-            if (not claim or not claim.get("run")) and (
+            lost = (self.journal.terminal(number) or {}).get("outcome") == "claim-lost"
+            if (not claim or not claim.get("run") or lost) and (
                     ACTIVE in state or (number in remote_claims and BLOCKED not in state)):
                 scope = []  # A mutable issue cannot establish a legacy claim's original scope.
                 if number in remote_claims and not self.dry:
@@ -1176,6 +1179,8 @@ class Runner(Client):
                 state = labels(item)
                 own = self.journal.last(number, "claim")
                 if state & {BLOCKED, HUMAN} or not state & {READY, ACTIVE}:
+                    continue
+                if self.journal.terminal(number):
                     continue
                 if (own and (not own.get("run") or number not in active)) or (not own and number in active):
                     continue
