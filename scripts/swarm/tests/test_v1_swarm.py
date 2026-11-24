@@ -12,6 +12,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 from threading import Barrier, Lock
 import unittest
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 
@@ -30,6 +31,7 @@ def git(path, *args):
 class Fake:
     def __init__(self, root):
         self.root = root
+        self.execute = swarm.execute
         self.remote = root / "origin.git"
         git(root, "init", "--bare", str(self.remote))
         self.clone = self.make_clone("clone", seed=True)
@@ -43,6 +45,7 @@ class Fake:
         self.worker_runs = []
         self.reviewer_runs = []
         self.verdicts = {}
+        self.dirty_main = False
         self.claim_gate = None
         self.drop_create_reply = False
 
@@ -88,19 +91,26 @@ class Fake:
         if args[0] == "git":
             if args[1] == "push" and args[2].startswith("--force-with-lease") and self.claim_gate:
                 self.claim_gate.wait(timeout=5)
-            return swarm.execute(args, cwd, stdin, lock_fd=lock_fd)
+            return self.execute(args, cwd, stdin, lock_fd=lock_fd)
         if args[0] == "codex":
             payload = json.loads(stdin)
             number = payload["number"]
             self.assert_prompt(args[-1], payload)
+            sandbox = args[args.index("--sandbox") + 1]
+            if sandbox == "danger-full-access":
+                assert f"Modify files only inside {cwd}" in args[-1]
+                assert "ERP-changing" in args[-1]
             sha = git(cwd, "rev-parse", "HEAD")
             if args[args.index("-m") + 1] == "gpt-6.2-astra":
+                if self.worker_runs[-1][1] == "danger-full-access":
+                    assert sandbox == "danger-full-access"
                 self.reviewer_runs.append(sha)
                 verdict = self.verdicts.get(sha, "APPROVE")
                 return 0, json.dumps({"verdict": verdict, "findings": "Specific findings."})
-            sandbox = args[args.index("--sandbox") + 1]
             self.worker_runs.append((number, sandbox, payload["repair_findings"]))
-            if sandbox == "workspace-write":
+            if self.dirty_main:
+                (self.clone / "README.md").write_text("unexpected change\n")
+            if sandbox in {"workspace-write", "danger-full-access"}:
                 (cwd / "result.txt").write_text(f"implementation {len(self.worker_runs)}\n")
             return 0, json.dumps({"passed": True, "command": "python -m unittest",
                                   "output": "Ran 1 test\nOK\nexit 0\npassword=hidden"})
@@ -211,6 +221,31 @@ class SwarmTest(unittest.TestCase):
         redirect = redirect_stdout(self.stdout)
         redirect.__enter__()
         self.addCleanup(redirect.__exit__, None, None, None)
+
+    def test_danger_full_access_skips_preflight_and_checks_model_runs(self):
+        fake = self.fake
+        fake.issue(1, swarm.READY)
+        fake.issue(2, swarm.READY)
+
+        def command(args, cwd, stdin=None, *, lock_fd=None):
+            self.assertNotEqual(args[:2], ["codex", "sandbox"])
+            if args[:2] == ["codex", "exec"] and json.loads(stdin)["number"] == 2:
+                fake.dirty_main = True
+            return fake.command(args, cwd, stdin, lock_fd=lock_fd)
+
+        with patch.multiple(swarm, CLONE=fake.clone, WORKTREES=fake.root / "trees",
+                            STATE=fake.root / "state", execute=command), patch(
+            "sys.argv", ["run.py", "--once", "--sandbox", "danger-full-access"]
+        ):
+            self.assertEqual(swarm.main(), 0)
+
+        self.assertEqual(swarm.labels(fake.issues[1]), {swarm.ACTIVE})
+        self.assertEqual(swarm.labels(fake.issues[2]), {swarm.BLOCKED})
+        self.assertEqual(len(fake.pulls), 1)
+        self.assertEqual(len(fake.reviewer_runs), 1)
+        journal = swarm.Journal(fake.root / "state" / "log.jsonl")
+        blocked = journal.last(2, "clone-check")
+        self.assertNotEqual(blocked["before"]["status_sha256"], blocked["after"]["status_sha256"])
 
     def test_atomic_claim_race_and_restart(self):
         fake = self.fake

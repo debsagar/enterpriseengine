@@ -2,8 +2,7 @@
 
 Run from a checkout containing this script. The runner uses the clone at
 `/data/enterprise/enterpriseengine` and creates one worktree per issue at
-`/data/enterprise/.worktrees/issue-<N>`. It requires Linux with working Codex
-sandboxing, Python 3.10+, authenticated `gh` and Codex CLIs, and a Git identity
+`/data/enterprise/.worktrees/issue-<N>`. It requires Linux, Python 3.10+, authenticated `gh` and Codex CLIs, and a Git identity
 with push access to the repository's `swarm/issue-*` branches.
 
 ```sh
@@ -11,6 +10,12 @@ python3 scripts/swarm/run.py --dry-run --once
 python3 scripts/swarm/run.py --once
 python3 scripts/swarm/run.py --loop --interval 300 --max-parallel 3
 ```
+
+The default mode requires working Codex sandboxing. On a host without it, pass
+`--sandbox danger-full-access` to run both models without OS sandboxing. The
+runner checks the main checkout's HEAD and Git status after each model call
+and blocks the issue if it detects a checkout violation. These checks observe
+Git-visible state and cannot enforce filesystem confinement.
 
 Dry runs query GitHub without editing it or creating runner state. Run the
 offline integration suite from the repository root:

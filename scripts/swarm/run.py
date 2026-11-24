@@ -5,6 +5,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import fcntl
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -141,13 +142,14 @@ class Journal:
 
 
 class Runner:
-    def __init__(self, clone, worktrees, journal, *, command=execute, dry=False, lock_fd=None):
+    def __init__(self, clone, worktrees, journal, *, command=execute, dry=False, lock_fd=None, sandbox="workspace-write"):
         self.clone = clone
         self.worktrees = worktrees
         self.journal = journal
         self.command = command
         self.dry = dry
         self.lock_fd = lock_fd
+        self.sandbox = sandbox
         self.worker = f"{socket.gethostname()}:{os.getpid()}"
         self.repo = f"repos/{REPO}"
 
@@ -274,7 +276,55 @@ class Runner:
             raise JobError("Local and remote work diverged. Inspect the issue worktree before retrying.")
         self.git("reset", "--keep", head, cwd=path)
 
+    def checkout_status(self, path):
+        if path.is_symlink() or self.git("rev-parse", "--show-toplevel", cwd=path) != str(path):
+            raise JobError("The checkout moved outside its expected path.")
+        _, status = self.call([
+            "git", "status", "--porcelain", "-z", "--no-renames", "--untracked-files=all",
+        ], cwd=path)
+        return status
+
+    def clone_snapshot(self):
+        status = self.checkout_status(self.clone)
+        return {"head": self.git("rev-parse", "HEAD"),
+                "status_sha256": sha256(status.encode()).hexdigest()}
+
+    def verify_model_checkout(self, path, number, before, read_only):
+        try:
+            after = self.clone_snapshot()
+            self.journal.add(number, "clone-check", before=before, after=after)
+            if before != after:
+                raise JobError("The main clone HEAD or Git status changed during the model run.")
+            status = self.checkout_status(path)
+            if self.git("branch", "--show-current", cwd=path) != f"swarm/issue-{number}":
+                raise JobError("The model switched branches in the issue worktree.")
+            for entry in status.split("\0"):
+                if entry and not (path / entry[3:]).resolve().is_relative_to(path):
+                    raise JobError("A changed path resolves outside the issue worktree.")
+            if read_only and (status or self.git("rev-parse", "HEAD", cwd=path) != read_only):
+                raise JobError("A read-only model run changed the issue worktree.")
+        except JobError:
+            raise
+        except (ToolError, OSError, ValueError, RuntimeError) as error:
+            raise JobError("Could not verify checkout integrity after the model run.") from error
+
     def model(self, path, model, prompt, payload, fields, *, write=False):
+        unrestricted = self.sandbox == "danger-full-access"
+        sandbox = self.sandbox if write or unrestricted else "read-only"
+        before = read_only = None
+        if unrestricted:
+            before = self.clone_snapshot()
+            if not write:
+                read_only = self.git("rev-parse", "HEAD", cwd=path)
+            prompt = (
+                f"Modify files only inside {path}. Leave Git metadata and commits to the runner. "
+                "Never read or print .env*, state.json, secrets.json, or .local/ contents. "
+                "Never access /data outside the worktree except to read /data/autotwin, "
+                "/data/rca-eval, and /data/enterprise/handoff. "
+                "Never run Docker or ERP-changing commands, push to dev or main, or run gh pr merge.\n"
+                + prompt
+            )
+
         with tempfile.TemporaryDirectory(prefix="swarm-schema-") as directory:
             schema = Path(directory) / "result.json"
             schema.write_text(json.dumps({"type": "object", "properties": fields,
@@ -282,12 +332,15 @@ class Runner:
             try:
                 stdout = self.call([
                     "codex", "exec", "-m", model, "--ephemeral", "-c", 'approval_policy="never"',
-                    "--sandbox", "workspace-write" if write else "read-only",
+                    "--sandbox", sandbox,
                     "--output-schema", str(schema), prompt,
                 ], cwd=path, stdin=json.dumps(payload))[1]
                 result = json.loads(stdout)
             except (ToolError, ValueError):
                 return None
+            finally:
+                if unrestricted:
+                    self.verify_model_checkout(path, payload["number"], before, read_only)
             if not isinstance(result, dict) or set(result) != set(fields):
                 return None
             for key, field in fields.items():
@@ -599,6 +652,7 @@ class Runner:
                     or labels(issue) & {ACTIVE, BLOCKED, HUMAN}):
                 return
             self.change_labels(issue, add=ACTIVE, remove=READY)
+            print(f"#{number}: claimed", flush=True)
 
         if pr and HUMAN in labels(pr):
             ready = self.journal.last(number, "ready")
@@ -701,12 +755,15 @@ def main():
     parser.add_argument("--interval", type=int, default=300)
     parser.add_argument("--max-parallel", type=int, default=1)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--sandbox", choices=("workspace-write", "danger-full-access"),
+                        default="workspace-write")
     args = parser.parse_args()
     if args.interval < 1 or args.max_parallel < 1:
         parser.error("--interval and --max-parallel must be positive")
 
     def poll(lock_fd=None):
-        runner = Runner(CLONE, WORKTREES, Journal(STATE / "log.jsonl"), dry=args.dry_run, lock_fd=lock_fd)
+        runner = Runner(CLONE, WORKTREES, Journal(STATE / "log.jsonl"),
+                        command=execute, dry=args.dry_run, lock_fd=lock_fd, sandbox=args.sandbox)
         while True:
             try:
                 runner.poll(args.max_parallel)
@@ -726,6 +783,8 @@ def main():
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             parser.exit(1, "Another swarm runner holds the lock.\n")
+        if args.sandbox == "danger-full-access":
+            return poll(lock.fileno())
         try:
             code, _ = execute(["codex", "sandbox", "-c", 'sandbox_mode="workspace-write"', "/bin/true"],
                               CLONE, lock_fd=lock.fileno())
