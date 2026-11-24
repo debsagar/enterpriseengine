@@ -474,9 +474,9 @@ class SwarmTest(unittest.TestCase):
 
     def test_foreign_legacy_ref_reserves_a_slot_before_label_update(self):
         fake = self.fake
-        fake.issue(46, swarm.READY)
-        legacy = fake.runner("legacy")
-        head = legacy.claim(fake.issues[46], "swarm/issue-46")
+        fake.issue(46, swarm.READY, body="### File scope\n- docs/")
+        head = git(fake.clone, "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "Swarm claim #46 by legacy")
+        git(fake.clone, "push", "origin", f"{head}:refs/heads/swarm/issue-46")
         for number, scope in {1: "packages/engine", 2: "docs/a.md", 3: "docs/b.md",
                               4: "docs/c.md", 5: "Unknown"}.items():
             fake.issue(number, swarm.READY, body=f"### File scope\n- {scope}")
@@ -568,7 +568,12 @@ class SwarmTest(unittest.TestCase):
 
         fake.worker_hook = resolve
         author = fake.runner()
-        author.poll()
+        def setup_before_conflict(path):
+            self.assertFalse(git(path, "diff", "--name-only", "--diff-filter=U"))
+
+        with patch.object(author, "prepare_workspace", side_effect=setup_before_conflict) as setup:
+            author.poll()
+        setup.assert_called_once()
         repaired = fake.head(1)
         self.assertIn("README.md", author.journal.last(1, "start")["findings"])
         self.assertIn("README.md", fake.worker_runs[-1][2])

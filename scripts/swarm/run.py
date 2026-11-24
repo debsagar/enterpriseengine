@@ -783,6 +783,7 @@ class Runner(Client):
         if self.git("rev-parse", "HEAD", cwd=path) != base:
             self.sync(path, old_head)
             self.git("reset", "--keep", base, cwd=path)
+        self.prepare_workspace(path)
         # Replay all PR changes on dev so the model can resolve them and test
         # the final tree while the runner retains control of HEAD and commits.
         code, _ = self.call(["git", "-c", "merge.autostash=false", "merge", "--squash",
@@ -793,7 +794,8 @@ class Runner(Client):
 
     def work(self, item, path, findings, *, rebase=False):
         scope = self.journal.last(item["number"], "claim").get("scope", [])
-        self.prepare_workspace(path)
+        if not rebase:
+            self.prepare_workspace(path)
         report = self.model(
             path, self.record(item["number"])["model"],
             TASK_RULES + "Implement or repair this issue, leave source edits and run the exact acceptance test. "
@@ -1127,7 +1129,7 @@ class Runner(Client):
             claim = self.journal.last(number, "claim")
             if (not claim or not claim.get("run")) and (
                     ACTIVE in state or (number in remote_claims and BLOCKED not in state)):
-                scope = file_scope(item)  # Legacy claim without pinned scope metadata.
+                scope = []  # A mutable issue cannot establish a legacy claim's original scope.
                 if number in remote_claims:
                     head = remote_claims[number]
                     self.git("fetch", "--no-tags", "--no-write-fetch-head", "origin", head)
