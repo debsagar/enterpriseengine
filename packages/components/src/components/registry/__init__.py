@@ -167,6 +167,10 @@ class Registry:
             _name(descriptor["provenance"], f"{path}.provenance")
             self._types[type_id] = (deepcopy(descriptor), path)
 
+    def catalog(self):
+        """Export independent copies of all registered descriptors, sorted by type ID."""
+        return [deepcopy(self._types[type_id][0]) for type_id in sorted(self._types)]
+
     def resolve(self, manifest):
         """Return an ordered-by-input mapping of instance IDs to declarations."""
         _json(manifest, "manifest")

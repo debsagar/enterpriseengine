@@ -108,3 +108,31 @@ An instance supplies a list of entries for each declared name with `value`,
 half-open, allow an unbounded end with JSON null, and must be disjoint per
 instance and parameter. Empty declaration maps and lists express unused
 capabilities. The offline contract is exercised by `contracts/test_v1_registry.py`.
+
+### Static component registry explorer
+
+The explorer documents the declarations used during setup (A). It reads the
+component registry catalog and writes static HTML and CSS. Its cards show
+declared fields, parameters, event payloads and relations. A relation links
+to its target when the target type is present in the same catalog. The
+explorer creates no native records and uses no runtime data.
+
+From the repository root, regenerate and serve the tracked assets locally.
+
+```sh
+uv run python -m frontend.build
+uv run python -m http.server --bind 127.0.0.1 --directory frontend 8000
+```
+
+Open `http://127.0.0.1:8000/`. To preview additional types, pass
+`--extra-descriptors <json-array-file> --output <site-directory>` to the build
+command and serve that directory. Add shipped declarations to
+`components.registry.catalog.builtin_registry` when registering new built-in
+types, then regenerate the tracked page.
+
+The browser contract uses a local Chromium installation. Set `CHROMIUM_BIN`
+if the executable is outside PATH and the Playwright browser cache.
+
+```sh
+uv run python -m unittest discover -s contracts -p 'test_v1_explorer.py' -v
+```
