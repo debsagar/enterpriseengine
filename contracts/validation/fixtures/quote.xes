@@ -1,0 +1,57 @@
+<?xml version='1.0' encoding='utf-8'?>
+<log xes.version="1.0">
+  <trace>
+    <string key="concept:name" value="example-1" />
+    <event>
+      <string key="concept:name" value="RFQ Created" />
+      <date key="time:timestamp" value="2023-01-03T21:37:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="RFQ Line Added" />
+      <date key="time:timestamp" value="2023-01-04T07:02:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Quote Prepared" />
+      <date key="time:timestamp" value="2023-01-04T11:48:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Quote Approved" />
+      <date key="time:timestamp" value="2023-01-04T18:25:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Quote Sent" />
+      <date key="time:timestamp" value="2023-01-05T07:05:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Quote Accepted" />
+      <date key="time:timestamp" value="2023-01-05T16:26:00Z" />
+    </event>
+  </trace>
+  <trace>
+    <string key="concept:name" value="example-2" />
+    <event>
+      <string key="concept:name" value="RFQ Created" />
+      <date key="time:timestamp" value="2023-01-07T22:14:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="RFQ Line Added" />
+      <date key="time:timestamp" value="2023-01-09T08:03:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Quote Prepared" />
+      <date key="time:timestamp" value="2023-01-09T14:26:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Quote Approved" />
+      <date key="time:timestamp" value="2023-01-10T08:05:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Quote Sent" />
+      <date key="time:timestamp" value="2023-01-10T17:41:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Quote Accepted" />
+      <date key="time:timestamp" value="2023-01-11T07:07:00Z" />
+    </event>
+  </trace>
+</log>

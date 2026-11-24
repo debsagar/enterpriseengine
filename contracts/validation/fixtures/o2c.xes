@@ -1,0 +1,137 @@
+<?xml version='1.0' encoding='utf-8'?>
+<log xes.version="1.0">
+  <trace>
+    <string key="concept:name" value="example-1" />
+    <event>
+      <string key="concept:name" value="Sales Order Created" />
+      <date key="time:timestamp" value="2023-01-06T07:07:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Order Line Added" />
+      <date key="time:timestamp" value="2023-01-06T19:12:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Configuration Frozen" />
+      <date key="time:timestamp" value="2023-01-07T08:39:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Credit Check Passed" />
+      <date key="time:timestamp" value="2023-01-09T08:10:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Order Released" />
+      <date key="time:timestamp" value="2023-01-10T00:50:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="BOM Revision Released" />
+      <date key="time:timestamp" value="2023-01-11T08:12:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Work Order Released" />
+      <date key="time:timestamp" value="2023-01-11T15:16:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Serial Number Assigned" />
+      <date key="time:timestamp" value="2023-01-23T09:30:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Shipment Planned" />
+      <date key="time:timestamp" value="2023-01-25T07:22:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Package Sealed" />
+      <date key="time:timestamp" value="2023-01-27T07:23:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Shipment Dispatched" />
+      <date key="time:timestamp" value="2023-01-27T08:02:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Delivery Confirmed" />
+      <date key="time:timestamp" value="2023-01-27T10:03:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Invoice Issued" />
+      <date key="time:timestamp" value="2023-01-27T13:26:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Payment Received" />
+      <date key="time:timestamp" value="2023-01-27T18:11:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Warranty Registered" />
+      <date key="time:timestamp" value="2023-01-30T08:28:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Order Closed" />
+      <date key="time:timestamp" value="2023-01-30T21:57:00Z" />
+    </event>
+  </trace>
+  <trace>
+    <string key="concept:name" value="example-2" />
+    <event>
+      <string key="concept:name" value="Sales Order Created" />
+      <date key="time:timestamp" value="2023-01-12T08:08:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Order Line Added" />
+      <date key="time:timestamp" value="2023-01-12T21:50:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Configuration Frozen" />
+      <date key="time:timestamp" value="2023-01-13T12:54:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Credit Check Passed" />
+      <date key="time:timestamp" value="2023-01-16T08:11:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Order Released" />
+      <date key="time:timestamp" value="2023-01-17T02:28:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="BOM Revision Released" />
+      <date key="time:timestamp" value="2023-01-18T08:13:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Work Order Released" />
+      <date key="time:timestamp" value="2023-01-18T18:31:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Serial Number Assigned" />
+      <date key="time:timestamp" value="2023-01-30T11:08:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Shipment Planned" />
+      <date key="time:timestamp" value="2023-02-01T08:50:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Package Sealed" />
+      <date key="time:timestamp" value="2023-02-01T09:44:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Shipment Dispatched" />
+      <date key="time:timestamp" value="2023-02-01T12:00:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Delivery Confirmed" />
+      <date key="time:timestamp" value="2023-02-01T15:38:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Invoice Issued" />
+      <date key="time:timestamp" value="2023-02-02T08:27:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Payment Received" />
+      <date key="time:timestamp" value="2023-02-02T14:49:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Warranty Registered" />
+      <date key="time:timestamp" value="2023-02-03T08:29:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Order Closed" />
+      <date key="time:timestamp" value="2023-02-03T23:35:00Z" />
+    </event>
+  </trace>
+</log>
