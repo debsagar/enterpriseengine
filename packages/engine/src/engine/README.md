@@ -359,3 +359,24 @@ becomes eligible for extraction when the readback event commits. The
 Milestone 5/6 fixture drives the ordinary phases and schedules these captures
 through the same recurring consumer. The fixture uses isolated transport
 substitutes for ERP, MES and QMS.
+
+## Entity extensions
+
+Pass `handlers={"component@1": handler}` to `Engine`. Then call
+`extend_entities(extension_id, entities=entities, events=events)`. The entities
+object maps stable IDs to JSON objects with a registered `type` and any
+component-specific definition fields. A host can pass validated instance
+objects from manifest preflight as these definitions. Entity definitions are
+append-only. Keep versioned handler registrations available when reopening a run.
+
+Each event has the usual `id`, `kind`, `at`, and `payload` fields plus
+`entity`, which names an existing entity or one added in the same extension.
+The engine calls `handler(run, entity_id, definition, kind, payload)` at
+completion. The handler receives a copy of the definition and can checkpoint
+mutable data in `run.state`. Use the event's `role` and `run.observe` for
+as-of evidence. Native operations use the existing authority and readback path.
+Handlers can enqueue follow-up work with `schedule(..., entity=entity_id)`.
+
+Entity extensions share a transaction, replay ID namespace, and queue with
+legacy extensions. The existing `extend` and offline CLI accept legacy catalog
+and event commands. Hosts supply executable registrations through the Python API.

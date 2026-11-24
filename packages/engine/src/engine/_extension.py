@@ -83,10 +83,13 @@ def validate_entries(entries, catalog, calendars, adapters):
                 raise ValueError("Product requires an existing system and a native item ID")
 
 
-def validate_event(event):
+def validate_event(event, *, targeted=False):
+    fields = {"id", "kind", "at", "payload"}
+    if targeted:
+        fields.add("entity")
     if (not isinstance(event, dict)
-            or set(event) - {"id", "kind", "at", "payload", "priority", "duration", "role", "elapsed"}
-            or not {"id", "kind", "at", "payload"} <= event.keys()
+            or set(event) - fields - {"priority", "duration", "role", "elapsed"}
+            or not fields <= event.keys()
             or not name(event["id"]) or not name(event["kind"])
             or not isinstance(event["payload"], dict)):
-        raise ValueError("Extension event requires id, kind, at and an object payload")
+        raise ValueError(f"Extension event requires {', '.join(sorted(fields))} and an object payload")

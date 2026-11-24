@@ -74,13 +74,17 @@ def _calendars(config):
 
 class Engine:
     def __init__(self, directory, consumer, *, seed, native, providers,
-                 monotonic, boundary=None, adapters=None, start=0, standalone_extensions=True):
+                 monotonic, boundary=None, adapters=None, start=0, standalone_extensions=True,
+                 handlers=None):
         if type(start) is not int or start < 0:
             raise ValueError("start must be a nonnegative integer minute")
         self._consumer = consumer
         self._native = native
         self._boundary = boundary
         self._adapters = dict(adapters or {})
+        self._handlers = dict(handlers or {})
+        if any(not name(key) or not callable(handler) for key, handler in self._handlers.items()):
+            raise ValueError("Handlers must map component type IDs to callables")
         self._transports = {}
         self.config = deepcopy(consumer.config)
         if not isinstance(self.config, dict):
@@ -233,7 +237,9 @@ class Engine:
                 and all(isinstance(spec, dict) for spec in mapping.values()) else {}
             )
         self._added = {section: {} for section in SECTIONS}
+        self._entities = {}
         for entry in self._extensions.values():
+            self._entities.update(entry.get("entities", {}))
             for section in SECTIONS:
                 self._added[section].update(entry[section])
         for section in SECTIONS:
@@ -257,7 +263,14 @@ class Engine:
         """Commit append-only catalog entries and events in one checkpoint update."""
         self._extend(extension_id, systems, roles, products, events, validate=validate)
 
-    def _extend(self, extension_id, systems, roles, products, events, *, from_command=False, validate=None):
+    def extend_entities(self, extension_id, *, entities, events):
+        """Add entity definitions and targeted events under one replay identity."""
+        if not isinstance(entities, dict):
+            raise ValueError("entities must be an object keyed by ID")
+        self._extend(extension_id, None, None, None, events, entities=entities)
+
+    def _extend(self, extension_id, systems, roles, products, events, *, from_command=False,
+                validate=None, entities=None):
         if not name(extension_id):
             raise ValueError("Extension ID must be a nonblank string")
         if self._active is not None:
@@ -265,6 +278,8 @@ class Engine:
         command = {key: {} if value is None else value
                    for key, value in zip(SECTIONS, (systems, roles, products))}
         command["events"] = [] if events is None else events
+        if entities is not None:
+            command["entities"] = entities
         validate_json(command)
         try:
             command = json.loads(_json(command))
@@ -293,6 +308,15 @@ class Engine:
                 if not enrolled or not db.execute("SELECT 1 FROM extension_admission WHERE id = 1 AND standalone = 1").fetchone():
                     raise ValueError("Submit new extensions through the owning application")
             validate_entries(command, self._catalog, self._calendars, self._adapters)
+            new_entities = command.get("entities", {})
+            for entity_id, spec in new_entities.items():
+                if (not name(entity_id) or not isinstance(spec, dict)
+                        or not name(spec.get("type")) or spec.get("id", entity_id) != entity_id):
+                    raise ValueError("Entity requires a valid ID and component type")
+                if entity_id in self._entities:
+                    raise ValueError(f"Existing entity ID: {entity_id!r}")
+                if spec["type"] not in self._handlers:
+                    raise ValueError(f"No registered handler for component type {spec['type']!r}")
             if validate is not None:
                 validate(self.catalog)
             if any(db.execute("SELECT 1 FROM queue WHERE role = ? LIMIT 1", (_json(role),)).fetchone()
@@ -307,10 +331,16 @@ class Engine:
                 self._extensions[extension_id] = {
                     **{key: command[key] for key in SECTIONS}, "digest": digest,
                 }
+                if entities is not None:
+                    self._extensions[extension_id]["entities"] = new_entities
                 self._set_catalog()
                 for event in command["events"]:
-                    validate_event(event)
-                    world.check_event_name(event["id"], event["kind"])
+                    validate_event(event, targeted=entities is not None)
+                    if entities is None:
+                        world.check_event_name(event["id"], event["kind"])
+                    else:
+                        event = {**event}
+                        event["kind"] = self._targeted_kind(event["id"], event["kind"], event.pop("entity"))
                     self._enqueue(self._scheduled_edge(**event))
                 self._save()
             except BaseException:
@@ -448,10 +478,27 @@ class Engine:
                           "(sequence IS NULL OR sequence < ?)",
                           (_json(id), self._checkpoint["sequence"])).fetchone() is not None
 
-    def schedule(self, id, kind, at, *, payload, priority=0, duration=0, role=None,
-                 elapsed=False, book_staff=False):
-        """Enqueue work. Role work counts shift minutes unless elapsed is true."""
+    def _targeted_kind(self, id, kind, entity):
         world.check_event_name(id, kind)
+        if not name(kind) or kind == "noop":
+            raise ValueError("Targeted events require a non-reserved kind")
+        if not name(entity) or entity not in self._entities:
+            raise ValueError(f"Unknown entity ID: {entity!r}")
+        entity_type = self._entities[entity]["type"]
+        if entity_type not in self._handlers:
+            raise ValueError(f"No registered handler for component type {entity_type!r}")
+        # Persist the route in the kind slot across all queue phases.
+        return [entity, kind]
+
+    def schedule(self, id, kind, at, *, payload, priority=0, duration=0, role=None,
+                 elapsed=False, book_staff=False, entity=None):
+        """Enqueue work. Role work counts shift minutes unless elapsed is true."""
+        if entity is None:
+            world.check_event_name(id, kind)
+            if isinstance(kind, (list, tuple)):
+                raise ValueError("Event kind must be a string")
+        else:
+            kind = self._targeted_kind(id, kind, entity)
         return self._schedule(id, kind, at, payload=payload, priority=priority,
                               duration=duration, role=role, elapsed=elapsed, book_staff=book_staff)
 
@@ -567,7 +614,15 @@ class Engine:
         self._write_index = self._provider_index = self._observation_index = 0
         self._active_readbacks = set()
         try:
-            if kind in (world.TICK, world.CHECK, world.ARRIVAL):
+            if isinstance(kind, list):
+                entity, event_kind = kind
+                spec = self._entities[entity]
+                handler = self._handlers.get(spec["type"])
+                if handler is None:
+                    raise RuntimeError(f"No registered handler for component type {spec['type']!r}")
+                self.event.update(entity=entity, kind=event_kind)
+                handler(self, entity, deepcopy(spec), event_kind, deepcopy(payload))
+            elif kind in (world.TICK, world.CHECK, world.ARRIVAL):
                 world.handle(self, kind, deepcopy(payload))
             elif kind != "noop":
                 self._consumer.handle(self, kind, deepcopy(payload))
