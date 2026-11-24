@@ -101,12 +101,16 @@ class TestV1Profiles(unittest.TestCase):
         relative = "sales/om/orders.xes"
         fixture = self.manifest["references"][relative]["fixture"]
         fixture_path = MANIFEST.parent / fixture["path"]
-        reference = {"source": fixture["source"], "profile": profile(fixture_path)}
+        reference = {"source": fixture["source"], "profile": profile(fixture_path),
+                     "fixture": {**fixture}}
         with TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "data" / relative
             source.parent.mkdir(parents=True)
             source.write_bytes(fixture_path.read_bytes())
+            excerpt = root / fixture["path"]
+            excerpt.parent.mkdir()
+            excerpt.write_bytes(source.read_bytes())
             manifest = root / "manifest.json"
             lock = {"references": {relative: reference}}
             manifest.write_text(json.dumps(lock))
@@ -114,6 +118,17 @@ class TestV1Profiles(unittest.TestCase):
                 with redirect_stdout(StringIO()) as output:
                     profile_autotwin.main(["--autotwin-root", str(root)])
                 self.assertEqual(output.getvalue(), f"Verified {relative}\n")
+
+                original_excerpt = excerpt.read_bytes()
+                excerpt.write_bytes(original_excerpt.replace(b"example-1", b"example-3", 1))
+                reference["fixture"]["source"] = source_pin(excerpt)
+                manifest.write_text(json.dumps(lock))
+                with redirect_stderr(StringIO()) as error, self.assertRaises(SystemExit) as failure:
+                    profile_autotwin.main(["--autotwin-root", str(root)])
+                self.assertEqual(failure.exception.code, 1)
+                self.assertEqual(error.getvalue(), f"Fixture excerpt mismatch: {fixture['path']}\n")
+                excerpt.write_bytes(original_excerpt)
+                reference["fixture"]["source"] = fixture["source"]
 
                 reference["profile"]["cases"] += 1
                 manifest.write_text(json.dumps(lock))

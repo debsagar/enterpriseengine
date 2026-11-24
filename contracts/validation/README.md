@@ -47,9 +47,10 @@ The six bundled fixture files use the first two traces of their respective
 pinned benchmark, order-management and ForgeFlow projections. Their manifest
 entries identify the upstream datasets and pin the fixtures. The excerpts
 replace case IDs with `example-1` and `example-2` and retain only activity,
-lifecycle and timestamp attributes. The gzip test builds a synthetic log
-with tied instants and lifecycle transitions. The BPI source files are needed
-only for full verification.
+lifecycle and timestamp attributes. Full verification checks each fixture's
+byte pin and compares its event sequence with the source traces. The gzip
+test builds a synthetic log with tied instants and lifecycle transitions.
+The BPI source files are needed only for full verification.
 
 This supports offline block K validation. External XES evidence yields a
 versioned manifest of aggregate reference profiles and checks of source

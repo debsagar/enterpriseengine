@@ -2,9 +2,11 @@
 
 import argparse
 from collections import Counter
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 import gzip
 from hashlib import sha256
+from itertools import islice
 import json
 from pathlib import Path
 from statistics import median
@@ -125,6 +127,23 @@ def verify_sources(root, manifest):
             raise ValueError(f"Source pin mismatch: {relative}")
 
 
+def verify_fixture(source, fixture):
+    path = MANIFEST.parent / fixture["path"]
+    if source_pin(path) != fixture["source"]:
+        raise ValueError(f"Fixture pin mismatch: {fixture['path']}")
+    event_keys = {"concept:name", "lifecycle:transition", "start_timestamp", "time:timestamp"}
+    with closing(traces(source)) as source_traces:
+        expected = [
+            (f"example-{index}", [
+                {key: value for key, value in event.items() if key in event_keys}
+                for event in events
+            ])
+            for index, (_, events) in enumerate(islice(source_traces, 2), start=1)
+        ]
+    if len(expected) != 2 or list(traces(path)) != expected:
+        raise ValueError(f"Fixture excerpt mismatch: {fixture['path']}")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--autotwin-root", type=Path, required=True,
@@ -135,7 +154,10 @@ def main(argv=None):
         manifest = json.loads(MANIFEST.read_text())
         verify_sources(root, manifest)
         for relative, reference in manifest["references"].items():
-            if profile(root / relative) != reference["profile"]:
+            source = root / relative
+            if "fixture" in reference:
+                verify_fixture(source, reference["fixture"])
+            if profile(source) != reference["profile"]:
                 raise ValueError(f"Profile mismatch: {relative}")
             print(f"Verified {relative}", flush=True)
     except (ValueError, OSError, ET.ParseError) as error:
