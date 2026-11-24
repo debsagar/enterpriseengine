@@ -11,6 +11,7 @@ from itertools import chain
 import os
 from pathlib import Path
 import re
+import signal
 import socket
 import subprocess
 import sys
@@ -28,7 +29,7 @@ WORKTREES = Path("/data/enterprise/.worktrees")
 STATE = Path("/data/enterprise/.swarm")
 READY, ACTIVE, BLOCKED, HUMAN = "agent-ready", "in-progress", "blocked", "needs-human"
 MAX_FIXES = 2
-AUTHOR_SLOTS = 3
+WORKER_SLOTS = 3
 MODELS = {"author": "gpt-6.2-astra", "issues": "gpt-6.2-astra",
           "swarm": "gpt-6.2-sol", "merger": "gpt-6.2-sol"}
 WORKER_MODEL, REVIEWER_MODEL, EFFORT = MODELS["author"], "pending", "high"
@@ -71,7 +72,7 @@ class JobError(RuntimeError):
 def execute(args, cwd, stdin=None, *, lock_fd=None):
     result = subprocess.run(
         args, cwd=cwd, input=stdin or "", text=True, errors="replace",
-        capture_output=True, pass_fds=() if lock_fd is None else (lock_fd,),
+        capture_output=True, start_new_session=True, pass_fds=() if lock_fd is None else (lock_fd,),
         timeout={"gh": 60, "codex": 1800, "claude": CLAUDE_TIMEOUT}.get(args[0]),
     )
     output = result.stdout
@@ -276,6 +277,7 @@ class Client:
         self.records = journal.path.parent / "attempts"
         self.state = journal.path.parent.parent
         self.audit = None
+        self.stopping = lambda: False
 
     def call(self, args, *, cwd=None, stdin=None, allowed=(0,)):
         if args[:2] == ["git", "push"]:
@@ -1053,9 +1055,11 @@ class Runner(Client):
             if (not claim or not claim.get("run")) and (
                     ACTIVE in state or (number in remote_claims and BLOCKED not in state)):
                 active[number] = []
-        with ThreadPoolExecutor(max_workers=AUTHOR_SLOTS) as workers:
+        with ThreadPoolExecutor(max_workers=WORKER_SLOTS) as workers:
             futures = {}
             for item in sorted(items, key=lambda issue: issue["number"]):
+                if self.stopping():
+                    break
                 number = item["number"]
                 state = labels(item)
                 own = self.journal.last(number, "claim")
@@ -1071,7 +1075,7 @@ class Runner(Client):
                         print(f"#{number}: wait for {', '.join(pending)}")
                     continue
                 scope = file_scope(item)
-                if not own and (len(active) >= AUTHOR_SLOTS
+                if not own and (len(active) >= WORKER_SLOTS
                                 or any(scopes_overlap(scope, other) for other in active.values())):
                     if self.dry:
                         print(f"#{number}: wait for author capacity or file scope")
@@ -1083,6 +1087,8 @@ class Runner(Client):
                         active.setdefault(number, scope)
                         print(f"#{number}: would {'resume' if own else 'claim'}")
                     continue
+                if self.stopping():
+                    break
                 job = None
                 try:
                     job = self.prepare(number, active)
@@ -1101,6 +1107,8 @@ class Runner(Client):
                     print(f"#{number}: deferred after tool error ({error})", flush=True)
 
         for item in items:
+            if self.stopping():
+                break
             number = item["number"]
             if not self.dry:
                 # Only reread blocked candidates. Dependency reads observe merges/closures from this poll.
@@ -1196,11 +1204,21 @@ def main():
         if detached != 1 or ancestor or clean or changed:
             parser.error("The runner must be clean, detached and reachable from the source clone's origin/dev.")
 
+    stopping = False
+
+    def stop(signum, frame):
+        nonlocal stopping
+        stopping = True
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+
     def poll(lock_fd=None):
         cls = {"author": Runner, "swarm": Swarm, "merger": Merger, "issues": Issues}[args.role]
         runner = cls(CLONE, WORKTREES, Journal(journal_path), dry=args.dry_run, lock_fd=lock_fd,
                      sandbox=args.sandbox, runner_sha=runner_sha)
-        while True:
+        runner.stopping = lambda: stopping
+        while not stopping:
             try:
                 runner.poll()
             except (JobError, ToolError) as error:
@@ -1209,7 +1227,10 @@ def main():
                     return 1
             if args.once:
                 return 0
-            time.sleep(args.interval)
+            deadline = time.monotonic() + args.interval
+            while not stopping and (remaining := deadline - time.monotonic()) > 0:
+                time.sleep(min(remaining, 1))
+        return 0
 
     if args.dry_run:
         return poll()

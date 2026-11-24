@@ -57,7 +57,8 @@ Its data must stand up to comparison with public real-world event logs.
 ### Process
 - **R19 [O]** Agents develop the repo under the single `debsagar` GitHub account.
   The owner reviews only model behaviour.
-  - **Swarm** (gpt-6.2-sol) tests, validates and files issues.
+  - **Swarm** (gpt-6.2-sol) tests, validates and files issues. It validates
+    up to three PRs concurrently in separate checkouts.
   - **Author** workers write code and open PRs, with up to three active
     claims. Prerequisites must be complete and declared paths or package
     directories must be disjoint from all active claims. Unknown scope
@@ -76,8 +77,9 @@ Its data must stand up to comparison with public real-world event logs.
   - **Merger** (gpt-6.2-sol) handles one PR at a time, skips
     `awaiting-review`, and never merges `ml-review`. Required CI and the
     `swarm/validate` and `review/independent` statuses must succeed at the
-    current PR head. Verdict comments bind role, model, effort, run ID,
-    fallback reason when applicable, and head SHA to the status and provenance.
+    current PR head and dev base. Verdict comments bind role, model, effort,
+    run ID, fallback reason when applicable, head SHA and base SHA to the
+    status and provenance. A base change requires fresh validation.
   - **Issue agent** (gpt-6.2-astra) assigns each issue exactly one size label,
     merges duplicates and records downstream impact, prerequisites and file scope.
 - **R20 [O]** One repo, `debsagar/enterpriseengine`. All work goes to `dev` through PRs carrying provenance and citing at least one requirement ID.

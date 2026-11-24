@@ -10,7 +10,7 @@ import re
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
-from threading import Barrier, Lock
+from threading import Barrier, Event, Lock
 import unittest
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
@@ -51,6 +51,7 @@ class Fake:
         self.calls = []
         self.worker_runs = []
         self.validation_runs = []
+        self.validation_hook = None
         self.setup_status = 0
         self.issue_plans = {}
         self.merge_runs = []
@@ -160,6 +161,8 @@ class Fake:
             if "required_commands" in payload:
                 assert model == "gpt-6.2-sol" and sandbox == swarm.DEFAULT_SANDBOX
                 self.validation_runs.append((number, sha, list(payload["required_commands"])))
+                if number and self.validation_hook:
+                    self.validation_hook(number, cwd)
                 events = [json.dumps({"type": "item.completed", "item": {
                     "type": "command_execution", "command": command,
                     "exit_code": self.setup_status if command.startswith("uv sync ") else 0,
@@ -416,6 +419,28 @@ class SwarmTest(unittest.TestCase):
         fake.pulls[150]["merged_at"] = "now"
         fake.runner().poll()
         self.assertEqual({number for number, *_ in fake.worker_runs}, {1, 2, 3, 4, 5})
+
+    def test_author_stop_finishes_prepared_work_and_claims_no_more(self):
+        fake = self.fake
+        for number in (1, 2):
+            fake.issue(number, swarm.READY, body=f"### File scope\n- result-{number}.txt")
+        author = fake.runner()
+        stopping = Event()
+        author.stopping = stopping.is_set
+        prepare = author.prepare
+
+        def prepare_then_stop(number, active):
+            job = prepare(number, active)
+            stopping.set()
+            return job
+
+        with patch.object(author, "prepare", side_effect=prepare_then_stop):
+            author.poll()
+        self.assertEqual([number for number, *_ in fake.worker_runs], [1])
+        self.assertIsNotNone(author.journal.last(1, "pr-open"))
+        self.assertIsNone(author.journal.last(2, "claim"))
+        fake.runner().poll()
+        self.assertEqual([number for number, *_ in fake.worker_runs], [1, 2])
 
     def test_foreign_legacy_ref_reserves_a_slot_before_label_update(self):
         fake = self.fake
@@ -679,6 +704,101 @@ class SwarmTest(unittest.TestCase):
         self.assertEqual(fake.reviews, {})
         self.assertFalse(any(call[:2] == ("git", "push") for call in fake.calls))
 
+    def test_parallel_validation_uses_distinct_checkouts_and_verdicts(self):
+        self.ready_prs(1, 2)
+        fake = self.fake
+        validator = fake.runner(role=Swarm)
+        barrier = Barrier(2, timeout=10)
+
+        def overlap(number, cwd):
+            self.assertEqual(cwd, validator.validation_path(number))
+            barrier.wait()
+            self.assertTrue(validator.validation_path(100).is_dir())
+            self.assertTrue(validator.validation_path(101).is_dir())
+            barrier.wait()
+
+        fake.validation_hook = overlap
+        validator.poll()
+        for number, issue in ((100, 1), (101, 2)):
+            verdict = validator.journal.last(number, "swarm-verdict")
+            self.assertEqual((verdict["head"], verdict["base"]), (fake.head(issue), validator.dev()))
+            self.assertEqual(fake.statuses[fake.head(issue)]["swarm/validate"]["state"], "success")
+            self.assertFalse(validator.validation_path(number).exists())
+
+    def test_stop_drains_running_validation_and_leaves_next_pr_unclaimed(self):
+        self.ready_prs(1, 2)
+        fake = self.fake
+        validator = fake.runner(role=Swarm)
+        stopping = Event()
+        validator.stopping = stopping.is_set
+
+        def request_stop(number, cwd):
+            self.assertEqual(number, 100)
+            stopping.set()
+
+        fake.validation_hook = request_stop
+        with patch("roles.WORKER_SLOTS", 1):
+            validator.poll()
+        journal = swarm.Journal(validator.journal.path)
+        claim = journal.last(100, "validation-claim")
+        self.assertEqual(journal.last(100, "validation-release")["claim"], claim["claim"])
+        self.assertIsNone(journal.last(101, "validation-claim"))
+        self.assertFalse(validator.validation_path(100).exists())
+        self.assertEqual(set(fake.statuses[fake.head(1)]), set(swarm.VERDICT_CONTEXTS.values()))
+
+    def test_restart_reconciles_checkout_and_interrupted_status_post(self):
+        self.ready_prs(1)
+        fake = self.fake
+        validator = fake.runner(role=Swarm)
+        api = fake.api
+
+        def fail_status(method, target, data):
+            if target.endswith(f"/statuses/{fake.head(1)}"):
+                return 1, ""
+            return api(method, target, data)
+
+        with patch.object(fake, "api", side_effect=fail_status):
+            validator.poll()
+        journal = validator.journal
+        intent = journal.last(100, "swarm-publication")
+        self.assertIsNone(journal.last(100, "swarm-verdict"))
+        self.assertEqual(len(fake.comments[100]), 2)  # Author provenance and verdict comment.
+        journal.add(100, "validation-claim", claim="interrupted", head=intent["head"], base=intent["base"])
+        path = validator.validation_path(100)
+        git(fake.clone, "worktree", "add", "--detach", str(path), intent["head"])
+        fake.validation_runs.clear()
+
+        restarted = fake.runner(role=Swarm)
+        restarted.poll()
+        self.assertEqual([number for number, *_ in fake.validation_runs], [0])
+        verdict = restarted.journal.last(100, "swarm-verdict")
+        self.assertEqual(verdict["provenance"], intent["provenance"])
+        self.assertFalse(path.exists())
+        self.assertTrue(any(event.get("status") == "interrupted" and event.get("claim") == "interrupted"
+                            for event in restarted.journal.events[100]))
+        self.assertEqual(sum("swarm-verdict" in comment["body"] and "Swarm validation" in comment["body"]
+                             for comment in fake.comments[100]), 1)
+
+    def test_merger_rejects_same_head_verdict_when_dev_moves(self):
+        self.ready_prs(1)
+        fake = self.fake
+        merger = fake.runner(role=Merger)
+        merger.poll()
+        head, base = fake.head(1), merger.dev()
+        fake.ci(head)
+        fake.runner(role=Swarm).poll()
+        merger.login = "bot"
+        pr = fake.pull(fake.pulls[100])
+        self.assertEqual(merger.gate(pr, head, base)[0], "ready")
+
+        new_base = git(fake.clone, "commit-tree", f"{base}^{{tree}}", "-p", base, "-m", "Move dev")
+        git(fake.clone, "push", "origin", f"{new_base}:refs/heads/dev")
+        self.assertEqual(merger.gate(pr, head, new_base)[0], "waiting for swarm/validate")
+        self.assertEqual(merger.gate(pr, head, base)[0], "candidate changed or held")
+        merger.poll()
+        self.assertEqual(fake.merge_runs, [])
+        self.assertNotEqual(fake.head(1), head)
+
     def test_norvale_baseline_runs_when_tracked(self):
         fake = self.fake
         script = fake.clone / "scripts" / "norvale_dry_run.py"
@@ -820,8 +940,8 @@ class SwarmTest(unittest.TestCase):
         fake.claude_errors = {100: "401 authentication failed", 101: "429 rate limit exceeded"}
         with patch("roles.sleep") as wait:
             fake.runner(role=Swarm).poll()
-        self.assertEqual([call.args[0] for call in wait.call_args_list], [2, 4, 2, 4])
-        self.assertEqual(fake.review_calls, [(100, "claude-opus-5-5", "low")] * 3 +
+        self.assertCountEqual([call.args[0] for call in wait.call_args_list], [2, 4, 2, 4])
+        self.assertCountEqual(fake.review_calls, [(100, "claude-opus-5-5", "low")] * 3 +
                          [(101, "claude-opus-5-5", "low")] * 3 + [(101, "gpt-6.2-astra", "medium")])
         self.assertIn(swarm.AWAITING_REVIEW, swarm.labels(fake.pulls[100]))
         self.assertNotIn("review/independent", fake.statuses[fake.head(1)])

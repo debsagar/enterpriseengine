@@ -82,8 +82,10 @@ medium. Large and unlabelled issues default to Astra medium, and can specify
 a line such as `Reasoning effort: high`. The runner pins model and effort at
 claim time so retries retain the original commit and PR provenance.
 
-Swarm runs acceptance commands and verifies findings in a fresh validation
-pass. A separate reviewer reads the spec, decisions, issue, diff and
+Swarm validates up to three PRs concurrently, using the same slot limit as
+the Author. Each claimed PR uses an isolated checkout and records its head
+and dev base. Swarm runs acceptance commands and verifies findings in a
+fresh validation pass. A separate reviewer reads the spec, decisions, issue, diff and
 acceptance results. The CLI runs Claude Opus 5.5 at low effort, with
 restricted read-only tools. Claude attempts are bounded to 30 seconds each,
 with two retries after 2 and 4 seconds for quota, rate-limit, authentication
@@ -93,6 +95,13 @@ use Astra medium. Astra authors require Opus, so Swarm applies
 verdict is recorded. Sol is ineligible to review. Verdicts include model,
 effort, run ID, head and fallback reason when applicable. Swarm comments and
 merger reports flag fallback reviews.
+
+On SIGTERM or SIGINT, roles stop taking new work and finish in-flight work
+before exiting. Swarm releases validation claims and removes their temporary
+checkouts. At restart it removes checkouts left by interrupted claims and
+resumes incomplete verdict publication for the current head and base.
+Author claim refs, journal entries and worktrees retain ownership and repair
+state across restarts.
 
 ## Isolation
 

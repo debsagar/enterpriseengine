@@ -1,12 +1,14 @@
 """Validation, serial integration and issue triage for the maintenance runner."""
 
-from contextlib import contextmanager
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
 import re
 import shlex
+from shutil import rmtree
 from time import sleep
 from tempfile import TemporaryDirectory
 from uuid import uuid4
@@ -14,7 +16,7 @@ from uuid import uuid4
 import provenance
 from run import (ACTIVE, FILE_SCOPE, AWAITING_REVIEW, BLOCKED, CLAUDE_REVIEWER, FALLBACK_REVIEWER, HUMAN,
                  LARGE, MODELS, REPO, SMALL,
-                 TASK_RULES, VERDICT_CONTEXTS, WORKER_SCHEMA,
+                 TASK_RULES, VERDICT_CONTEXTS, WORKER_SCHEMA, WORKER_SLOTS,
                  Client, Journal, JobError, ToolError, append_record, dependencies, labels,
                  redact, role_record, safe_evidence, scope_paths)
 
@@ -159,6 +161,8 @@ def command_key(command):
 
 
 class Role(Client):
+    checkout_path = None
+
     def begin(self, number, base, issue=None, *, run=None, model=None):
         self.number = number
         self.identity = role_record(self.role, self.runner_sha, base,
@@ -197,6 +201,10 @@ class Role(Client):
             if self.identity["model"] not in eligible_reviewers(author):
                 self.event("deferred", head=head, base=base, reason="Reviewer model is not independent.")
                 return None
+        kind = self.role + "-publication"
+        intent = self.journal.last(self.number, kind)
+        if not intent or intent["provenance"]["run"] != self.identity["run"]:
+            self.event(kind, head=head, base=base, passed=passed, details=details, evidence=evidence)
         marker = "<!-- swarm-verdict " + json.dumps(verdict_record(self.identity, head, passed)) + " -->"
         self.comment(self.number, marker, details)
         self.api(f"{self.repo}/statuses/{head}", method="POST", data={
@@ -205,6 +213,14 @@ class Role(Client):
         })
         self.event(self.role + "-verdict", head=head, base=base, passed=passed, **evidence)
         return self.journal.last(self.number, self.role + "-verdict")
+
+    def resume_publication(self, number, head, base):
+        intent = self.journal.last(number, self.role + "-publication")
+        if not intent or (intent["head"], intent["base"]) != (head, base):
+            return
+        self.begin(number, base, run=intent["provenance"]["run"])
+        self.identity = intent["provenance"].copy()
+        return self.publish_verdict(head, base, intent["passed"], intent["details"], **intent["evidence"])
 
     def pulls(self, *, drafts=False):
         path = f"{self.repo}/pulls?state=open&base=dev&per_page=100"
@@ -219,6 +235,15 @@ class Role(Client):
         return self.api(f"{self.repo}/branches/dev")["commit"]["sha"]
 
     def fetch(self, number, head, base):
+        if self.checkout_path is not None:
+            # Each validation owns its ref. Fetch the exact base object without
+            # updating origin/dev, which other workers and roles also read.
+            ref = f"refs/swarm/validation/{number}"
+            self.git("fetch", "--no-tags", "--no-write-fetch-head", "--refmap=", "origin",
+                     base, f"+refs/pull/{number}/head:{ref}")
+            if self.git("rev-parse", ref) != head or self.dev() != base:
+                raise ToolError("The candidate moved while fetching.")
+            return
         refs = ["refs/heads/dev:refs/remotes/origin/dev"]
         ref = f"refs/swarm/{self.role}/candidate"
         if number:
@@ -231,8 +256,9 @@ class Role(Client):
     @contextmanager
     def snapshot(self, sha):
         # Worktree checkout hooks are disabled. All validation edits and build products are disposable.
-        with TemporaryDirectory(prefix=f"{self.role}-") as directory:
-            path = Path(directory) / "checkout"
+        with (nullcontext() if self.checkout_path else TemporaryDirectory(prefix=f"{self.role}-")) as directory:
+            path = self.checkout_path or Path(directory) / "checkout"
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             self.git("-c", "core.hooksPath=/dev/null", "worktree", "add", "--detach", str(path), sha)
             try:
                 yield path
@@ -252,6 +278,8 @@ class Swarm(Role):
         issue = linked_issue(pr) if pr else None
         if pr and (existing := published_verdict(self, pr, head, base, self.role, self.journal)):
             return existing
+        if pr and (resumed := self.resume_publication(number, head, base)):
+            return resumed
         self.start(number, base, issue)
         self.fetch(number, head, base)
         item = self.issue(issue) if issue else {}
@@ -346,18 +374,80 @@ class Swarm(Role):
                     + provenance.block(self.identity),
         })
 
+    def validation_path(self, number):
+        return self.journal.path.parent / "checkouts" / f"pr-{number}"
+
+    def release(self, number, claim, *, status):
+        path = self.validation_path(number)
+        entries = self.git("worktree", "list", "--porcelain", "-z").split("\0")
+        if f"worktree {path}" in entries:
+            self.git("worktree", "remove", "--force", str(path))
+        elif path.exists():
+            rmtree(path)
+        self.git("update-ref", "-d", f"refs/swarm/validation/{number}")
+        self.journal.add(number, "validation-release", claim=claim, status=status)
+
+    def validation_worker(self, cls, number):
+        worker = cls(self.clone, self.worktrees, self.journal, command=self.command,
+                     lock_fd=self.lock_fd, sandbox=self.sandbox, runner_sha=self.runner_sha)
+        worker.login = self.login
+        worker.protected_paths = self.protected_paths
+        worker.checkout_path = self.validation_path(number)
+        return worker
+
+    def validate_claim(self, pr, base):
+        if self.stopping():
+            return
+        number, head = pr["number"], pr["head"]["sha"]
+        claim = uuid4().hex
+        self.journal.add(number, "validation-claim", claim=claim, head=head, base=base)
+        try:
+            validator = self.validation_worker(Swarm, number)
+            result = validator.validate(pr, base)
+            if result and result["passed"]:
+                self.validation_worker(Reviewer, number).review(pr, base, result["acceptance"])
+        except (JobError, ToolError) as error:
+            print(f"PR #{number}: validation deferred ({error})", flush=True)
+        finally:
+            self.release(number, claim, status="finished")
+
     def poll(self):
+        if not self.dry:
+            for number in tuple(self.journal.events):
+                claim = self.journal.last(number, "validation-claim")
+                release = self.journal.last(number, "validation-release")
+                if claim and (not release or release["claim"] != claim["claim"]):
+                    self.release(number, claim["claim"], status="interrupted")
+        if self.stopping():
+            return
         base = self.dev()
         self.login = None if self.dry else self.api("user")["login"]
         self.validate(None, base)
-        reviewer = Reviewer(self.clone, self.worktrees, self.journal, command=self.command,
-                            dry=self.dry, lock_fd=self.lock_fd, sandbox=self.sandbox, runner_sha=self.runner_sha)
-        reviewer.login = self.login
-        reviewer.protected_paths = self.protected_paths
-        for pr in self.pulls():
-            result = self.validate(pr, base)
-            if result and result["passed"]:
-                reviewer.review(pr, base, result["acceptance"])
+        if self.stopping():
+            return
+        pulls = iter(self.pulls())
+        if self.dry:
+            for pr in pulls:
+                if self.stopping():
+                    break
+                self.validate(pr, base)
+            return
+        with ThreadPoolExecutor(max_workers=WORKER_SLOTS) as workers:
+            pending = set()
+            while not self.stopping():
+                for pr in pulls:
+                    if self.stopping():
+                        break
+                    pending.add(workers.submit(self.validate_claim, pr, base))
+                    if len(pending) == WORKER_SLOTS:
+                        break
+                if not pending:
+                    break
+                done, pending = wait(pending, return_when=FIRST_COMPLETED)
+                for future in done:
+                    future.result()
+            for future in pending:
+                future.result()
 
 
 class Reviewer(Role):
@@ -407,7 +497,8 @@ class Reviewer(Role):
         eligible = eligible_reviewers(author)
         if not eligible:
             return
-        if published_verdict(self, pr, head, base, self.role, self.journal):
+        if (published_verdict(self, pr, head, base, self.role, self.journal)
+                or self.resume_publication(number, head, base)):
             if AWAITING_REVIEW in labels(pr):
                 self.remove_label(number, AWAITING_REVIEW)
             return
@@ -482,7 +573,7 @@ class Merger(Role):
         self.event("release", status="bounced")
 
     def gate(self, pr, head, base):
-        if pr["head"]["sha"] != head or self.held(pr):
+        if not self.current(pr, head, base) or self.held(pr):
             return "candidate changed or held", None
         trail = Journal(self.state / "swarm" / "log.jsonl")
         for role in VERDICT_CONTEXTS:
@@ -597,7 +688,7 @@ class Merger(Role):
             if active or not bounce or (bounce["head"], bounce["base"]) != (head, base) or self.held(pr):
                 selected = pr
                 break
-        if selected is None:
+        if selected is None or self.stopping():
             return
         pr = selected
         number, head = pr["number"], pr["head"]["sha"]
@@ -668,7 +759,7 @@ class Merger(Role):
         if self.held(current) or not self.current(current, head, base):
             return
         status, reason = self.gate(current, head, base)
-        if status != "ready":
+        if status != "ready" or self.dev() != base or self.stopping():
             return
         self.event("merge-intent", head=head, base=base, review_note=reason)
         self.call(["gh", "pr", "merge", str(number), "--repo", REPO, "--rebase",
@@ -891,5 +982,7 @@ class Issues(Role):
         self.fetch(0, base, base)
         with self.snapshot(base) as path:
             for _, item in sorted(items.items()):
+                if self.stopping():
+                    break
                 if item["state"] == "open":
                     self.analyze(item, items, base, path)
