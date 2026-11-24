@@ -92,7 +92,7 @@ with two retries after 2 and 4 seconds for quota, rate-limit, authentication
 and CLI availability failures. When Opus is unavailable, Luna authors may
 use Terra medium. Terra authors require Opus, so Swarm applies
 `awaiting-review`, retries on each poll and clears the label when a review
-verdict is recorded. Luna is ineligible to review. PRs authored by the retired 6.2 Sol/Astra keep their original reviewer rules. Verdicts include model,
+verdict is recorded. Luna is ineligible to review. Legacy Sol-authored PRs may use Opus or Terra; legacy Astra-authored PRs require Opus. Verdicts include model,
 effort, run ID, head and fallback reason when applicable. Swarm comments and
 merger reports flag fallback reviews.
 
