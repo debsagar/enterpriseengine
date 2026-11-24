@@ -29,7 +29,14 @@ READY, ACTIVE, BLOCKED, HUMAN = "agent-ready", "in-progress", "blocked", "needs-
 MAX_FIXES = 2
 MODELS = {"author": "gpt-6.2-astra", "issues": "gpt-6.2-astra",
           "swarm": "gpt-6.2-sol", "merger": "gpt-6.2-sol"}
-WORKER_MODEL, REVIEWER_MODEL, EFFORT = MODELS["author"], "human", "high"
+WORKER_MODEL, REVIEWER_MODEL, EFFORT = MODELS["author"], "pending", "high"
+VERDICT_CONTEXTS = {"swarm": "swarm/validate", "reviewer": "review/independent"}
+DEFAULT_SANDBOX = "danger-full-access"
+CLAUDE_REVIEWER = "claude-opus-5-5"
+FALLBACK_REVIEWER = "gpt-6.2-astra"
+SMALL, LARGE = "size:small", "size:large"
+AWAITING_REVIEW = "awaiting-review"
+CLAUDE_TIMEOUT = 30
 PROTECTED = Path("/data/enterprise")
 PACKAGE_CHECKS = {
     "Installed wheel (Python 3.10)", "Installed wheel (Python 3.12)", "Offline workspace tests"
@@ -46,7 +53,7 @@ MAINTAINING.md. Preserve import direction: environments can use components and e
 components can use engine, and engine cannot import components or environments.
 Use one issue per worktree. Report acceptance and compatibility evidence.
 Never read or disclose .env*, state.json, secrets.json, .local/, credentials, or private
-run data. Never edit PROJECT-LOG.jsonl. Never commit, push, merge or use gh. Only the author may delegate scoped work inside its sandbox and worktree.
+run data. Never edit PROJECT-LOG.jsonl. Never commit, push, merge or use gh. Only the author may delegate scoped work inside its worktree.
 Report only public, relevant test evidence.
 """
 
@@ -63,9 +70,12 @@ def execute(args, cwd, stdin=None, *, lock_fd=None):
     result = subprocess.run(
         args, cwd=cwd, input=stdin or "", text=True, errors="replace",
         capture_output=True, pass_fds=() if lock_fd is None else (lock_fd,),
-        timeout=60 if args[0] == "gh" else (1800 if args[0] == "codex" else None),
+        timeout={"gh": 60, "codex": 1800, "claude": CLAUDE_TIMEOUT}.get(args[0]),
     )
-    return result.returncode, result.stdout
+    output = result.stdout
+    if args[0] == "claude" and result.returncode:
+        output += "\n" + result.stderr
+    return result.returncode, output
 
 
 def documents(output):
@@ -79,6 +89,14 @@ def documents(output):
 
 def labels(item):
     return {label["name"] for label in item["labels"]}
+
+
+def author_selection(item):
+    if labels(item) & {SMALL, LARGE} == {SMALL}:
+        return "gpt-6.2-sol", "medium"
+    override = re.search(r"(?im)^\s*reasoning[ _-]*effort\s*:\s*(low|medium|high|xhigh)\s*$",
+                         item.get("body") or "")
+    return WORKER_MODEL, override[1].lower() if override else "medium"
 
 
 def dependencies(body, *, unblocking=False):
@@ -215,7 +233,7 @@ class Journal:
 class Client:
     role = "author"
 
-    def __init__(self, clone, worktrees, journal, *, command=execute, dry=False, lock_fd=None, sandbox="workspace-write", runner_sha=None):
+    def __init__(self, clone, worktrees, journal, *, command=execute, dry=False, lock_fd=None, sandbox=DEFAULT_SANDBOX, runner_sha=None):
         self.clone = clone
         self.worktrees = worktrees
         self.journal = journal
@@ -259,11 +277,17 @@ class Client:
         if method != "GET":
             target = path.removeprefix(self.repo + "/")
             issue_mutation = re.fullmatch(r"issues/([1-9][0-9]*)(?:/(comments|labels)(?:/[^/]+)?)?", target)
+            verdict_status = method == "POST" and re.fullmatch(r"statuses/[a-f0-9]{40}", target) and (
+                (data or {}).get("context") == VERDICT_CONTEXTS.get(self.role)
+            )
+            label_setup = method == "POST" and target == "labels"
             allowed = {
                 "author": target == "pulls" or re.fullmatch(r"pulls/[1-9][0-9]*", target) or issue_mutation,
-                "swarm": target == "issues" or (issue_mutation and issue_mutation[2] in {"comments", "labels"}),
+                "reviewer": verdict_status or (label_setup and (data or {}).get("name") == AWAITING_REVIEW)
+                or (issue_mutation and issue_mutation[2] in {"comments", "labels"}),
+                "swarm": verdict_status or target == "issues" or (issue_mutation and issue_mutation[2] in {"comments", "labels"}),
                 "merger": issue_mutation and issue_mutation[2] in {"comments", "labels"},
-                "issues": issue_mutation,
+                "issues": issue_mutation or (label_setup and (data or {}).get("name") in {SMALL, LARGE}),
             }
             if self.dry or not allowed[self.role]:
                 raise JobError("GitHub mutation is outside this role.")
@@ -286,6 +310,16 @@ class Client:
 
     def issue(self, number):
         return self.api(f"{self.repo}/issues/{number}")
+
+    def ensure_label(self, name, color):
+        endpoint = f"{self.repo}/labels/{name}"
+        try:
+            self.api(endpoint)
+        except ToolError:
+            try:
+                self.api(f"{self.repo}/labels", method="POST", data={"name": name, "color": color})
+            except ToolError:
+                self.api(endpoint)
 
     def change_labels(self, item, *, add, remove=None):
         number = item["number"]
@@ -357,8 +391,12 @@ class Client:
             raise JobError("Could not verify checkout integrity after the model run.") from error
 
     def model(self, path, model, prompt, payload, fields, *, write=False, tested=False):
-        if model != MODELS[self.role] or (write and self.role != "author"):
+        number = payload["number"]
+        source = self.record(number)
+        expected = source["model"]
+        if model != expected or (write and self.role != "author"):
             raise JobError("Model or write access does not match this role.")
+        effort = source["effort"]
         unrestricted = self.sandbox == "danger-full-access"
         sandbox = self.sandbox if write or tested or unrestricted else "read-only"
         branch = self.git("branch", "--show-current", cwd=path)
@@ -378,9 +416,8 @@ class Client:
             schema = Path(directory) / "result.json"
             schema.write_text(json.dumps({"type": "object", "properties": fields,
                                           "required": list(fields), "additionalProperties": False}))
-            number = payload["number"]
             round_event = self.journal.last(number, "start")
-            identity = {"model": model, "effort": EFFORT, "sha": head,
+            identity = {"model": model, "effort": effort, "sha": head,
                         "call": uuid4().hex, "round_id": round_event["attempt"] if round_event else None}
             self.attempt_record(number, "model-input", **identity, prompt=prompt, payload=payload)
             self.journal.add(number, "model-start", provenance=self.record(number), **identity)
@@ -388,7 +425,7 @@ class Client:
             try:
                 code, stdout = self.call([
                     "codex", "exec", "-m", model, "--ephemeral", "--json",
-                    "-c", 'approval_policy="never"', "-c", f'model_reasoning_effort="{EFFORT}"',
+                    "-c", 'approval_policy="never"', "-c", f'model_reasoning_effort="{effort}"',
                     "-c", 'sandbox_workspace_write.network_access=false',
                     "-c", 'shell_environment_policy.inherit="core"',
                     "-c", 'shell_environment_policy.exclude=["*TOKEN*", "*SECRET*", "*PASSWORD*", "*KEY*"]',
@@ -432,6 +469,8 @@ class Client:
         package_suites = {run["check_suite_id"] for run in package_runs}
         states = {}
         for check in sorted(checks, key=lambda run: run["id"], reverse=True):
+            if check["name"] in VERDICT_CONTEXTS.values():
+                continue
             if check["name"] in PACKAGE_CHECKS and check["check_suite"]["id"] not in package_suites:
                 continue
             state = check["conclusion"] if check["status"] == "completed" else "pending"
@@ -439,7 +478,7 @@ class Client:
         statuses = self.api(prefix + "/status?per_page=100", pages=True)
         for page in statuses:
             for status in page["statuses"]:
-                if status["context"] not in PACKAGE_CHECKS:
+                if status["context"] not in PACKAGE_CHECKS | set(VERDICT_CONTEXTS.values()):
                     states[status["context"], None] = status["state"]
 
         return states
@@ -455,6 +494,7 @@ class Client:
             if rule["type"] == "required_status_checks":
                 required.update((check["context"], check.get("integration_id"))
                                 for check in rule["parameters"]["required_status_checks"])
+        required = {key for key in required if key[0] not in VERDICT_CONTEXTS.values()}
         states = self.check_states(head, "pull_request")
         success = {"success", "skipped", "neutral", "pending"}
         failed = {key for key, state in states.items() if state not in success}
@@ -524,8 +564,8 @@ class Runner(Client):
         claim = self.journal.last(number, "claim")
         run = claim["run"]
         return {"actor": "agent", "issue": f"#{number}", "base": claim["base"],
-                "provider": "OpenAI", "model": WORKER_MODEL, "effort": EFFORT,
-                "run": run, "runner": claim["runner"], "reviewer": REVIEWER_MODEL, "role": self.role,
+                "provider": "OpenAI", "model": claim.get("model", WORKER_MODEL),
+                "effort": claim.get("effort", EFFORT), "run": run, "runner": claim["runner"], "reviewer": claim.get("reviewer", "human"), "role": self.role,
                 "transcript": f"swarm://{claim['host']}/attempts/{run}.jsonl"}
 
     def attempt_record(self, number, event, **fields):
@@ -551,7 +591,8 @@ class Runner(Client):
                     return pr
         return None
 
-    def claim(self, number, branch, *, resume_only=False, pull=None):
+    def claim(self, item, branch, *, resume_only=False, pull=None):
+        number = item["number"]
         ref = f"refs/heads/{branch}"
         remote = self.git("ls-remote", "--refs", "origin", ref).split()
         if remote:
@@ -588,14 +629,16 @@ class Runner(Client):
         self.git("fetch", "--no-write-fetch-head", "origin", "dev")
         base = self.git("rev-parse", "origin/dev")
         token = uuid4().hex
+        model, effort = author_selection(item)
         # A unique object ensures the losing push cannot report "up to date".
         identity = {"actor": "agent", "issue": f"#{number}", "base": base,
-                    "provider": "OpenAI", "model": WORKER_MODEL, "effort": EFFORT,
+                    "provider": "OpenAI", "model": model, "effort": effort,
                     "run": token, "runner": self.runner_sha, "reviewer": REVIEWER_MODEL}
         sha = self.git("commit-tree", f"{base}^{{tree}}", "-p", base, "-m",
                        provenance.commit_message(f"Swarm claim #{number} by {self.worker}", identity))
         self.journal.add(number, "claim", sha=sha, worker=self.worker, host=socket.gethostname(),
-                         base=base, run=token, runner=self.runner_sha)
+                         base=base, run=token, runner=self.runner_sha, model=model, effort=effort,
+                         reviewer=REVIEWER_MODEL)
         self.attempt_record(number, "provenance", **self.record(number), claim=sha, worker=self.worker)
         return self.push_claim(number, ref, sha)
 
@@ -635,7 +678,7 @@ class Runner(Client):
 
     def work(self, item, path, findings):
         report = self.model(
-            path, WORKER_MODEL,
+            path, self.record(item["number"])["model"],
             TASK_RULES + "Implement or repair this issue, leave source edits and run the exact acceptance test. "
             "Return passed, the exact acceptance command, and concise sanitized test output including test counts "
             "and exit status. Report failure if the command did not actually run or did not pass.",
@@ -852,7 +895,7 @@ class Runner(Client):
             return
 
         try:
-            remote = self.claim(number, branch, resume_only=bool(pr), pull=pr)
+            remote = self.claim(issue, branch, resume_only=bool(pr), pull=pr)
         except JobError as error:
             self.block(issue, str(error))
             return
@@ -987,10 +1030,10 @@ class Runner(Client):
             print("Dry run complete.")
 
 
-def role_record(role, runner, base, issue, run):
+def role_record(role, runner, base, issue, run, *, model=None):
     return {"actor": "agent", "issue": issue, "base": base, "provider": "OpenAI",
-            "model": MODELS[role], "effort": EFFORT, "runner": runner, "role": role,
-            "run": run, "reviewer": "human" if role == "merger" else "pending",
+            "model": model or MODELS[role], "effort": EFFORT, "runner": runner, "role": role,
+            "run": run, "reviewer": "pending",
             "issue_reason": f"{role} maintenance across GitHub items",
             "execution": "deterministic" if role == "merger" else "model-assisted",
             "transcript": f"swarm://{socket.gethostname()}/{role}/attempts/{run}.jsonl"}
@@ -1022,10 +1065,10 @@ def main():
     parser.add_argument("--interval", type=int, default=300)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--sandbox", choices=("workspace-write", "danger-full-access"),
-                        default="workspace-write")
+                        default=DEFAULT_SANDBOX)
     args = parser.parse_args()
-    if args.interval < 1 or (args.sandbox == "danger-full-access" and args.role != "author"):
-        parser.error("Use a positive interval. Only author supports danger-full-access.")
+    if args.interval < 1:
+        parser.error("Use a positive interval.")
 
     folder = args.state_dir.resolve() / args.role
     journal_path = folder / ("history.jsonl" if args.role == "merger" else "log.jsonl")

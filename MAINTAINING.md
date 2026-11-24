@@ -14,18 +14,20 @@ Then update Norvale's engine lock to the tested commit, carry the corresponding 
 | Subcommand | Model | Responsibility |
 | --- | --- | --- |
 | `swarm` | `gpt-6.2-sol` | Runs offline dev checks, PR acceptance tests, and the Norvale #39 baseline when tracked. Checks PRs against requirements and verifies findings in a fresh pass before posting a verdict. Files or updates findings on issues and comments on PRs. |
-| `author` | `gpt-6.2-astra` | Claims eligible issues and opens or repairs one `dev` PR per issue cluster. May delegate scoped work in its own sandbox. Owns source edits and PR creation. |
-| `merger` | `gpt-6.2-sol` | Applies deterministic integration gates to one PR at a time and summarizes completed merges. Rebases onto current `dev`, adds provenance trailers, and waits for CI, Swarm validation, and trusted independent approval before rebase-merging. |
-| `issues` | `gpt-6.2-astra` | Classifies matches, similar issues and distinct issues, closes confirmed duplicates with reciprocal links, and records downstream impact and structured prerequisites. |
+| `author` | Sol medium for `size:small`, Astra medium by default otherwise | Claims eligible issues and opens or repairs one `dev` PR per issue. Pins the author model and effort in the claim and owns source edits and PR creation. |
+| `merger` | `gpt-6.2-sol` | Applies deterministic integration gates to one PR at a time and summarizes completed merges. Rebases onto current `dev`, adds provenance trailers, and requires green CI and both exact-head verdicts before rebase-merging. Skips `awaiting-review`. |
+| `issues` | `gpt-6.2-astra` | Classifies matches, similar issues and distinct issues, closes confirmed duplicates with reciprocal links, and records downstream impact and structured prerequisites, and assigns one size label. |
 
 The human orchestrator owns the processes. On the designated Linux host,
-authenticate `gh` for each role, warm the locked offline workspace cache, and
-use a dedicated runner checkout separate from the task clone at
-`/data/enterprise/enterpriseengine`. Use distinct GitHub identities for the
-author, validator, merger, and independent reviewer. Give the merger write
-access to candidate branches and permission to rebase-merge on `dev`.
-Enable GitHub rebase merging and strict required checks on `dev`, and disable
-GitHub auto-merge for the serial queue.
+authenticate `gh` as `debsagar` for all roles and configure the Claude CLI
+under the owner's plan. Reviewer calls run from the Swarm process using
+read-only tools. Warm the locked offline workspace cache and use a dedicated
+runner checkout separate from the task clone at
+`/data/enterprise/enterpriseengine`. Codex uses `--sandbox danger-full-access`
+by default on this host and checks protected paths and the worktree around
+model calls. Enable GitHub rebase merging and strict required checks on
+`dev`, including `swarm/validate` and `review/independent`, with zero required
+GitHub approvals. Disable GitHub auto-merge for the serial queue.
 
 Set up the runner source once, then pin the reviewed dev SHA in each role's
 terminal.
@@ -59,9 +61,10 @@ complete the manual review and merge, or clear both holds to return it to
 automation. Shared CI failures pause the queue. Failed gates and rebase
 conflicts receive a comment with the next action. The earlier worker PRs
 #35, #37 and #38 enter the same queue. Their authors may need to supply
-provenance if the PR provenance check fails. An independent reviewer approves
-the freshly rebased head in GitHub after inspecting it. A later change to the
-head or base requires fresh evidence. The personal repository uses the local
+provenance if the PR provenance check fails. An independent reviewer
+publishes a verdict on the freshly rebased head. A later change to the head
+or base requires fresh evidence. The Swarm retries `awaiting-review` PRs on
+each poll and clears the label after publishing the review verdict. The personal repository uses the local
 serial queue. If the repository moves to an organization, the owner can
 replace it with GitHub's native merge queue.
 
@@ -73,8 +76,8 @@ dependencies and metadata.
 ### Workflow references
 
 - Triage compares the underlying problem and acceptance scope, using the match, similar and distinct classifications for related work. [GitHub Agentic Workflows issue triage](https://github.github.com/gh-aw/gallery/ai-issue-triage/), [Microsoft backlog grooming](https://github.com/microsoft/hve-core/blob/main/.github/agents/backlog-grooming.agent.md)
-- Swarm limits its GitHub outputs to issues, labels and comments. A fresh validation pass checks PR findings before publication. [GitHub Next Agentics](https://github.com/githubnext/agentics), [Pipecat code review](https://github.com/pipecat-ai/pipecat/blob/main/.claude/skills/code-review/SKILL.md)
-- The merger refuses PRs opened by its identity and requires CI on a candidate rebased onto current dev. [Mergify coding-agent merge workflow](https://mergify.com/guides/merge-pull-requests-from-coding-agents)
+- Swarm publishes issues, labels, comments and commit statuses. A fresh validation pass checks PR findings before publication. [GitHub Next Agentics](https://github.com/githubnext/agentics), [Pipecat code review](https://github.com/pipecat-ai/pipecat/blob/main/.claude/skills/code-review/SKILL.md)
+- The merger checks author and reviewer provenance and requires CI on a candidate rebased onto current dev. [Mergify coding-agent merge workflow](https://mergify.com/guides/merge-pull-requests-from-coding-agents)
 
 Install the workspace with `uv sync --locked --all-packages`. Run the engine
 tests in `packages/engine/tests` and the cross-package replay tests in

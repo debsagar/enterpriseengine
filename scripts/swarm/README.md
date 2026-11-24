@@ -33,14 +33,17 @@ read rebase and repair decisions. Use one designated host for the merger.
 - The merger uses a lease to rebase the candidate branch. It stamps the
   commits with `Swarm-Rebase-Run`, `Swarm-Rebase-Base`,
   `Swarm-Rebase-Model` and `Swarm-Rebase-Runner` while retaining author
-  trailers. The new head triggers PR checks. The merger matches the Swarm
-  comment and local verdict to the exact head and dev SHA, checks for an
-  independent GitHub approval at that head, then calls
+  trailers. The new head triggers PR checks. The merger requires green CI
+  and verifies both `swarm/validate` and `review/independent` at that exact
+  head and dev SHA. For each context it matches the latest status to the
+  same run's machine-readable comment and journal entry, then calls
   `gh pr merge --rebase --match-head-commit <head>`. GitHub creates new
   commit SHAs on dev and carries the commit messages forward. Strict required
-  checks on dev protect against a late base update. Reviews, labels and
+  checks on dev protect against a late base update. Statuses, labels and
   branch state can still change outside the queue, so operate the merger as
-  the only automated route to dev.
+  the only automated route to dev. The queue skips `awaiting-review` and
+  holds `ml-review` or `needs-human` for the owner. GitHub required approving
+  review count is zero.
 - The CI baseline distinguishes a shared failure when the same context and
   app fail both candidate and dev. Missing or pending required checks defer
   integration. Missing or pending dev package baselines defer repair. A shared
@@ -53,20 +56,36 @@ read rebase and repair decisions. Use one designated host for the merger.
   Check active claims before opening manual replacements. GitHub offers no
   transaction across issue labels, claim refs and PR creation.
 
+## Author and reviewer routing
+
+The issue agent assigns `size:small` or `size:large`. Small issues use Sol
+medium. Large and unlabelled issues default to Astra medium, and can specify
+a line such as `Reasoning effort: high`. The runner pins model and effort at
+claim time so retries retain the original commit and PR provenance.
+
+Swarm runs acceptance commands and verifies findings in a fresh validation
+pass. A separate reviewer reads the spec, decisions, issue, diff and
+acceptance results. The CLI runs Claude Opus 5.5 at low effort, with
+restricted read-only tools. Claude attempts are bounded to 30 seconds each,
+with two retries after 2 and 4 seconds for quota, rate-limit, authentication
+and CLI availability failures. When Opus is unavailable, Sol authors may
+use Astra medium. Astra authors require Opus, so Swarm applies
+`awaiting-review`, retries on each poll and clears the label when a review
+verdict is recorded. Sol is ineligible to review. Verdicts include model,
+effort, run ID, head and fallback reason when applicable. Swarm comments and
+merger reports flag fallback reviews.
+
 ## Isolation
 
-Swarm runs tests in disposable detached checkouts with network-disabled
-workspace sandboxing. It accepts test success only with matching command
-execution results. The second pass and Issues use read-only model calls.
-Provide cached dependencies and use a dedicated host identity without access
-to private workloads. The roles expect trusted GitHub identities and shared
-local journals. They do not manage system permissions.
-
-Only Author accepts the explicit `--sandbox danger-full-access` override.
-That mode compares filesystem metadata under protected data roots around
-model calls. The check can detect persistent changes and may also flag edits
-from another process. It cannot attribute changes, observe reads or constrain
-network access. Keep sandboxing enabled for work from public issues.
+Codex calls for all roles on this host default to the explicit
+`--sandbox danger-full-access` override. The runner uses disposable detached
+worktrees for validation and review, compares protected-path metadata around
+calls and checks worktree state, branch, HEAD and changed paths. Only the
+author can make source changes. The checks detect persistent changes and
+can flag changes from another process. They cannot observe reads or constrain
+network access. Keep the runner on the designated host, use the shared
+`debsagar` GitHub identity and provide cached offline dependencies. Hosts with
+working Codex sandboxing can opt into `--sandbox workspace-write`.
 
 ## Provenance
 
@@ -121,9 +140,9 @@ python3 scripts/swarm/trace.py 0123456789ab --state-dir /path/to/retained-state
 uv run --offline python -m unittest discover -s scripts/swarm/tests -v
 ```
 
-The trace combines GitHub commits, reviews, current-head CI and merge events
+The trace combines GitHub commits, current-head statuses and CI, and merge events
 with the Author, Swarm and Merger journals. For a legacy PR or a missing archive, GitHub
 events remain available. Issue and review text can contain instructions that
 contradict the task. Models are instructed to treat them as data, and
-a second Swarm call verifies candidate findings. The independent approval gate
-remains mandatory before integration.
+a second Swarm call verifies candidate findings. Both head-bound role verdicts
+are mandatory before integration.
