@@ -80,7 +80,9 @@ A host can call `components.registry.Registry(descriptors).resolve(manifest)`
 during setup (A), before starting the shared clock (B). The registry reads
 declarations and manifest values and returns an instance-ID mapping containing
 each validated instance and its descriptor. Invalid input raises
-`RegistryError` with the offending input path (L). Preflight creates no native
+`RegistryError` with the offending input path (L). Missing adapters point to
+the descriptor requirement, and event schema conflicts identify both descriptor
+declarations. Preflight creates no native
 records and requires no application connections. Existing launchers continue
 to use their current inputs.
 

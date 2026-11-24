@@ -73,11 +73,19 @@ class RegistryTests(unittest.TestCase):
 
     def test_incompatible_event_schema(self):
         self.descriptors[1]["handles"]["reading"]["lot"] = "integer"
-        self.assert_manifest_error("manifest.instances[1].handles.reading", "incompatible payload schema")
+        self.assert_manifest_error(
+            "descriptors[1].handles.reading",
+            "incompatible payload schema with descriptors[0].emits.reading",
+        )
+        self.descriptors.reverse()
+        self.assert_manifest_error(
+            "descriptors[0].handles.reading",
+            "incompatible payload schema with descriptors[1].emits.reading",
+        )
 
     def test_missing_adapter(self):
         self.manifest["adapters"].clear()
-        self.assert_manifest_error("manifest.instances[1].requires_adapters[1]", "missing adapter records@1")
+        self.assert_manifest_error("descriptors[1].requires_adapters[1]", "missing adapter records@1")
 
     def test_overlapping_policy_intervals(self):
         self.reviewer["policies"]["limit"][1]["effective_until"] = "2027-02-02"

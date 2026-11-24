@@ -157,7 +157,7 @@ class Registry:
             for field in ("requires_adapters", "provides_adapters"):
                 _adapters(descriptor[field], f"{path}.{field}")
             _name(descriptor["provenance"], f"{path}.provenance")
-            self._types[type_id] = deepcopy(descriptor)
+            self._types[type_id] = (deepcopy(descriptor), path)
 
     def resolve(self, manifest):
         """Return an ordered-by-input mapping of instance IDs to declarations."""
@@ -178,7 +178,7 @@ class Registry:
             _name(type_id, f"{path}.type")
             if type_id not in self._types:
                 raise RegistryError(f"{path}.type", "unregistered component type")
-            descriptor = self._types[type_id]
+            descriptor, descriptor_path = self._types[type_id]
             for field, schema in (("config", "instance_schema"), ("state", "state_schema"),
                                   ("parameters", "parameters")):
                 _record(instance[field], descriptor[schema], f"{path}.{field}")
@@ -186,7 +186,7 @@ class Registry:
             _object(instance["relations"], f"{path}.relations", descriptor["relations"])
             for direction in ("handles", "emits"):
                 for name, schema in descriptor[direction].items():
-                    event_path = f"{path}.{direction}.{name}"
+                    event_path = f"{descriptor_path}.{direction}.{name}"
                     other_schema, other_path = events.setdefault(name, (schema, event_path))
                     if schema != other_schema:
                         raise RegistryError(event_path, f"incompatible payload schema with {other_path}")
@@ -203,7 +203,10 @@ class Registry:
                     raise RegistryError(relation_path, "dangling relation")
                 if resolved[target]["instance"]["type"] != descriptor["relations"][name]:
                     raise RegistryError(relation_path, "incompatible relation target type")
+            _, descriptor_path = self._types[instance["type"]]
             for offset, adapter in enumerate(descriptor["requires_adapters"]):
                 if adapter not in provided:
-                    raise RegistryError(f"{path}.requires_adapters[{offset}]", f"missing adapter {adapter}")
+                    raise RegistryError(
+                        f"{descriptor_path}.requires_adapters[{offset}]", f"missing adapter {adapter}"
+                    )
         return deepcopy(resolved)
