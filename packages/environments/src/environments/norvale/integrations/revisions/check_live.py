@@ -6,9 +6,10 @@ import os
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from environments.norvale.integrations.mes.client import Mes
-from environments.norvale.integrations.plm import Blocked, PLM
 from components.erp_client import ErpClient
+
+from environments.norvale.integrations.mes.client import Mes
+from environments.norvale.integrations.plm import PLM, Blocked
 
 from . import Bridge, RevisionMismatch
 from .receivers import ERP_KEY, ERPNext, Odoo
@@ -37,35 +38,62 @@ def qualify(config, checkpoint):
 
     company = "Revision Bridge Example"
     if not erp.list("Company", {"name": company}):
-        erp.create("Company", {"company_name": company, "abbr": "RBE",
-                               "country": "United States", "default_currency": "USD"})
+        erp.create(
+            "Company", {"company_name": company, "abbr": "RBE", "country": "United States", "default_currency": "USD"}
+        )
     for code, unit in ((PRODUCT, "Nos"), ("NV-BRIDGE-BULK", "Kg"), ("NV-BRIDGE-BOTTLE", "Nos")):
         assert not erp.list("Item", {"name": code}), "Use a fresh ERP site"
-        erp.create("Item", {"item_code": code, "item_name": code, "item_group": "All Item Groups",
-                            "stock_uom": unit, "is_stock_item": 1})
+        erp.create(
+            "Item",
+            {
+                "item_code": code,
+                "item_name": code,
+                "item_group": "All Item Groups",
+                "stock_uom": unit,
+                "is_stock_item": 1,
+            },
+        )
 
     def product(code):
-        rows = mes.call("product.product", "search_read", [["default_code", "=", code]],
-                        fields=["uom_id", "company_id"], limit=2)
+        rows = mes.call(
+            "product.product", "search_read", [["default_code", "=", code]], fields=["uom_id", "company_id"], limit=2
+        )
         assert len(rows) == 1, rows
         return rows[0]
 
     output, bulk, bottle = (product(code) for code in ("NV-SHAMPOO", "NV-BULK", "NV-BOTTLE"))
     center = config["example"]["workcenter_id"]
     hold = config["example"]["hold_location_id"]
-    mapped = mapping(company, output["company_id"][0], output["id"], bulk["id"], bottle["id"],
-                     bulk["uom_id"][0], output["uom_id"][0], center)
+    mapped = mapping(
+        company,
+        output["company_id"][0],
+        output["id"],
+        bulk["id"],
+        bottle["id"],
+        bulk["uom_id"][0],
+        output["uom_id"][0],
+        center,
+    )
 
     def controller():
-        return Bridge(plm, erp_receiver, Odoo(mes), source=config["bridge"]["source"],
-                      scoped_receipts=config["bridge"].get("scoped_receipts", False),
-                      mapping=mapped, checkpoint=checkpoint)
+        return Bridge(
+            plm,
+            erp_receiver,
+            Odoo(mes),
+            source=config["bridge"]["source"],
+            scoped_receipts=config["bridge"].get("scoped_receipts", False),
+            mapping=mapped,
+            checkpoint=checkpoint,
+        )
 
     a = plm.draft(PRODUCT, "A", components(1))
     plm.review(a, on=EARLY, evidence="NV-EXAMPLE-REVIEW-A")
     plm.approve(a, on=EARLY, effective=EARLY, evidence="NV-EXAMPLE-APPROVAL-A")
-    denials = {"before_publish": blocked(Blocked, lambda: controller().release(a, "NV-WORK-A", on=EARLY),
-                                        "awaiting erp acknowledgment")}
+    denials = {
+        "before_publish": blocked(
+            Blocked, lambda: controller().release(a, "NV-WORK-A", on=EARLY), "awaiting erp acknowledgment"
+        )
+    }
 
     # Simulate a lost response after an actual ERPNext commit.
     create = erp.create
@@ -76,11 +104,12 @@ def qualify(config, checkpoint):
 
     erp.create = lost_response
     try:
-        denials["after_erp_commit"] = blocked(TimeoutError, lambda: controller().publish(a, on=EARLY),
-                                             "after native commit")
+        denials["after_erp_commit"] = blocked(
+            TimeoutError, lambda: controller().publish(a, on=EARLY), "after native commit"
+        )
     finally:
         erp.create = create
-    draft, = erp.list("BOM", {"item": PRODUCT}, fields=["name", "docstatus"])
+    (draft,) = erp.list("BOM", {"item": PRODUCT}, fields=["name", "docstatus"])
     assert draft["docstatus"] == 0
     first = controller().publish(a, on=EARLY)
     assert first["erp"]["bom_id"] == draft["name"]
@@ -90,7 +119,8 @@ def qualify(config, checkpoint):
     plm.review(b, on=EARLY, evidence="NV-EXAMPLE-REVIEW-B")
     plm.approve(b, on=EARLY, effective=LATER, evidence="NV-EXAMPLE-APPROVAL-B")
     denials["new_effective_awaits_ack"] = blocked(
-        Blocked, lambda: controller().release(a, "NV-WORK-B", on=LATER), "awaiting erp acknowledgment")
+        Blocked, lambda: controller().release(a, "NV-WORK-B", on=LATER), "awaiting erp acknowledgment"
+    )
     second = controller().publish(b, on=LATER)
     new = controller().release(a, "NV-WORK-B", on=LATER)
     assert (old["pin"]["native_id"], new["pin"]["native_id"]) == (a, b)
@@ -99,14 +129,16 @@ def qualify(config, checkpoint):
 
     bom_id = first["mes"]["bom_id"]
     native = mes.call("mrp.bom", "read", [bom_id], fields=["bom_line_ids"])[0]
-    lines = mes.call("mrp.bom.line", "read", native["bom_line_ids"],
-                     fields=["product_id", "product_uom_id", "product_qty"])
+    lines = mes.call(
+        "mrp.bom.line", "read", native["bom_line_ids"], fields=["product_id", "product_uom_id", "product_qty"]
+    )
     raw = next(line for line in lines if line["product_id"][0] == bulk["id"])
     assert raw["product_qty"] == 0.25
     erp_a = erp.get("BOM", first["erp"]["bom_id"])
     assert erp_a["docstatus"] == 1 and erp_a[ERP_KEY] == first["erp"]["import_key"]
     assert {(row["item_code"], row["uom"], row["qty"]) for row in erp_a["items"]} == {
-        ("NV-BRIDGE-BULK", "Kg", 0.25), ("NV-BRIDGE-BOTTLE", "Nos", 1),
+        ("NV-BRIDGE-BULK", "Kg", 0.25),
+        ("NV-BRIDGE-BOTTLE", "Nos", 1),
     }
 
     def dispatch():
@@ -122,20 +154,28 @@ def qualify(config, checkpoint):
     work = dispatch()
     assert work["id"] == dispatch()["id"]
     assert (work["bom_id"][0], work["norvale_revision"]) == (bom_id, first["mes"]["revision"])
-    moves = mes.call("stock.move", "read", work["move_raw_ids"],
-                     fields=["product_id", "product_uom", "product_uom_qty"])
+    moves = mes.call(
+        "stock.move", "read", work["move_raw_ids"], fields=["product_id", "product_uom", "product_uom_qty"]
+    )
     assert {move["product_id"][0]: move["product_uom_qty"] for move in moves} == {
-        bulk["id"]: 1, bottle["id"]: 4,
+        bulk["id"]: 1,
+        bottle["id"]: 4,
     }
 
-    return {"publications": {"A": first, "B": second}, "pins": {"A": old["pin"], "B": new["pin"]},
-            "denials": denials, "erp_a": {"bom_id": erp_a["name"], "docstatus": erp_a["docstatus"],
-                                         "items": [{k: row[k] for k in ("item_code", "uom", "qty")}
-                                                   for row in erp_a["items"]]},
-            "odoo_a_lines": lines, "odoo_mo": {k: work[k] for k in (
-                "id", "origin", "name", "bom_id", "norvale_revision", "product_qty", "state")},
-            "odoo_mo_components": moves,
-            "plm_receipts": [row["acknowledgments"] for row in plm.export(a, on=LATER)]}
+    return {
+        "publications": {"A": first, "B": second},
+        "pins": {"A": old["pin"], "B": new["pin"]},
+        "denials": denials,
+        "erp_a": {
+            "bom_id": erp_a["name"],
+            "docstatus": erp_a["docstatus"],
+            "items": [{k: row[k] for k in ("item_code", "uom", "qty")} for row in erp_a["items"]],
+        },
+        "odoo_a_lines": lines,
+        "odoo_mo": {k: work[k] for k in ("id", "origin", "name", "bom_id", "norvale_revision", "product_qty", "state")},
+        "odoo_mo_components": moves,
+        "plm_receipts": [row["acknowledgments"] for row in plm.export(a, on=LATER)],
+    }
 
 
 if __name__ == "__main__":

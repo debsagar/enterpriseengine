@@ -6,7 +6,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-from . import DAY, Engine, SECTIONS, _journal
+from . import DAY, SECTIONS, Engine, _journal
 
 
 def _unique_object(pairs):
@@ -39,11 +39,13 @@ def main(argv=None, *, adapters=None):
                 print(json.dumps(_journal.metrics(evidence, DAY), indent=2))
             return
         command = json.loads(args.extend.read_text(), object_pairs_hook=_unique_object)
-        if (not isinstance(command, dict) or "id" not in command
-                or set(command) - {"id", *SECTIONS, "events"}
-                or any(section in command and not isinstance(command[section], dict)
-                       for section in SECTIONS)
-                or ("events" in command and not isinstance(command["events"], list))):
+        if (
+            not isinstance(command, dict)
+            or "id" not in command
+            or set(command) - {"id", *SECTIONS, "events"}
+            or any(section in command and not isinstance(command[section], dict) for section in SECTIONS)
+            or ("events" in command and not isinstance(command["events"], list))
+        ):
             raise ValueError("Extension command requires id, catalog objects and an events array")
         # Open the queue without loading application code or constructing a transport.
         engine = Engine.__new__(Engine)
@@ -55,8 +57,9 @@ def main(argv=None, *, adapters=None):
         engine._active = None
         engine._adapters = dict(adapters or {})
         engine.state = {}
-        engine._extend(command["id"], *(command.get(section) for section in SECTIONS),
-                       command.get("events"), from_command=True)
+        engine._extend(
+            command["id"], *(command.get(section) for section in SECTIONS), command.get("events"), from_command=True
+        )
     except (ValueError, OSError, RuntimeError, sqlite3.Error) as exc:
         parser.exit(1, f"{parser.prog}: {exc}\n")
 

@@ -5,39 +5,61 @@ from components.registry import Registry, RegistryError
 
 
 def descriptor(type_id, **declarations):
-    return dict(
-        version=1, type=type_id, instance_schema={}, state_schema={},
-        handles={}, emits={}, parameters={}, policies={}, relations={},
-        requires_adapters=[], provides_adapters=[], provenance="contracts/test_v1_registry.py",
-    ) | declarations
+    return (
+        dict(
+            version=1,
+            type=type_id,
+            instance_schema={},
+            state_schema={},
+            handles={},
+            emits={},
+            parameters={},
+            policies={},
+            relations={},
+            requires_adapters=[],
+            provides_adapters=[],
+            provenance="contracts/test_v1_registry.py",
+        )
+        | declarations
+    )
 
 
 def instance(instance_id, type_id, **values):
-    return dict(id=instance_id, type=type_id, config={}, state={}, parameters={},
-                policies={}, relations={}) | values
+    return dict(id=instance_id, type=type_id, config={}, state={}, parameters={}, policies={}, relations={}) | values
 
 
 class RegistryTests(unittest.TestCase):
     def setUp(self):
         self.descriptors = [
-            descriptor("station@1", emits={"reading": {"lot": "string"}},
-                       provides_adapters=["measurements@1"]),
-            descriptor("review@1", handles={"reading": {"lot": "string"}},
-                       instance_schema={"team": "string"}, state_schema={"reviewed": "integer"},
-                       parameters={"units": "string"}, policies={"limit": "number"},
-                       relations={"station": "station@1"},
-                       requires_adapters=["measurements@1", "records@1"]),
+            descriptor("station@1", emits={"reading": {"lot": "string"}}, provides_adapters=["measurements@1"]),
+            descriptor(
+                "review@1",
+                handles={"reading": {"lot": "string"}},
+                instance_schema={"team": "string"},
+                state_schema={"reviewed": "integer"},
+                parameters={"units": "string"},
+                policies={"limit": "number"},
+                relations={"station": "station@1"},
+                requires_adapters=["measurements@1", "records@1"],
+            ),
         ]
         self.reviewer = instance(
-            "reviewer", "review@1", config={"team": "QA"}, state={"reviewed": 0},
-            parameters={"units": "pH"}, relations={"station": "source"},
-            policies={"limit": [
-                {"effective_from": "2027-02-01", "effective_until": None, "value": 6},
-                {"effective_from": "2027-01-01", "effective_until": "2027-02-01", "value": 5.5},
-            ]},
+            "reviewer",
+            "review@1",
+            config={"team": "QA"},
+            state={"reviewed": 0},
+            parameters={"units": "pH"},
+            relations={"station": "source"},
+            policies={
+                "limit": [
+                    {"effective_from": "2027-02-01", "effective_until": None, "value": 6},
+                    {"effective_from": "2027-01-01", "effective_until": "2027-02-01", "value": 5.5},
+                ]
+            },
         )
-        self.manifest = dict(version=1, adapters=["records@1"],
-                             instances=[instance("source", "station@1"), self.reviewer])
+        self.manifest = dict(
+            version=1, adapters=["records@1"], instances=[instance("source", "station@1"), self.reviewer]
+        )
 
     def assert_manifest_error(self, path, message):
         with self.assertRaises(RegistryError) as caught:
@@ -89,8 +111,9 @@ class RegistryTests(unittest.TestCase):
 
     def test_overlapping_policy_intervals(self):
         self.reviewer["policies"]["limit"][1]["effective_until"] = "2027-02-02"
-        self.assert_manifest_error("manifest.instances[1].policies.limit[0].effective_from",
-                                   "overlapping policy intervals")
+        self.assert_manifest_error(
+            "manifest.instances[1].policies.limit[0].effective_from", "overlapping policy intervals"
+        )
 
     def test_unknown_type(self):
         self.reviewer["type"] = "review@2"

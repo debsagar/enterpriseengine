@@ -1,9 +1,10 @@
 import json
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
+
 from environments.norvale.native.software_connections import connection
 
 
@@ -11,8 +12,7 @@ class Connections(unittest.TestCase):
     def test_pinning_and_instance_namespaces(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "connections.json"
-            target = dict(url="http://localhost:8123", site="test", company="C",
-                          customer="A", item="I", warehouse="W")
+            target = dict(url="http://localhost:8123", site="test", company="C", customer="A", item="I", warehouse="W")
             profile = dict(adapter="erpnext-sales", token_env="TEST_ONLY_SALES", erp=target)
             path.write_text(json.dumps({"sales": profile}))
             with patch.dict(os.environ, NORVALE_CONNECTIONS_FILE=str(path), TEST_ONLY_SALES="offline"):

@@ -1,7 +1,7 @@
 """Reject imports from lower-level workspace packages into environments or components."""
+
 import ast
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[1]
 ENVIRONMENT_IMPORTS = {"environments", "consumers", "integrations", "native", "norvale", "walkthrough"}

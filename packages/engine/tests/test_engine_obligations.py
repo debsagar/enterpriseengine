@@ -1,17 +1,16 @@
 """Offline handler contract and recovery tests for employee obligations."""
 
-from contextlib import closing
 import json
-from pathlib import Path
 import sqlite3
+import unittest
+from contextlib import closing
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic
-import unittest
 
-from enterpriseengine import Engine
 from engine import DAY, DeferCompletion
+from enterpriseengine import Engine
 from test_engine_resume_shifts import Consumer, Native, PowerLoss, open_engine
-
 
 OPERATOR = {"roles": {"operator": {}}}
 
@@ -26,8 +25,7 @@ class EmployeeObligations(unittest.TestCase):
 
         def handle(run, kind, payload):
             if kind == "open":
-                run.state["id"] = run.open_obligation(
-                    "case", owner="operator", due=9, evidence={"ticket": ["A"]})
+                run.state["id"] = run.open_obligation("case", owner="operator", due=9, evidence={"ticket": ["A"]})
                 snapshot = run.obligations()
                 snapshot[0]["evidence"]["ticket"].append("forged")
                 self.assertEqual(run.obligations()[0]["evidence"], {"ticket": ["A"]})
@@ -58,15 +56,12 @@ class EmployeeObligations(unittest.TestCase):
                 self.fail(f"Unexpected dispatch: {kind}")
 
         with TemporaryDirectory() as directory:
-            run = open_engine(directory, Consumer({"roles": {"operator": {}, "auditor": {}}}, handle),
-                              native=native)
+            run = open_engine(directory, Consumer({"roles": {"operator": {}, "auditor": {}}}, handle), native=native)
             with self.assertRaises(PermissionError):
                 run.obligations()
             with self.assertRaises(PermissionError):
                 run.open_obligation("outside", owner="operator", due=0, evidence={})
-            for at, (kind, role) in enumerate(
-                [("open", "operator"), ("intrude", "auditor"), ("close", "operator")]
-            ):
+            for at, (kind, role) in enumerate([("open", "operator"), ("intrude", "auditor"), ("close", "operator")]):
                 run.schedule(kind, kind, at, payload={}, role=role)
             run.run(until=9)
             self.assertEqual(run.now, 2)
@@ -79,8 +74,7 @@ class EmployeeObligations(unittest.TestCase):
         def handle(run, kind, payload):
             if kind == "open":
                 for _ in range(2):
-                    run.state["id"] = run.open_obligation(
-                        "case", owner="operator", due=4, evidence="ticket-A")
+                    run.state["id"] = run.open_obligation("case", owner="operator", due=4, evidence="ticket-A")
                 with self.assertRaisesRegex(ValueError, "different terms"):
                     run.open_obligation("case", owner="operator", due=3, evidence="ticket-A")
             elif kind == "handoff":
@@ -94,9 +88,10 @@ class EmployeeObligations(unittest.TestCase):
                 self.assertEqual(kind, "obligation_due")
                 self.assertEqual(run.event["kind"], kind)
                 self.assertEqual(payload, {"id": run.state["id"], "key": "case"})
-                self.assertEqual(run.obligations(), [
-                    {"id": run.state["id"], "key": "case", "owner": "relief", "due": 6, "evidence": "ticket-A"}
-                ])
+                self.assertEqual(
+                    run.obligations(),
+                    [{"id": run.state["id"], "key": "case", "owner": "relief", "due": 6, "evidence": "ticket-A"}],
+                )
                 run.handoff_obligation(run.state["id"], owner="relief", due=6)
                 reminders.append((run.now, run.event["role"]))
 
@@ -119,8 +114,7 @@ class EmployeeObligations(unittest.TestCase):
         def handle(run, kind, payload):
             attempts.append((kind, run.event["sequence"]))
             if kind == "open":
-                run.state["id"] = run.open_obligation(
-                    "case", owner="operator", due=3, evidence="ticket-B")
+                run.state["id"] = run.open_obligation("case", owner="operator", due=3, evidence="ticket-B")
                 if len(attempts) == 1:
                     raise PowerLoss()
             else:
@@ -129,8 +123,9 @@ class EmployeeObligations(unittest.TestCase):
                 if len(attempts) == 4:
                     exported = run.export()["records"][0]
                     with self.assertRaisesRegex(ValueError, "confirmed native evidence"):
-                        run.resolve_obligation(payload["id"], evidence={
-                            "system": exported["system"], "native_id": exported["native_id"]})
+                        run.resolve_obligation(
+                            payload["id"], evidence={"system": exported["system"], "native_id": exported["native_id"]}
+                        )
                 record = run.write("erp", "receipt", {"case": payload["key"]})
                 proof = {key: record[key] for key in ("system", "native_id")}
                 run.resolve_obligation(run.state["id"], evidence=proof)
@@ -167,8 +162,9 @@ class EmployeeObligations(unittest.TestCase):
 
         def handle(run, kind, payload):
             if kind == "open":
-                run.state["id"] = run.open_obligation("incident", owner="operator", due=1,
-                                                      evidence={"private": "absence context"})
+                run.state["id"] = run.open_obligation(
+                    "incident", owner="operator", due=1, evidence={"private": "absence context"}
+                )
             elif kind in ("obligation_due", "unrelated"):
                 if kind == "obligation_due":
                     alarm_calls.append(run.event["id"])
@@ -202,8 +198,12 @@ class EmployeeObligations(unittest.TestCase):
         consumer = Grader({"roles": {"operator": {}, "relief": {}}}, handle)
         with TemporaryDirectory() as directory:
             run = open_engine(directory, consumer, native=native)
-            for at, kind, role in [(0, "open", "operator"), (2, "unrelated", "operator"),
-                                   (3, "handoff", "operator"), (4, "resolve", "relief")]:
+            for at, kind, role in [
+                (0, "open", "operator"),
+                (2, "unrelated", "operator"),
+                (3, "handoff", "operator"),
+                (4, "resolve", "relief"),
+            ]:
                 run.schedule(kind, kind, at, payload={}, role=role)
             run.run(until=2)
             self.assertEqual(len(run.export()["records"]), 2)
@@ -212,9 +212,13 @@ class EmployeeObligations(unittest.TestCase):
             run = open_engine(directory, consumer, native=native)
             run.run(until=10)
             run = open_engine(directory, consumer, native=native)
-            self.assertEqual([row for row in run.history() if row["id"] == alarm_calls[0]],
-                             [{"id": alarm_calls[0], "phase": "start", "at": 1},
-                              {"id": alarm_calls[0], "phase": "superseded", "at": 3}])
+            self.assertEqual(
+                [row for row in run.history() if row["id"] == alarm_calls[0]],
+                [
+                    {"id": alarm_calls[0], "phase": "start", "at": 1},
+                    {"id": alarm_calls[0], "phase": "superseded", "at": 3},
+                ],
+            )
             self.assertEqual(run.extractor_questions(as_of=2), [])
             self.assertEqual(run.extractor_questions(as_of=3), ["obligation_due"])
             self.assertEqual(run.extractor_questions(), ["obligation_due"])
@@ -232,8 +236,7 @@ class EmployeeObligations(unittest.TestCase):
             self.assertEqual(audit[2]["operation"], audit[2]["evidence"]["native_id"])
             historical = run.private_truth(as_of=3)["obligation_history"][obligation_id]["entries"]
             self.assertEqual(historical, audit[:2])
-            for public in (run.export(), run.history(), run.extractor_questions(),
-                           run.observe("relief", as_of=4)):
+            for public in (run.export(), run.history(), run.extractor_questions(), run.observe("relief", as_of=4)):
                 self.assertNotIn("absence context", json.dumps(public))
                 self.assertNotIn(obligation_id, json.dumps(public))
 
@@ -253,8 +256,7 @@ class EmployeeObligations(unittest.TestCase):
             elif kind == "transfer":
                 run.handoff_obligation(ids["alpha"], owner="beta", due=5)
             elif kind == "reopen":
-                self.assertEqual(run.open_obligation("same", owner="alpha", due=6, evidence="alpha"),
-                                 ids["alpha"])
+                self.assertEqual(run.open_obligation("same", owner="alpha", due=6, evidence="alpha"), ids["alpha"])
                 self.assertEqual(run.obligations(), [])
                 with self.assertRaises(PermissionError):
                     run.resolve_obligation(ids["alpha"], evidence={})
@@ -270,8 +272,12 @@ class EmployeeObligations(unittest.TestCase):
         with TemporaryDirectory() as directory:
             consumer = Consumer(config, handle)
             run = open_engine(directory, consumer)
-            for at, kind, role in [(0, "open", "alpha"), (1, "open", "beta"),
-                                   (2, "transfer", "alpha"), (3, "reopen", "alpha")]:
+            for at, kind, role in [
+                (0, "open", "alpha"),
+                (1, "open", "beta"),
+                (2, "transfer", "alpha"),
+                (3, "reopen", "alpha"),
+            ]:
                 run.schedule(f"{kind}:{role}", kind, at, role=role, payload={})
             run.run(until=2)
             run = open_engine(directory, consumer)
@@ -280,20 +286,19 @@ class EmployeeObligations(unittest.TestCase):
 
     def test_roster_and_scoped_manager_reassignment_keep_priority_and_due(self):
         native = Native()
-        config = {"roles": {"worker": {}, "other_worker": {},
-                            "manager": {"permissions": ["obligation:reassign:worker"]}},
-                  "shifts": {"replacement": [[1, 11]]}}
+        config = {
+            "roles": {"worker": {}, "other_worker": {}, "manager": {"permissions": ["obligation:reassign:worker"]}},
+            "shifts": {"replacement": [[1, 11]]},
+        }
 
         def handle(run, kind, payload):
             if kind == "open":
-                run.state["case"] = run.open_obligation("incident", owner="worker", due=5,
-                                                        evidence={}, priority=1)
+                run.state["case"] = run.open_obligation("incident", owner="worker", due=5, evidence={}, priority=1)
                 with self.assertRaisesRegex(ValueError, "registered role"):
                     run.handoff_obligation(run.state["case"], owner="missing", due=4)
                 self.assertEqual(run.obligations()[0]["due"], 5)
             elif kind == "other":
-                run.state["other"] = run.open_obligation("other", owner="other_worker", due=100,
-                                                         evidence={})
+                run.state["other"] = run.open_obligation("other", owner="other_worker", due=100, evidence={})
             elif kind == "unprivileged":
                 with self.assertRaises(PermissionError):
                     run.reassign_obligation(run.state["case"], owner="replacement", due=5)
@@ -317,17 +322,22 @@ class EmployeeObligations(unittest.TestCase):
             elif kind == "response":
                 self.assertEqual(run.obligations()[0]["due"], 5)
                 record = run.write("tickets", "ticket_response", {})
-                run.resolve_obligation(run.state["case"], evidence={
-                    "system": record["system"], "native_id": record["native_id"]})
+                run.resolve_obligation(
+                    run.state["case"], evidence={"system": record["system"], "native_id": record["native_id"]}
+                )
             else:
                 self.fail(f"Unexpected dispatch: {kind}")
 
         with TemporaryDirectory() as directory:
             consumer = Consumer(config, handle)
             run = open_engine(directory, consumer, native=native)
-            for at, kind, role in [(0, "open", "worker"), (0, "other", "other_worker"),
-                                   (1, "legacy", None), (1, "unprivileged", "other_worker"),
-                                   (2, "manager", "manager")]:
+            for at, kind, role in [
+                (0, "open", "worker"),
+                (0, "other", "other_worker"),
+                (1, "legacy", None),
+                (1, "unprivileged", "other_worker"),
+                (2, "manager", "manager"),
+            ]:
                 run.schedule(kind, kind, at, role=role, payload={})
             run.run(until=2)
             run = open_engine(directory, consumer, native=native)
@@ -336,9 +346,19 @@ class EmployeeObligations(unittest.TestCase):
             self.assertEqual(run.history()[-1], {"id": "response", "phase": "complete", "at": 5})
             audit = run.private_truth()["obligation_history"][run.state["case"]]["entries"]
             self.assertEqual([entry["action"] for entry in audit], ["open", "reassign", "resolve"])
-            self.assertEqual(audit[1], {"action": "reassign", "at": 2, "event": "manager",
-                                       "role": "manager", "previous_due": 5, "due": 5,
-                                       "previous_owner": "worker", "owner": "replacement"})
+            self.assertEqual(
+                audit[1],
+                {
+                    "action": "reassign",
+                    "at": 2,
+                    "event": "manager",
+                    "role": "manager",
+                    "previous_due": 5,
+                    "due": 5,
+                    "previous_owner": "worker",
+                    "owner": "replacement",
+                },
+            )
             self.assertEqual(audit[2]["role"], "replacement")
 
     def test_deferral_retains_deadline_identity_and_legacy_dispatch(self):
@@ -381,11 +401,22 @@ class EmployeeObligations(unittest.TestCase):
                 run.resolve_obligation(run.state["id"], evidence=proof)
 
         with TemporaryDirectory() as directory:
-            run = Engine(directory, Consumer(OPERATOR, handle), seed=41, native=None, providers=None,
-                         monotonic=monotonic, adapters={"fixture": lambda system, spec: native})
-            run.extend("roles", systems={"desk": {"adapter": "fixture"}},
-                       roles={role: {"shifts": [[0, DAY]], "permissions": ["write:desk"]}
-                              for role in ("reviewer", "employee")})
+            run = Engine(
+                directory,
+                Consumer(OPERATOR, handle),
+                seed=41,
+                native=None,
+                providers=None,
+                monotonic=monotonic,
+                adapters={"fixture": lambda system, spec: native},
+            )
+            run.extend(
+                "roles",
+                systems={"desk": {"adapter": "fixture"}},
+                roles={
+                    role: {"shifts": [[0, DAY]], "permissions": ["write:desk"]} for role in ("reviewer", "employee")
+                },
+            )
             run.schedule("confirm", "confirm", 0, payload={}, role="reviewer")
             run.schedule("close", "close", 1, payload={}, role="employee")
             run.run(until=5)
@@ -399,8 +430,7 @@ class EmployeeObligations(unittest.TestCase):
                 self.assertEqual(kind, "obligation_due")
                 self.assertEqual(payload["key"], "case")
                 self.assertEqual(run.obligations()[0]["id"], payload["id"])
-                self.assertEqual(run.open_obligation("case", owner="operator", due=3, evidence="legacy"),
-                                 payload["id"])
+                self.assertEqual(run.open_obligation("case", owner="operator", due=3, evidence="legacy"), payload["id"])
                 run.state["legacy_id"] = payload["id"]
 
         with TemporaryDirectory() as directory:
@@ -411,9 +441,11 @@ class EmployeeObligations(unittest.TestCase):
             with closing(sqlite3.connect(Path(directory) / "engine.sqlite3")) as db, db:
                 checkpoint = json.loads(db.execute("SELECT data FROM checkpoint").fetchone()[0])
                 obligation = next(iter(checkpoint["obligations"].values()))
-                checkpoint["obligations"] = {"case": {
-                    key: obligation[key] for key in ("key", "owner", "due", "evidence",
-                                                     "resolution", "reminder")}}
+                checkpoint["obligations"] = {
+                    "case": {
+                        key: obligation[key] for key in ("key", "owner", "due", "evidence", "resolution", "reminder")
+                    }
+                }
                 db.execute("UPDATE checkpoint SET data = ?", (json.dumps(checkpoint),))
                 edge = json.loads(db.execute("SELECT edge FROM queue").fetchone()[0])
                 edge[6] = {"key": "case"}

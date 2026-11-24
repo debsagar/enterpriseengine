@@ -1,4 +1,5 @@
 """Run a versioned Norvale scenario from this checkout."""
+
 from pathlib import Path
 
 from environments.norvale.simulate import main

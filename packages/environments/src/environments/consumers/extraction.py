@@ -19,7 +19,7 @@ def total(values):
         return None
     # Sum fixed-point coefficients as integers so the Decimal context cannot round.
     scale = max((max(0, -value.as_tuple().exponent) for value in values), default=0)
-    factor = 10 ** scale
+    factor = 10**scale
     coefficient = int(sum(Fraction(value) for value in values) * factor)
     whole, remainder = divmod(coefficient, factor)
     if not remainder:
@@ -68,10 +68,16 @@ def grade(records, cutoff, *, source, unit, links, quantity):
                     continue
                 target = (source, bill.get(f"{source}_system", bill["system"]), native_id)
                 row = latest.get(target)
-                valid = (row is not None and row["case"] == case and first[target] <= issued_at
-                         and (source != "timesheet" or row.get("approved") is True)
-                         and (bill.get("contract_id") is None or
-                              row.get("contract_id", bill["contract_id"]) == bill["contract_id"]))
+                valid = (
+                    row is not None
+                    and row["case"] == case
+                    and first[target] <= issued_at
+                    and (source != "timesheet" or row.get("approved") is True)
+                    and (
+                        bill.get("contract_id") is None
+                        or row.get("contract_id", bill["contract_id"]) == bill["contract_id"]
+                    )
+                )
                 value = measure(row.get(quantity)) if valid else None
                 if valid:
                     units.add(row.get("uom"))
@@ -80,17 +86,26 @@ def grade(records, cutoff, *, source, unit, links, quantity):
                 billed.add(target)
 
         amount = total(measure(row.get("amount")) for row in bills) if len(currency) == 1 else None
-        paid = total(
-            measure(pay.get("amount")) if pay.get("case", case) == case
-            and pay.get("currency", bill.get("currency")) == bill.get("currency")
-            and first["payment", pay["system"], pay["native_id"]] >= issued_at else None
-            for bill, pay, issued_at in recipients
-        ) if amount is not None and recipients else None
+        paid = (
+            total(
+                measure(pay.get("amount"))
+                if pay.get("case", case) == case
+                and pay.get("currency", bill.get("currency")) == bill.get("currency")
+                and first["payment", pay["system"], pay["native_id"]] >= issued_at
+                else None
+                for bill, pay, issued_at in recipients
+            )
+            if amount is not None and recipients
+            else None
+        )
 
         for metric, description, answer in (
             ("invoiced", "What amount was invoiced", amount),
-            (f"billed-{unit}", f"How many {unit} were billed from linked {source} records",
-             total(quantities) if len(units) <= 1 else None),
+            (
+                f"billed-{unit}",
+                f"How many {unit} were billed from linked {source} records",
+                total(quantities) if len(units) <= 1 else None,
+            ),
             ("paid", "What amount was paid according to linked payment allocations", paid),
         ):
             key = f"{case}-{metric}"

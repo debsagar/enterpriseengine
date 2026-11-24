@@ -2,18 +2,18 @@
 
 import contextlib
 import json
-from secrets import token_urlsafe
 import sys
+from secrets import token_urlsafe
 
 import frappe
+from dispatch_lease import ROLE as DISPATCHER
+from dispatch_lease import install as install_dispatch_lease
+from disposition_history import install as install_disposition_history
 from frappe.core.doctype.user.user import generate_keys
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.custom.doctype.property_setter.property_setter import make_property_setter
-from frappe.permissions import add_permission
 from frappe.desk.page.setup_wizard.setup_wizard import setup_complete
-
-from disposition_history import install as install_disposition_history
-from dispatch_lease import ROLE as DISPATCHER, install as install_dispatch_lease
+from frappe.permissions import add_permission
 
 ANALYST = "Norvale QMS Analyst"
 APPROVER = "Norvale QMS Approver"
@@ -31,15 +31,25 @@ def ensure(doctype, name, **fields):
 
 
 def field(name, fieldtype, **options):
-    return {"fieldname": "custom_" + name, "label": name.replace("_", " ").title(),
-            "fieldtype": fieldtype, **options}
+    return {"fieldname": "custom_" + name, "label": name.replace("_", " ").title(), "fieldtype": fieldtype, **options}
 
 
 def guard(title, doctype, script):
-    doc = (frappe.get_doc("Server Script", title) if frappe.db.exists("Server Script", title)
-           else frappe.new_doc("Server Script"))
-    doc.update(dict(name=title, script_type="DocType Event", reference_doctype=doctype,
-                    doctype_event="Before Save", disabled=0, script=script))
+    doc = (
+        frappe.get_doc("Server Script", title)
+        if frappe.db.exists("Server Script", title)
+        else frappe.new_doc("Server Script")
+    )
+    doc.update(
+        dict(
+            name=title,
+            script_type="DocType Event",
+            reference_doctype=doctype,
+            doctype_event="Before Save",
+            disabled=0,
+            script=script,
+        )
+    )
     doc.save()
 
 
@@ -125,14 +135,18 @@ if doc.status == "Completed":
 
 
 def configure_withdrawal():
-    create_custom_fields({CASE: [
-        field("delivery_batch", "Data", no_copy=1),
-        field("delivery_qms_source", "Data", no_copy=1),
-        field("delivery_inspection", "Link", options=INSPECTION, no_copy=1),
-        field("withdrawal_release", "Link", options=INSPECTION, no_copy=1),
-        field("withdrawal_reason", "Small Text", no_copy=1),
-        field("withdrawal_approver", "Data", no_copy=1, read_only=1),
-    ]})
+    create_custom_fields(
+        {
+            CASE: [
+                field("delivery_batch", "Data", no_copy=1),
+                field("delivery_qms_source", "Data", no_copy=1),
+                field("delivery_inspection", "Link", options=INSPECTION, no_copy=1),
+                field("withdrawal_release", "Link", options=INSPECTION, no_copy=1),
+                field("withdrawal_reason", "Small Text", no_copy=1),
+                field("withdrawal_approver", "Data", no_copy=1, read_only=1),
+            ]
+        }
+    )
     guard("Norvale Investigation Evidence", CASE, INVESTIGATION_GUARD)
     guard("Norvale Corrective Effectiveness", ACTION, EFFECTIVENESS_GUARD)
     perm_name = frappe.db.exists("Custom DocPerm", {"parent": CASE, "role": APPROVER})
@@ -166,52 +180,80 @@ def configure_sample_writer():
         settings.float_precision = "8"
         settings.save()
     ensure("Role", SAMPLE_WRITER, role_name=SAMPLE_WRITER)
-    create_custom_fields({"Stock Entry": [
-        field("norvale_sample_key", "Data", unique=1, no_copy=1, set_only_once=1),
-        field("norvale_sample_scope", "Small Text", no_copy=1, set_only_once=1),
-    ]})
+    create_custom_fields(
+        {
+            "Stock Entry": [
+                field("norvale_sample_key", "Data", unique=1, no_copy=1, set_only_once=1),
+                field("norvale_sample_scope", "Small Text", no_copy=1, set_only_once=1),
+            ]
+        }
+    )
     for doctype in (*SAMPLE_GUARDS, "Quality Inspection Parameter"):
         condition = SAMPLE_GUARDS.get(doctype)
         perm_name = frappe.db.exists("Custom DocPerm", {"parent": doctype, "role": SAMPLE_WRITER})
         perm = frappe.get_doc("Custom DocPerm", perm_name or add_permission(doctype, SAMPLE_WRITER))
-        perm.update(dict(read=1, create=int(condition is not None), write=0, submit=0,
-                         cancel=0, delete=0, amend=0, share=0))
+        perm.update(
+            dict(read=1, create=int(condition is not None), write=0, submit=0, cancel=0, delete=0, amend=0, share=0)
+        )
         perm.save()
         if not condition:
             continue
-        guard("Norvale Sample Writer " + doctype, doctype, f"""
+        guard(
+            "Norvale Sample Writer " + doctype,
+            doctype,
+            f"""
 writer_role = frappe.db.exists("Has Role", {{"parenttype": "User", "parent": frappe.session.user,
                                              "role": {SAMPLE_WRITER!r}}})
 if writer_role or frappe.session.user == {SAMPLE_USER!r}:
     if frappe.session.user != {SAMPLE_USER!r} or doc.owner != frappe.session.user or doc.get_doc_before_save() or not ({condition}):
         frappe.throw("Outside the Norvale sample writer scope")
-""")
-    ensure("Quality Inspection Parameter", "Norvale Incoming Quality Index",
-           parameter="Norvale Incoming Quality Index")
-    markers = frappe.get_all("Quality Inspection Parameter",
-                             filters={"name": ["like", "Norvale Sample Site %"]}, pluck="name", limit=2)
+""",
+        )
+    ensure("Quality Inspection Parameter", "Norvale Incoming Quality Index", parameter="Norvale Incoming Quality Index")
+    markers = frappe.get_all(
+        "Quality Inspection Parameter", filters={"name": ["like", "Norvale Sample Site %"]}, pluck="name", limit=2
+    )
     if len(markers) > 1:
         raise RuntimeError("Ambiguous primary QMS sample site identity")
     marker = markers[0] if markers else "Norvale Sample Site " + token_urlsafe(24)
     ensure("Quality Inspection Parameter", marker, parameter=marker)
-    user = ensure("User", SAMPLE_USER, email=SAMPLE_USER, first_name="QMS Sample Writer",
-                  send_welcome_email=0, user_type="System User", roles=[{"role": SAMPLE_WRITER}])
+    user = ensure(
+        "User",
+        SAMPLE_USER,
+        email=SAMPLE_USER,
+        first_name="QMS Sample Writer",
+        send_welcome_email=0,
+        user_type="System User",
+        roles=[{"role": SAMPLE_WRITER}],
+    )
     if {row.role for row in user.roles} != {SAMPLE_WRITER} or not user.enabled:
         raise RuntimeError("Primary QMS sample writer has unexpected roles or is disabled")
-    keys = ({"api_key": user.api_key, "api_secret": user.get_password("api_secret")}
-            if user.api_key else generate_keys(SAMPLE_USER))
+    keys = (
+        {"api_key": user.api_key, "api_secret": user.get_password("api_secret")}
+        if user.api_key
+        else generate_keys(SAMPLE_USER)
+    )
     return {"user": SAMPLE_USER, "instance": marker, **keys}
 
 
 def configure():
-    result = setup_complete({
-        "language": "English", "full_name": "Norvale QMS Site Administrator",
-        "email": "qms-site-admin@norvale.invalid", "password": token_urlsafe(32),
-        "chart_of_accounts": "Standard", "setup_demo": 0, "company_name": "Norvale QMS",
-        "company_abbr": "NQ", "country": "Netherlands", "currency": "EUR", "timezone": "UTC",
-        "fy_start_date": frappe.utils.getdate().replace(month=1, day=1).isoformat(),
-        "fy_end_date": frappe.utils.getdate().replace(month=12, day=31).isoformat(),
-    })
+    result = setup_complete(
+        {
+            "language": "English",
+            "full_name": "Norvale QMS Site Administrator",
+            "email": "qms-site-admin@norvale.invalid",
+            "password": token_urlsafe(32),
+            "chart_of_accounts": "Standard",
+            "setup_demo": 0,
+            "company_name": "Norvale QMS",
+            "company_abbr": "NQ",
+            "country": "Netherlands",
+            "currency": "EUR",
+            "timezone": "UTC",
+            "fy_start_date": frappe.utils.getdate().replace(month=1, day=1).isoformat(),
+            "fy_end_date": frappe.utils.getdate().replace(month=12, day=31).isoformat(),
+        }
+    )
     if result != {"status": "ok"}:
         raise RuntimeError("ERPNext setup wizard did not complete")
     for role in (ANALYST, APPROVER, READER):
@@ -219,29 +261,53 @@ def configure():
 
     operation = field("qms_operation", "Data", reqd=1, unique=1, no_copy=1, set_only_once=1)
     batch = field("qms_batch", "Link", options="Batch", reqd=1)
-    create_custom_fields({
-        INSPECTION: [operation, field("spec_revision", "Data", reqd=1),
-                     field("lot_quantity", "Float", reqd=1, non_negative=1),
-                     field("lot_uom", "Link", options="UOM", reqd=1),
-                     field("retest_of", "Link", options=INSPECTION),
-                     field("rework_input_batch", "Data"),
-                     field("rework_salvage_quantity", "Float", non_negative=1),
-                     field("rework_execution", "Data"),
-                     field("rework_output_batch", "Data"),
-                     field("decision_rationale", "Small Text")],
-        CASE: [operation, batch, field("failed_inspection", "Link", options=INSPECTION),
-              field("delivery_source", "Data"), field("delivery_note", "Data"),
-              field("delivery_row", "Data"), field("delivery_customer", "Data")],
-        ACTION: [operation, batch, field("non_conformance", "Link", options=CASE, reqd=1),
-                 field("effectiveness_inspection", "Link", options=INSPECTION),
-                 field("effectiveness_result", "Small Text")],
-    })
+    create_custom_fields(
+        {
+            INSPECTION: [
+                operation,
+                field("spec_revision", "Data", reqd=1),
+                field("lot_quantity", "Float", reqd=1, non_negative=1),
+                field("lot_uom", "Link", options="UOM", reqd=1),
+                field("retest_of", "Link", options=INSPECTION),
+                field("rework_input_batch", "Data"),
+                field("rework_salvage_quantity", "Float", non_negative=1),
+                field("rework_execution", "Data"),
+                field("rework_output_batch", "Data"),
+                field("decision_rationale", "Small Text"),
+            ],
+            CASE: [
+                operation,
+                batch,
+                field("failed_inspection", "Link", options=INSPECTION),
+                field("delivery_source", "Data"),
+                field("delivery_note", "Data"),
+                field("delivery_row", "Data"),
+                field("delivery_customer", "Data"),
+            ],
+            ACTION: [
+                operation,
+                batch,
+                field("non_conformance", "Link", options=CASE, reqd=1),
+                field("effectiveness_inspection", "Link", options=INSPECTION),
+                field("effectiveness_result", "Small Text"),
+            ],
+        }
+    )
 
     make_property_setter(INSPECTION, "status", "options", "Accepted\nRejected\nPending", "Text")
 
     configure_withdrawal()
-    for doctype in (INSPECTION, CASE, ACTION, "Batch", "Item", "Stock Entry",
-                    "Quality Procedure", "Quality Inspection Parameter", "UOM"):
+    for doctype in (
+        INSPECTION,
+        CASE,
+        ACTION,
+        "Batch",
+        "Item",
+        "Stock Entry",
+        "Quality Procedure",
+        "Quality Inspection Parameter",
+        "UOM",
+    ):
         for role in (ANALYST, APPROVER, READER):
             permissions = {"read": 1}
             if role == ANALYST and doctype in (INSPECTION, CASE, ACTION):
@@ -260,24 +326,36 @@ def configure():
                 perm.save()
     frappe.clear_cache()
 
-    state_roles = {"Draft": ANALYST, "Recorded": APPROVER, "Rework Authorized": APPROVER,
-                   "Lot Rejected": APPROVER, "Released": APPROVER, "Revoked": APPROVER}
+    state_roles = {
+        "Draft": ANALYST,
+        "Recorded": APPROVER,
+        "Rework Authorized": APPROVER,
+        "Lot Rejected": APPROVER,
+        "Released": APPROVER,
+        "Revoked": APPROVER,
+    }
     for state in state_roles:
         ensure("Workflow State", state, workflow_state_name=state)
 
-    scope = ("doc.batch_no and doc.custom_spec_revision and doc.custom_lot_quantity > 0 "
-             "and doc.custom_lot_uom and doc.custom_decision_rationale")
-    same_scope = ('"batch_no": doc.batch_no, "custom_spec_revision": doc.custom_spec_revision, '
-                  '"custom_lot_quantity": doc.custom_lot_quantity, "custom_lot_uom": doc.custom_lot_uom')
-    latest = ('frappe.db.get_value("Quality Inspection", {"batch_no": doc.batch_no}, '
-              '"name", order_by="creation desc, name desc") == doc.name')
+    scope = (
+        "doc.batch_no and doc.custom_spec_revision and doc.custom_lot_quantity > 0 "
+        "and doc.custom_lot_uom and doc.custom_decision_rationale"
+    )
+    same_scope = (
+        '"batch_no": doc.batch_no, "custom_spec_revision": doc.custom_spec_revision, '
+        '"custom_lot_quantity": doc.custom_lot_quantity, "custom_lot_uom": doc.custom_lot_uom'
+    )
+    latest = (
+        'frappe.db.get_value("Quality Inspection", {"batch_no": doc.batch_no}, '
+        '"name", order_by="creation desc, name desc") == doc.name'
+    )
     latest_failure = (
         'frappe.db.get_value("Quality Inspection", {"batch_no": doc.batch_no, "docstatus": 1, '
         '"status": "Rejected"}, "name", order_by="creation desc, name desc")'
     )
     physical_previous = (
-        f'doc.custom_retest_of == {latest_failure} and doc.custom_rework_execution '
-        'and doc.custom_rework_output_batch and doc.custom_lot_quantity > 0 and '
+        f"doc.custom_retest_of == {latest_failure} and doc.custom_rework_execution "
+        "and doc.custom_rework_output_batch and doc.custom_lot_quantity > 0 and "
         'frappe.db.get_value("Quality Inspection", {"name": doc.custom_retest_of, "docstatus": 1, '
         '"status": "Rejected", "workflow_state": "Rework Authorized", "batch_no": doc.batch_no, '
         '"item_code": doc.item_code, "custom_spec_revision": doc.custom_spec_revision, '
@@ -285,9 +363,11 @@ def configure():
         '"custom_lot_uom": doc.custom_lot_uom}, "name")'
     )
     previous = (
-        f'doc.custom_retest_of == {latest_failure} and '
+        f"doc.custom_retest_of == {latest_failure} and "
         'frappe.db.get_value("Quality Inspection", {"name": doc.custom_retest_of, "docstatus": 1, '
-        '"status": "Rejected", "workflow_state": "Rework Authorized", ' + same_scope + ', "custom_rework_salvage_quantity": 0}, "name")'
+        '"status": "Rejected", "workflow_state": "Rework Authorized", '
+        + same_scope
+        + ', "custom_rework_salvage_quantity": 0}, "name")'
     )
     evidence = 'doc.status == "Accepted" and not doc.manual_inspection and doc.readings'
     for flag, invalid in (("manual_inspection", 1), ("formula_based_criteria", 1), ("numeric", 0)):
@@ -300,30 +380,61 @@ def configure():
         '{"custom_qms_batch": doc.batch_no, "custom_failed_inspection": doc.name}, "name")'
     )
     transitions = [
-        ("Draft", "Record", "Recorded", ANALYST,
-         'doc.status in ("Accepted", "Rejected") and doc.readings and ' + scope),
-        ("Recorded", "Authorize Rework", "Rework Authorized", APPROVER, scope + " and " + failure
-         + " and (not doc.custom_rework_salvage_quantity or "
-         "(doc.custom_rework_input_batch and doc.custom_rework_salvage_quantity <= doc.custom_lot_quantity))"),
+        (
+            "Draft",
+            "Record",
+            "Recorded",
+            ANALYST,
+            'doc.status in ("Accepted", "Rejected") and doc.readings and ' + scope,
+        ),
+        (
+            "Recorded",
+            "Authorize Rework",
+            "Rework Authorized",
+            APPROVER,
+            scope + " and " + failure + " and (not doc.custom_rework_salvage_quantity or "
+            "(doc.custom_rework_input_batch and doc.custom_rework_salvage_quantity <= doc.custom_lot_quantity))",
+        ),
         ("Recorded", "Reject Lot", "Lot Rejected", APPROVER, scope + " and " + failure),
-        ("Recorded", "Release Lot", "Released", APPROVER,
-         f"{scope} and {latest} and {evidence} and ((doc.custom_retest_of and ({previous} or ({physical_previous}))) "
-         f"or (not doc.custom_retest_of and not {latest_failure}))"),
+        (
+            "Recorded",
+            "Release Lot",
+            "Released",
+            APPROVER,
+            f"{scope} and {latest} and {evidence} and ((doc.custom_retest_of and ({previous} or ({physical_previous}))) "
+            f"or (not doc.custom_retest_of and not {latest_failure}))",
+        ),
         ("Released", "Revoke Release", "Revoked", APPROVER, ""),
     ]
     for _, action, _, _, _ in transitions:
         ensure("Workflow Action Master", action, workflow_action_name=action)
-    workflow = (frappe.get_doc("Workflow", WORKFLOW) if frappe.db.exists("Workflow", WORKFLOW)
-                else frappe.new_doc("Workflow"))
-    workflow.update({
-        "workflow_name": WORKFLOW, "document_type": INSPECTION, "workflow_state_field": "workflow_state",
-        "is_active": 1, "send_email_alert": 0,
-        "states": [{"state": state, "allow_edit": role, "doc_status": "0" if state == "Draft" else "1"}
-                   for state, role in state_roles.items()],
-        "transitions": [{"state": source, "action": action, "next_state": target, "allowed": role,
-                         "condition": condition, "allow_self_approval": role == ANALYST}
-                        for source, action, target, role, condition in transitions],
-    })
+    workflow = (
+        frappe.get_doc("Workflow", WORKFLOW) if frappe.db.exists("Workflow", WORKFLOW) else frappe.new_doc("Workflow")
+    )
+    workflow.update(
+        {
+            "workflow_name": WORKFLOW,
+            "document_type": INSPECTION,
+            "workflow_state_field": "workflow_state",
+            "is_active": 1,
+            "send_email_alert": 0,
+            "states": [
+                {"state": state, "allow_edit": role, "doc_status": "0" if state == "Draft" else "1"}
+                for state, role in state_roles.items()
+            ],
+            "transitions": [
+                {
+                    "state": source,
+                    "action": action,
+                    "next_state": target,
+                    "allowed": role,
+                    "condition": condition,
+                    "allow_self_approval": role == ANALYST,
+                }
+                for source, action, target, role, condition in transitions
+            ],
+        }
+    )
     workflow.save()
     frappe.clear_cache(doctype=INSPECTION)
 
@@ -331,10 +442,20 @@ def configure():
     users = {"dispatcher": configure_dispatcher()}
     for alias, role in (("analyst", ANALYST), ("approver", APPROVER), ("reader", READER)):
         email = f"qms-{alias}@norvale.invalid"
-        user = ensure("User", email, email=email, first_name=f"QMS {alias.title()}",
-                      send_welcome_email=0, user_type="System User", roles=[{"role": role}])
-        keys = ({"api_key": user.api_key, "api_secret": user.get_password("api_secret")}
-                if user.api_key else generate_keys(email))
+        user = ensure(
+            "User",
+            email,
+            email=email,
+            first_name=f"QMS {alias.title()}",
+            send_welcome_email=0,
+            user_type="System User",
+            roles=[{"role": role}],
+        )
+        keys = (
+            {"api_key": user.api_key, "api_secret": user.get_password("api_secret")}
+            if user.api_key
+            else generate_keys(email)
+        )
         users[alias] = {"user": email, **keys}
     frappe.db.commit()
     frappe.clear_cache()
@@ -347,10 +468,20 @@ def configure_dispatcher():
     if not frappe.db.exists("Custom DocPerm", {"parent": "Norvale Dispatch Lease", "role": READER, "read": 1}):
         add_permission("Norvale Dispatch Lease", READER, ptype="read")
     email = "qms-dispatcher@norvale.invalid"
-    user = ensure("User", email, email=email, first_name="QMS Dispatcher",
-                  send_welcome_email=0, user_type="System User", roles=[{"role": DISPATCHER}])
-    keys = ({"api_key": user.api_key, "api_secret": user.get_password("api_secret")}
-            if user.api_key else generate_keys(email))
+    user = ensure(
+        "User",
+        email,
+        email=email,
+        first_name="QMS Dispatcher",
+        send_welcome_email=0,
+        user_type="System User",
+        roles=[{"role": DISPATCHER}],
+    )
+    keys = (
+        {"api_key": user.api_key, "api_secret": user.get_password("api_secret")}
+        if user.api_key
+        else generate_keys(email)
+    )
     return {"user": email, **keys}
 
 

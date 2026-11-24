@@ -10,7 +10,9 @@ class Bom(models.Model):
     norvale_import_key = fields.Char(copy=False, readonly=True)
 
     norvale_receiver_marker = fields.Char(
-        compute="_compute_norvale_receiver_marker", compute_sudo=False, readonly=True,
+        compute="_compute_norvale_receiver_marker",
+        compute_sudo=False,
+        readonly=True,
         groups="mrp.group_mrp_user,norvale_mes.group_analytics_reader",
     )
 
@@ -24,8 +26,9 @@ class Bom(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        if ("default_norvale_receiver_marker" in self.env.context
-                or any("norvale_receiver_marker" in vals for vals in vals_list)):
+        if "default_norvale_receiver_marker" in self.env.context or any(
+            "norvale_receiver_marker" in vals for vals in vals_list
+        ):
             raise UserError("Receiver marker is assigned by the database.")
         return super().create(vals_list)
 

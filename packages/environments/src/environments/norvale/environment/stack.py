@@ -3,23 +3,27 @@
 up(): compose file -> accounts -> clock placed at load time -> db -> fresh ERPNext site -> all services
 -> chat accounts. Endpoints (container IPs, loopback only) go to env/endpoints.json.
 """
+
 import json
 import os
 import time
 import urllib.request
 from pathlib import Path
 
-from . import accounts, compose as compose_mod, docker
+from environments.norvale.paths import CHECKOUT
+
+from . import accounts, docker
+from . import compose as compose_mod
 from .clock import Clock
 
-from environments.norvale.paths import CHECKOUT
 LIB = Path(os.environ.get("NORVALE_CLOCK_LIB", str(CHECKOUT / "env-cache/lib")))
 BENCH_SETUP = (
     "ls -1 apps > sites/apps.txt; bench set-config -g db_host db; bench set-config -gp db_port 3306; "
     "bench set-config -g redis_cache redis://redis-cache:6379; bench set-config -g redis_queue redis://redis-queue:6379; "
     "bench set-config -g redis_socketio redis://redis-queue:6379; bench set-config -gp socketio_port 9000; "
     "bench new-site --mariadb-user-host-login-scope='%' --admin-password=admin --db-root-username=root "
-    f"--db-root-password=admin --install-app erpnext --set-default {compose_mod.SITE}")
+    f"--db-root-password=admin --install-app erpnext --set-default {compose_mod.SITE}"
+)
 
 
 class Stack:
@@ -48,13 +52,36 @@ class Stack:
             self.clock.start_at(load_time)
         self.log(f"clock placed; simulated now {self.clock.now().isoformat()}")
         self.compose("up", "-d", "db", "redis-cache", "redis-queue", capture_output=True)
-        self._wait(lambda: docker.exec_(self.project, self.file, "db", "sh", "-ec",
-                                        'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb --protocol=tcp -hdb -uroot -e "SELECT 1"',
-                                        check=False, capture_output=True).returncode == 0, "database bootstrap login")
+        self._wait(
+            lambda: (
+                docker.exec_(
+                    self.project,
+                    self.file,
+                    "db",
+                    "sh",
+                    "-ec",
+                    'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb --protocol=tcp -hdb -uroot -e "SELECT 1"',
+                    check=False,
+                    capture_output=True,
+                ).returncode
+                == 0
+            ),
+            "database bootstrap login",
+        )
         if not (self.env / "site-created").exists():
             self.log("creating fresh ERPNext site (several minutes)")
-            r = self.compose("run", "--rm", "--no-deps", "backend", "bash", "-c", BENCH_SETUP,
-                             capture_output=True, text=True, check=False)
+            r = self.compose(
+                "run",
+                "--rm",
+                "--no-deps",
+                "backend",
+                "bash",
+                "-c",
+                BENCH_SETUP,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             (self.env / "new-site.log").write_text(r.stdout[-20000:] + r.stderr[-20000:])
             if r.returncode:
                 raise RuntimeError("bench new-site failed; see env/new-site.log")
@@ -69,44 +96,88 @@ class Stack:
     def endpoints(self):
         ip = lambda s: docker.container_ip(self.project, s)
         ports = json.loads(self.file.read_text())["services"]["frontend"].get("ports", [])
-        erp = ("http://" + ports[0].rsplit(":", 1)[0] if ports
-               else f"http://{ip('backend')}:8000")
-        eps = {"erp": erp, "site": compose_mod.SITE,
-               "mail": {"host": ip("mail"), "smtp": 25, "imap": 143},
-               "calendar": f"http://{ip('calendar')}:5232", "chat": f"http://{ip('matrix')}:8008",
-               "db": {"container_service": "db", "database": None}}
+        erp = "http://" + ports[0].rsplit(":", 1)[0] if ports else f"http://{ip('backend')}:8000"
+        eps = {
+            "erp": erp,
+            "site": compose_mod.SITE,
+            "mail": {"host": ip("mail"), "smtp": 25, "imap": 143},
+            "calendar": f"http://{ip('calendar')}:5232",
+            "chat": f"http://{ip('matrix')}:8008",
+            "db": {"container_service": "db", "database": None},
+        }
         (self.env / "endpoints.json").write_text(json.dumps(eps, indent=1))
         return eps
 
     def settle(self, timeout=120):
         """Wait until ERP workers and the mail queue are idle (codex T9.1 rule: settle before moving the clock)."""
+
         def idle():
-            q = docker.exec_(self.project, self.file, "redis-queue", "sh", "-c",
-                             "for k in $(redis-cli --scan --pattern 'rq:queue:*'); do redis-cli llen $k; done;"
-                             "for k in $(redis-cli --scan --pattern 'rq:wip:*'); do redis-cli zcard $k; done",
-                             capture_output=True, text=True, check=False).stdout.split()
-            mailq = docker.exec_(self.project, self.file, "mail", "postqueue", "-j",
-                                 capture_output=True, text=True, check=False).stdout.strip()
+            q = docker.exec_(
+                self.project,
+                self.file,
+                "redis-queue",
+                "sh",
+                "-c",
+                "for k in $(redis-cli --scan --pattern 'rq:queue:*'); do redis-cli llen $k; done;"
+                "for k in $(redis-cli --scan --pattern 'rq:wip:*'); do redis-cli zcard $k; done",
+                capture_output=True,
+                text=True,
+                check=False,
+            ).stdout.split()
+            mailq = docker.exec_(
+                self.project, self.file, "mail", "postqueue", "-j", capture_output=True, text=True, check=False
+            ).stdout.strip()
             return not mailq and all(x == "0" for x in q)
+
         self._wait(idle, "workers and mail queue", timeout, pause=0.5)
 
     def sql(self, query):
         """Read-only controller query (never exposed to agents). Returns rows as lists of strings."""
         db = self.db_name()
-        r = docker.exec_(self.project, self.file, "db", "mariadb", "-uroot", "-padmin", "-N", "-B", db, "-e", query,
-                         capture_output=True, text=True)
+        r = docker.exec_(
+            self.project,
+            self.file,
+            "db",
+            "mariadb",
+            "-uroot",
+            "-padmin",
+            "-N",
+            "-B",
+            db,
+            "-e",
+            query,
+            capture_output=True,
+            text=True,
+        )
         return [line.split("\t") for line in r.stdout.splitlines()]
 
     def db_name(self):
         if not hasattr(self, "_db"):
-            cfg = docker.exec_(self.project, self.file, "backend", "cat", f"sites/{compose_mod.SITE}/site_config.json",
-                               capture_output=True, text=True).stdout
+            cfg = docker.exec_(
+                self.project,
+                self.file,
+                "backend",
+                "cat",
+                f"sites/{compose_mod.SITE}/site_config.json",
+                capture_output=True,
+                text=True,
+            ).stdout
             self._db = json.loads(cfg)["db_name"]
         return self._db
 
     def bench(self, *args):
-        return docker.exec_(self.project, self.file, "backend", "bench", "--site", compose_mod.SITE, *args,
-                            capture_output=True, text=True, check=False)
+        return docker.exec_(
+            self.project,
+            self.file,
+            "backend",
+            "bench",
+            "--site",
+            compose_mod.SITE,
+            *args,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
     def down(self, keep_volumes=True):
         self.compose("down", *([] if keep_volumes else ["-v"]), capture_output=True)
@@ -114,8 +185,9 @@ class Stack:
     @staticmethod
     def _http_ok(url):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers={"X-Frappe-Site-Name": compose_mod.SITE}),
-                                        timeout=5) as r:
+            with urllib.request.urlopen(
+                urllib.request.Request(url, headers={"X-Frappe-Site-Name": compose_mod.SITE}), timeout=5
+            ) as r:
                 return r.status == 200
         except OSError:
             return False

@@ -17,18 +17,15 @@ class ManagedServicesObligations(fixtures.Goals):
         return self.fixture("managed_services", boundary=boundary, config=config)
 
     def ticket(self, run, case="C", *, at=1, minutes=10):
-        self.schedule(run, "contract", at - 1, key=f"contract-{case}",
-                      case=case, response_minutes=minutes, rate=10)
-        self.schedule(run, "ticket", at, key=f"ticket-{case}", role="worker",
-                      case=case, ticket="T", technician="A")
+        self.schedule(run, "contract", at - 1, key=f"contract-{case}", case=case, response_minutes=minutes, rate=10)
+        self.schedule(run, "ticket", at, key=f"ticket-{case}", role="worker", case=case, ticket="T", technician="A")
 
     def test_eta_and_same_company_ticket_labels_keep_independent_deadlines(self):
         run, native, _, resume = self.service()
         self.ticket(run)
         self.ticket(run, "C2")
         self.ticket(run, "C3")
-        self.schedule(run, "respond", 11, key="early-enqueued-response",
-                      role="worker", case="C3", ticket="T")
+        self.schedule(run, "respond", 11, key="early-enqueued-response", role="worker", case="C3", ticket="T")
         run.run(until=1)
         first = self.one(native, "ticket", case="C", ticket="T")
         second = self.one(native, "ticket", case="C2", ticket="T")
@@ -48,8 +45,9 @@ class ManagedServicesObligations(fixtures.Goals):
         self.one(native, "ticket_response", case="C3", ticket_id=third["native_id"], at=11)
         self.assertEqual(len(self.rows(native, "sla_breach")), 1)
         self.assertIn(("read", "tickets", response["native_id"]), native.calls)
-        write, = [call for call in run.trace()
-                  if call.get("method") == "send" and breach["native_id"] in call["native_ids"]]
+        (write,) = [
+            call for call in run.trace() if call.get("method") == "send" and breach["native_id"] in call["native_ids"]
+        ]
         self.assertEqual(write["event"]["kind"], "obligation_due")
 
     def test_absent_assignee_transfers_and_late_response_replays(self):
@@ -63,8 +61,7 @@ class ManagedServicesObligations(fixtures.Goals):
         self.ticket(run)
         self.schedule(run, "staff_unavailable", 2, case="C", technician="A")
         self.schedule(run, "respond", 3, key="blocked", role="worker", case="C", ticket="T")
-        self.schedule(run, "reassign", 4, role="manager", case="C", ticket="T",
-                      owner="relief", technician="B")
+        self.schedule(run, "reassign", 4, role="manager", case="C", ticket="T", owner="relief", technician="B")
         self.schedule(run, "eta", 14, role="relief", case="C", ticket="T", eta=17)
         self.schedule(run, "respond", 17, role="relief", case="C", ticket="T")
         run.run(until=13)
@@ -81,18 +78,21 @@ class ManagedServicesObligations(fixtures.Goals):
         run.run(until=30)
         self.one(native, "ticket_eta", ticket_id=ticket["native_id"], technician="B", eta=17)
         breach = self.one(native, "sla_breach", ticket_id=ticket["native_id"], due=11, at=14)
-        write, = [call for call in run.trace()
-                  if call.get("method") == "send" and breach["native_id"] in call["native_ids"]]
+        (write,) = [
+            call for call in run.trace() if call.get("method") == "send" and breach["native_id"] in call["native_ids"]
+        ]
         self.assertEqual((write["event"]["kind"], write["role"]), ("obligation_due", "relief"))
         response = self.one(native, "ticket_response", ticket_id=ticket["native_id"], technician="B", at=17)
         self.assertEqual(run.state["managed_services"]["responses"]["C"]["T"], response["native_id"])
-        audit, = run.private_truth()["obligation_history"].values()
-        self.assertEqual([(row["action"], row["role"]) for row in audit["entries"]],
-                         [("open", "worker"), ("reassign", "manager"), ("resolve", "relief")])
-        self.assertEqual(audit["entries"][-1]["evidence"],
-                         {"system": "tickets", "native_id": response["native_id"]})
-        self.assertEqual(len([row for row in run.history()
-                              if row["id"] == "respond" and row["phase"] == "complete"]), 1)
+        (audit,) = run.private_truth()["obligation_history"].values()
+        self.assertEqual(
+            [(row["action"], row["role"]) for row in audit["entries"]],
+            [("open", "worker"), ("reassign", "manager"), ("resolve", "relief")],
+        )
+        self.assertEqual(audit["entries"][-1]["evidence"], {"system": "tickets", "native_id": response["native_id"]})
+        self.assertEqual(
+            len([row for row in run.history() if row["id"] == "respond" and row["phase"] == "complete"]), 1
+        )
 
     def test_reassignment_checks_authority_absence_and_recipient(self):
         for role, absent, target, grant, error in [
@@ -130,8 +130,7 @@ class ManagedServicesObligations(fixtures.Goals):
         self.ticket(run, "C2")
         run.run(until=1)
         other = self.one(native, "ticket", case="C2", ticket="T")
-        self.schedule(run, "respond", 3, role="worker", case="C", ticket="T",
-                      ticket_id=other["native_id"])
+        self.schedule(run, "respond", 3, role="worker", case="C", ticket="T", ticket_id=other["native_id"])
         with self.assertRaisesRegex(ValueError, "Native ticket ID"):
             run.run(until=3)
         self.assertFalse(self.rows(native, "ticket_response"))
@@ -189,12 +188,20 @@ class ManagedServicesObligations(fixtures.Goals):
         api.create.side_effect = create
         api.get.side_effect = lambda doctype, name: docs[doctype, name]
         api.list.side_effect = lambda doctype, filters, limit: [
-            row for (kind, _), row in docs.items()
+            row
+            for (kind, _), row in docs.items()
             if kind == doctype and all(row.get(field) == value for field, value in filters.items())
         ][:limit]
-        transport = ServiceTransport(api, api, namespace="test", company="Example",
-                                     customer="Client", item="Support", cash_account="Cash",
-                                     epoch="2027-01-01")
+        transport = ServiceTransport(
+            api,
+            api,
+            namespace="test",
+            company="Example",
+            customer="Client",
+            item="Support",
+            cash_account="Cash",
+            epoch="2027-01-01",
+        )
         return transport, docs
 
     def test_service_transport_links_eta_and_response_to_the_native_issue(self):
@@ -206,7 +213,7 @@ class ManagedServicesObligations(fixtures.Goals):
         self.schedule(run, "eta", 2, case="C", ticket="T", eta=4)
         self.schedule(run, "respond", 4, case="C", ticket="T")
         run.run(until=11)
-        issue, = [name for kind, name in docs if kind == "Issue"]
+        (issue,) = [name for kind, name in docs if kind == "Issue"]
         eta, response = [row for (kind, _), row in docs.items() if kind == "Comment"]
         self.assertEqual(eta["content"], "ticket_eta 4")
         self.assertEqual(eta["reference_name"], issue)
@@ -232,22 +239,23 @@ class ManagedServicesObligations(fixtures.Goals):
                     with self.assertRaisesRegex(ValueError, "Ticket comment content mismatch"):
                         run.run(until=3)
                     self.assertFalse(run.state["managed_services"]["responses"]["C"])
-                    audit, = run.private_truth()["obligation_history"].values()
+                    (audit,) = run.private_truth()["obligation_history"].values()
                     self.assertEqual([row["action"] for row in audit["entries"]], ["open"])
                     self.assertEqual([row["kind"] for row in run.export()["records"]], ["contract", "ticket"])
 
-                comment, = [row for (kind, _), row in docs.items() if kind == "Comment"]
+                (comment,) = [row for (kind, _), row in docs.items() if kind == "Comment"]
                 comment["content"] = expected
                 run = reopen(transport=transport)
                 run.run(until=3)
                 self.assertEqual(sum(kind == "Comment" for kind, _ in docs), 1)
                 record = run.export()["records"][-1]
                 self.assertEqual(record["native_id"], f"Comment/{comment['name']}")
-                audit, = run.private_truth()["obligation_history"].values()
+                (audit,) = run.private_truth()["obligation_history"].values()
                 if action == "eta":
                     self.assertEqual(record["eta"], 16)
                     self.assertEqual([row["action"] for row in audit["entries"]], ["open"])
                 else:
                     self.assertEqual(audit["entries"][-1]["action"], "resolve")
-                    self.assertEqual(audit["entries"][-1]["evidence"],
-                                     {"system": "tickets", "native_id": record["native_id"]})
+                    self.assertEqual(
+                        audit["entries"][-1]["evidence"], {"system": "tickets", "native_id": record["native_id"]}
+                    )

@@ -1,17 +1,16 @@
 """Offline acceptance tests for the AutoTwin reference profiles."""
 
-from contextlib import redirect_stderr, redirect_stdout
 import gzip
-from io import StringIO
 import json
+import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 from unittest.mock import patch
 
 from scripts.validation import profile_autotwin
 from scripts.validation.profile_autotwin import MANIFEST, profile, source_pin, verify_sources
-
 
 EXPECTED_SOURCES = {
     "benchmark/p2p_synthetic.xes": (1000, "benchmark"),
@@ -60,8 +59,7 @@ class TestV1Profiles(unittest.TestCase):
                 self.assertEqual(sum(result["lifecycle"].values()), result["events"])
 
     def test_attributed_fixture_profiles(self):
-        fixtures = [ref["fixture"] for ref in self.manifest["references"].values()
-                    if "fixture" in ref]
+        fixtures = [ref["fixture"] for ref in self.manifest["references"].values() if "fixture" in ref]
         self.assertEqual({Path(fixture["path"]).name for fixture in fixtures}, set(FIXTURES))
         for fixture in fixtures:
             path = MANIFEST.parent / fixture["path"]
@@ -69,13 +67,11 @@ class TestV1Profiles(unittest.TestCase):
                 self.assertEqual(source_pin(path), fixture["source"])
                 result = profile(path)
                 events, variants, median_span = FIXTURES[path.name]
-                self.assertEqual((result["cases"], result["events"], result["variants"]),
-                                 (2, events, variants))
+                self.assertEqual((result["cases"], result["events"], result["variants"]), (2, events, variants))
                 self.assertEqual(result["observed_case_span_seconds"]["median"], median_span)
                 if path.name == "p2p_synthetic.xes":
                     self.assertEqual(result["explicit_intervals"], 44)
-                    self.assertEqual(result["explicit_interval_seconds"],
-                                     {"min": 1, "median": 595, "max": 79200})
+                    self.assertEqual(result["explicit_interval_seconds"], {"min": 1, "median": 595, "max": 79200})
                 else:
                     self.assertEqual(result["explicit_intervals"], 0)
                     self.assertIsNone(result["explicit_interval_seconds"])
@@ -101,8 +97,7 @@ class TestV1Profiles(unittest.TestCase):
         relative = "sales/om/orders.xes"
         fixture = self.manifest["references"][relative]["fixture"]
         fixture_path = MANIFEST.parent / fixture["path"]
-        reference = {"source": fixture["source"], "profile": profile(fixture_path),
-                     "fixture": {**fixture}}
+        reference = {"source": fixture["source"], "profile": profile(fixture_path), "fixture": {**fixture}}
         with TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "data" / relative
@@ -164,15 +159,16 @@ class TestV1Profiles(unittest.TestCase):
             path = Path(directory) / "fixture.xes.gz"
             path.write_bytes(gzip.compress(log))
             result = profile(path)
-        self.assertEqual(result["most_frequent_variant"], [
-            {"activity": "Z activity", "lifecycle": "complete"},
-            {"activity": "A activity", "lifecycle": "start"},
-            {"activity": "Later", "lifecycle": None},
-        ])
-        self.assertEqual(result["equal_time_events_after_first"],
-                         {"ordering_time": 1, "event_timestamp": 0})
-        self.assertEqual(result["adjacent_source_time_decreases"],
-                         {"ordering_time": 1, "event_timestamp": 2})
+        self.assertEqual(
+            result["most_frequent_variant"],
+            [
+                {"activity": "Z activity", "lifecycle": "complete"},
+                {"activity": "A activity", "lifecycle": "start"},
+                {"activity": "Later", "lifecycle": None},
+            ],
+        )
+        self.assertEqual(result["equal_time_events_after_first"], {"ordering_time": 1, "event_timestamp": 0})
+        self.assertEqual(result["adjacent_source_time_decreases"], {"ordering_time": 1, "event_timestamp": 2})
         self.assertEqual(result["observed_case_span_seconds"]["median"], 5)
         self.assertEqual(result["explicit_interval_seconds"]["median"], 2.5)
         self.assertEqual(result["lifecycle"], {"(absent)": 1, "complete": 1, "start": 1})

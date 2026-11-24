@@ -1,4 +1,5 @@
 """Locations shared by the Norvale launchers and release scripts."""
+
 from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parent

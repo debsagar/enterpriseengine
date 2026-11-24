@@ -1,12 +1,12 @@
 """Offline engine regression tests and optional whole-checkpoint benchmark."""
 
-from contextlib import closing
 import json
-from pathlib import Path
 import sqlite3
+import unittest
+from contextlib import closing
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic, perf_counter
-import unittest
 
 from engine import DAY, Engine
 
@@ -23,8 +23,7 @@ class OtherConsumer(Consumer):
 
 
 def open_engine(directory, consumer, *, native=None, boundary=None, seed=41):
-    return Engine(directory, consumer, seed=seed, native=native, providers=None,
-                  monotonic=monotonic, boundary=boundary)
+    return Engine(directory, consumer, seed=seed, native=native, providers=None, monotonic=monotonic, boundary=boundary)
 
 
 class Native:
@@ -86,16 +85,24 @@ class EngineResumeShifts(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Legacy checkpoint"):
                 open_engine(directory, OtherConsumer())
             with closing(sqlite3.connect(Path(directory) / "engine.sqlite3")) as db:
-                self.assertIsNone(db.execute(
-                    "SELECT name FROM sqlite_master WHERE name = 'decisions'"
-                ).fetchone())
+                self.assertIsNone(db.execute("SELECT name FROM sqlite_master WHERE name = 'decisions'").fetchone())
 
     def test_all_calendars_are_validated_before_creating_a_run(self):
-        invalid = [None, [], {"": [(0, 1)]}, {"unused": []}, {"unused": "0-1"},
-                   {"unused": [(0,)]}, {"unused": [(0, True)]},
-                   {"unused": [(0, 1.5)]}, {"unused": [(-1, 1)]},
-                   {"unused": [(1, 1)]}, {"unused": [(0, DAY + 1)]},
-                   {"unused": [(5, 8), (4, 6)]}, {"unused": [(1, 2), (1, 2)]}]
+        invalid = [
+            None,
+            [],
+            {"": [(0, 1)]},
+            {"unused": []},
+            {"unused": "0-1"},
+            {"unused": [(0,)]},
+            {"unused": [(0, True)]},
+            {"unused": [(0, 1.5)]},
+            {"unused": [(-1, 1)]},
+            {"unused": [(1, 1)]},
+            {"unused": [(0, DAY + 1)]},
+            {"unused": [(5, 8), (4, 6)]},
+            {"unused": [(1, 2), (1, 2)]},
+        ]
         with TemporaryDirectory() as directory:
             for shifts in invalid:
                 with self.subTest(shifts=shifts), self.assertRaises(ValueError):
@@ -108,8 +115,7 @@ class EngineResumeShifts(unittest.TestCase):
         def handle(run, kind, payload):
             if run.event["id"] == "work":
                 self.assertEqual(run.event["sequence"], 0)
-            context[run.event["id"]] = (run.event_started_at, run.event["at"],
-                                        run.now, run.event["role"])
+            context[run.event["id"]] = (run.event_started_at, run.event["at"], run.now, run.event["role"])
 
         config = {"shifts": {"operator": [(560, 570), (540, 550), (570, 575)]}}
         with TemporaryDirectory() as directory:
@@ -126,8 +132,7 @@ class EngineResumeShifts(unittest.TestCase):
                 ("zero", 575, 0, "operator", False),
                 ("shift-then-pause", 575, 11, "operator", False),
             ]:
-                sequence = run.schedule(event_id, "work", at, payload={}, duration=duration,
-                                        role=role, elapsed=elapsed)
+                sequence = run.schedule(event_id, "work", at, payload={}, duration=duration, role=role, elapsed=elapsed)
                 if event_id == "work":
                     self.assertEqual(sequence, 0)
             for at in (548, 550, 571, 593, DAY + 540, 2 * DAY + 542):
@@ -135,19 +140,28 @@ class EngineResumeShifts(unittest.TestCase):
                 self.assertNotIn("work", context)
                 run = open_engine(directory, Consumer(config, handle))
             run.run(until=2 * DAY + 543)
-            self.assertEqual(context, {
-                "boundary": (548, 548, 550, "operator"),
-                "handoff": (560, 560, 571, "operator"),
-                "unattended": (548, 548, 593, None),
-                "unconfigured": (548, 548, 593, "on-call"),
-                "zero": (DAY + 540, DAY + 540, DAY + 540, "operator"),
-                "shift-then-pause": (DAY + 540, DAY + 540, DAY + 561, "operator"),
-                "work": (548, 548, 2 * DAY + 543, "operator"),
-            })
+            self.assertEqual(
+                context,
+                {
+                    "boundary": (548, 548, 550, "operator"),
+                    "handoff": (560, 560, 571, "operator"),
+                    "unattended": (548, 548, 593, None),
+                    "unconfigured": (548, 548, 593, "on-call"),
+                    "zero": (DAY + 540, DAY + 540, DAY + 540, "operator"),
+                    "shift-then-pause": (DAY + 540, DAY + 540, DAY + 561, "operator"),
+                    "work": (548, 548, 2 * DAY + 543, "operator"),
+                },
+            )
 
     def test_decision_and_native_write_recover_at_each_boundary(self):
-        for crash_stage in ("decision_committed", "intent_persisted", "before_send",
-                            "after_send", "after_readback", "result_persisted"):
+        for crash_stage in (
+            "decision_committed",
+            "intent_persisted",
+            "before_send",
+            "after_send",
+            "after_readback",
+            "result_persisted",
+        ):
             with self.subTest(crash_stage=crash_stage), TemporaryDirectory() as directory:
                 native = Native()
                 calls = []
@@ -233,9 +247,13 @@ class EngineResumeShifts(unittest.TestCase):
                 run.observe(payload["role"], as_of=run.now)
             with self.assertRaisesRegex(ValueError, "future"):
                 run.observe("manager", as_of=3)
-            self.assertEqual(run.observe("manager", as_of=1), [
-                {"at": 1}, {"at": 1, "roles": ["manager"]},
-            ])
+            self.assertEqual(
+                run.observe("manager", as_of=1),
+                [
+                    {"at": 1},
+                    {"at": 1, "roles": ["manager"]},
+                ],
+            )
 
         with TemporaryDirectory() as directory:
             run = open_engine(directory, Consumer(handle=handle), native=native)
@@ -247,6 +265,7 @@ def benchmark(sizes):
     print("events  edges  run_s  edges/s  sqlite_bytes  reopen_ms")
     for size in sizes:
         with TemporaryDirectory() as directory:
+
             def enqueue(run, kind, payload):
                 for index in range(size):
                     run.schedule(f"benchmark-{index}", "noop", index + 1, payload={})
@@ -264,8 +283,10 @@ def benchmark(sizes):
             reopen = perf_counter() - start
             edges = 2 * size
             assert len(resumed.history()) == edges + 2
-            print(f"{size:6} {edges:6} {seconds:6.3f} {edges / seconds:8.1f} "
-                  f"{checkpoint_bytes:12} {1000 * reopen:10.2f}", flush=True)
+            print(
+                f"{size:6} {edges:6} {seconds:6.3f} {edges / seconds:8.1f} {checkpoint_bytes:12} {1000 * reopen:10.2f}",
+                flush=True,
+            )
 
 
 if __name__ == "__main__":

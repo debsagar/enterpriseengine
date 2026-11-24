@@ -1,10 +1,10 @@
 """Managed-services contracts, tickets and shared decisions."""
-from decimal import Decimal, ROUND_HALF_UP
+
 import json
 import re
+from decimal import ROUND_HALF_UP, Decimal
 
 from . import extraction, shared
-
 
 DAY = 1440
 CENT = Decimal("0.01")
@@ -19,8 +19,9 @@ class Consumer:
         self.config = config
 
     def grade_extraction(self, records, cutoff):
-        return extraction.grade(records, cutoff,
-                                source="timesheet", unit="hours", links="timesheet_ids", quantity="hours")
+        return extraction.grade(
+            records, cutoff, source="timesheet", unit="hours", links="timesheet_ids", quantity="hours"
+        )
 
     def handle(self, engine, kind, payload):
         if kind == "obligation_due":
@@ -40,18 +41,25 @@ class Consumer:
         if "terms" not in links:
             links["terms"] = {}
             if links["contracts"]:
-                replaying = {op["target_id"] for op in
-                             engine.consumer_write_prefix(engine.event["id"])}
+                replaying = {op["target_id"] for op in engine.consumer_write_prefix(engine.event["id"])}
                 for row in engine.export()["records"]:
                     prior_case = row.get("case")
-                    if row.get("system") == "erp" and row.get("kind") == "contract" and (
-                            links["contracts"].get(prior_case) == row["native_id"]):
+                    if (
+                        row.get("system") == "erp"
+                        and row.get("kind") == "contract"
+                        and (links["contracts"].get(prior_case) == row["native_id"])
+                    ):
                         links["terms"][prior_case] = {k: row[k] for k in ("rate", "response_minutes")}
                         if "currency" in row:
                             links["terms"][prior_case]["currency"] = row["currency"]
-                    if row.get("system") == "tickets" and row.get("kind") == "ticket_response" and (
+                    if (
+                        row.get("system") == "tickets"
+                        and row.get("kind") == "ticket_response"
+                        and (
                             links["tickets"].get(prior_case, {}).get(row["ticket"]) == row["ticket_id"]
-                            and row["native_id"] not in replaying):
+                            and row["native_id"] not in replaying
+                        )
+                    ):
                         links.setdefault("responses", {}).setdefault(prior_case, {})[row["ticket"]] = row["native_id"]
         terms = links["terms"]
         responses = links.setdefault("responses", {}).setdefault(case, {})
@@ -83,25 +91,35 @@ class Consumer:
             if role_owned:
                 technician = payload.get("technician", role)
                 self.check_technician(technician)
-            ticket_id = tickets[ticket] = shared.native_id(engine.write("tickets", "ticket", {
-                "case": case, "ticket": ticket, "contract_id": links["contracts"][case]}))
+            ticket_id = tickets[ticket] = shared.native_id(
+                engine.write(
+                    "tickets", "ticket", {"case": case, "ticket": ticket, "contract_id": links["contracts"][case]}
+                )
+            )
             due = engine.now + terms[case]["response_minutes"]
             if not role_owned:
                 key = json.dumps([case, ticket], separators=(",", ":"))
-                engine.schedule("service-deadline:" + key, "sla_deadline", due,
-                                priority=1, payload={"case": case, "ticket": ticket})
+                engine.schedule(
+                    "service-deadline:" + key, "sla_deadline", due, priority=1, payload={"case": case, "ticket": ticket}
+                )
             else:
                 key = sla_key(case, ticket)
                 identity = engine.open_obligation(
-                    key, owner=role, due=due, priority=1,
-                    evidence={"case": case, "ticket": ticket, "ticket_id": ticket_id})
-                links.setdefault("sla", {})[key] = {
-                    "id": identity, "owner": role, "technician": technician, "due": due}
+                    key,
+                    owner=role,
+                    due=due,
+                    priority=1,
+                    evidence={"case": case, "ticket": ticket, "ticket_id": ticket_id},
+                )
+                links.setdefault("sla", {})[key] = {"id": identity, "owner": role, "technician": technician, "due": due}
         elif kind == "sla_deadline":
             # Role-free tickets and deadlines already queued by older runs.
             if sla_key(case, ticket) not in links.get("sla", {}) and ticket not in responses:
-                engine.write("tickets", "sla_breach", {"case": case, "ticket": ticket,
-                             "ticket_id": links["tickets"][case][ticket], "due": engine.now})
+                engine.write(
+                    "tickets",
+                    "sla_breach",
+                    {"case": case, "ticket": ticket, "ticket_id": links["tickets"][case][ticket], "due": engine.now},
+                )
         elif kind == "staff_unavailable":
             technician = payload["technician"]
             self.check_technician(technician)
@@ -147,9 +165,17 @@ class Consumer:
             ticket, hours, approved = payload["ticket"], payload["hours"], payload["approved"]
             if type(hours) not in (int, float) or not 0 < hours < float("inf") or type(approved) is not bool:
                 raise ValueError("Timesheet requires positive hours and an approval status")
-            engine.write("erp", "timesheet", {"case": case, "ticket": ticket,
-                         "ticket_id": links["tickets"][case][ticket], "hours": hours,
-                         "approved": approved})
+            engine.write(
+                "erp",
+                "timesheet",
+                {
+                    "case": case,
+                    "ticket": ticket,
+                    "ticket_id": links["tickets"][case][ticket],
+                    "hours": hours,
+                    "approved": approved,
+                },
+            )
         elif kind == "bill_period":
             self.bill(engine, case, links)
         elif kind == "payer_observed":
@@ -203,20 +229,29 @@ class Consumer:
         invoices = links.setdefault("invoices", {})
         billed = {sheet for row in invoices.values() for sheet in row["timesheet_ids"]}
         tickets = links["tickets"].get(case, {}).values()
-        sheets = [row for row in engine.export()["records"]
-                  if row["system"] == "erp" and row["kind"] == "timesheet"
-                  and row["case"] == case and row.get("contract_id", contract) == contract
-                  and row["ticket_id"] in tickets and row["approved"]
-                  and row["native_id"] not in billed]
+        sheets = [
+            row
+            for row in engine.export()["records"]
+            if row["system"] == "erp"
+            and row["kind"] == "timesheet"
+            and row["case"] == case
+            and row.get("contract_id", contract) == contract
+            and row["ticket_id"] in tickets
+            and row["approved"]
+            and row["native_id"] not in billed
+        ]
         rate = Decimal(str(links["terms"][case]["rate"]))
-        amount = sum((Decimal(str(row["hours"])) * rate).quantize(CENT, rounding=ROUND_HALF_UP)
-                     for row in sheets)
+        amount = sum((Decimal(str(row["hours"])) * rate).quantize(CENT, rounding=ROUND_HALF_UP) for row in sheets)
         if amount <= 0:
             return
-        invoice = dict(case=case, contract_id=contract,
-                       timesheet_ids=[row["native_id"] for row in sheets],
-                       currency=self.currency(links["terms"][case]), amount=float(amount),
-                       due=engine.now + 3 * DAY)
+        invoice = dict(
+            case=case,
+            contract_id=contract,
+            timesheet_ids=[row["native_id"] for row in sheets],
+            currency=self.currency(links["terms"][case]),
+            amount=float(amount),
+            due=engine.now + 3 * DAY,
+        )
         native_id = shared.native_id(engine.write("erp", "invoice", invoice))
         invoices[native_id] = {**invoice, "outstanding": invoice["amount"]}
 
@@ -241,18 +276,25 @@ class Consumer:
             invoice_id = candidates[0]
         invoice = invoices[invoice_id]
         observed_amount = Decimal(str(amount))
-        if (invoice["case"] != case or invoice["currency"] != currency
-                or observed_amount != observed_amount.quantize(CENT)):
+        if (
+            invoice["case"] != case
+            or invoice["currency"] != currency
+            or observed_amount != observed_amount.quantize(CENT)
+        ):
             raise ValueError("Payment case, currency or precision does not match invoice")
-        receipt = dict(case=case, invoice_id=invoice_id, currency=currency, amount=amount,
-                       reference=reference)
+        receipt = dict(case=case, invoice_id=invoice_id, currency=currency, amount=amount, reference=reference)
         if prior is not None:
             if prior["receipt"] != receipt:
                 raise ValueError("Bank reference already belongs to another receipt")
             return
         observations[reference] = {"receipt": receipt, "at": engine.now}
-        engine.schedule("service-payment:" + reference, "post_payment", engine.now, role="finance",
-                        payload={"case": case, "reference": reference})
+        engine.schedule(
+            "service-payment:" + reference,
+            "post_payment",
+            engine.now,
+            role="finance",
+            payload={"case": case, "reference": reference},
+        )
 
     def post_payment(self, engine, case, reference, links):
         if engine.event["role"] != "finance":
@@ -267,8 +309,9 @@ class Consumer:
         balance = Decimal(str(invoice["outstanding"])) - Decimal(str(receipt["amount"]))
         if balance < 0:
             raise ValueError("Payment exceeds the invoice balance")
-        observation["payment_id"] = shared.native_id(engine.write("erp", "payment", {
-            **receipt, "observed_at": observation["at"], "outstanding": float(balance)}))
+        observation["payment_id"] = shared.native_id(
+            engine.write("erp", "payment", {**receipt, "observed_at": observation["at"], "outstanding": float(balance)})
+        )
         invoice["outstanding"] = float(balance)
 
 

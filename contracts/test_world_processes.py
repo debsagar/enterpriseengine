@@ -1,6 +1,7 @@
 """Offline replay, privilege, and recurring company procurement checks."""
-from datetime import timedelta
+
 import json
+from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -11,7 +12,7 @@ from environments.consumers import norvale
 from environments.norvale.native.company import Engine as Company
 from environments.norvale.native.company_world import check_binding, evidence
 from environments.norvale.native.recurring_extensions import MIDNIGHT, open_catalog
-from test_engine_goals import CONSUMERS, OPEN, PowerLoss, PRIVATE, Goals
+from test_engine_goals import CONSUMERS, OPEN, PRIVATE, Goals, PowerLoss
 
 
 class WorldProof(Goals):
@@ -34,6 +35,7 @@ class WorldProof(Goals):
     def test_replay_after_bulletin_write_with_cost_free_providers(self):
         for company in CONSUMERS:
             with self.subTest(company=company):
+
                 def fault(stage, operation):
                     if stage == "after_send" and operation["action"]["kind"] == "world_bulletin":
                         raise PowerLoss()
@@ -55,8 +57,7 @@ class WorldProof(Goals):
                     self.assertEqual(run.observe("sales", as_of=OPEN), [])
                     self.assertTrue(run.private_truth()["world"][0])
                     self.assertEqual(run.metrics()["provider_cost"], {"jev": 0, "model": 0})
-                    public = (native.records(), run.observe("manager", as_of=OPEN),
-                              providers.calls, run.export())
+                    public = (native.records(), run.observe("manager", as_of=OPEN), providers.calls, run.export())
                     for artifact in public:
                         serialized = json.dumps(artifact)
                         self.assertIn(signal, serialized)
@@ -69,11 +70,18 @@ class WorldProof(Goals):
 
     def test_same_warning_can_have_different_physical_consequences(self):
         warnings = set()
-        for initial, expected in (("false_alarm", OPEN), ("short_onset", OPEN + 7 * DAY),
-                                  ("long_onset", OPEN + 7 * DAY)):
-            run, native, providers, _ = self.fixture("norvale", config={
-                "world": True, "world_fixture": {"initial_disruption": initial},
-            })
+        for initial, expected in (
+            ("false_alarm", OPEN),
+            ("short_onset", OPEN + 7 * DAY),
+            ("long_onset", OPEN + 7 * DAY),
+        ):
+            run, native, providers, _ = self.fixture(
+                "norvale",
+                config={
+                    "world": True,
+                    "world_fixture": {"initial_disruption": initial},
+                },
+            )
             self.schedule(run, "dispatch_supply", at=0, case="S1", eta=OPEN, quantity=30)
             if expected > OPEN:
                 self.decision(run, at=OPEN + 1)
@@ -101,14 +109,17 @@ class WorldProof(Goals):
         run, _, _, _ = self.fixture("norvale")
         for config, seed in (({"world": True}, 41), ({}, 42)):
             with self.assertRaisesRegex(ValueError, "original seed and configuration"):
-                Engine(run._directory, norvale.Consumer(config), seed=seed, native=None,
-                       providers=None, monotonic=None)
+                Engine(run._directory, norvale.Consumer(config), seed=seed, native=None, providers=None, monotonic=None)
         with self.assertRaisesRegex(ValueError, "original fresh-run configuration"):
             check_binding({"world": True, "seed": 41}, {"completed": ["seed"]})
         with self.assertRaisesRegex(ValueError, "original fresh-run configuration"):
-            check_binding({"world": True, "seed": 42}, {
-                "completed": ["seed"], "world_binding": {"seed": 41, "fixture": {}},
-            })
+            check_binding(
+                {"world": True, "seed": 42},
+                {
+                    "completed": ["seed"],
+                    "world_binding": {"seed": 41, "fixture": {}},
+                },
+            )
 
 
 class RecurringWorldProof(TestCase):
@@ -117,17 +128,25 @@ class RecurringWorldProof(TestCase):
         company = Company.__new__(Company)
         company.run = root
         company.day, company.event = 0, "d0000:approvals"
-        company.config = {"seed": 41, "world": True, "receipt_delay": 1,
-                          "world_fixture": {"transit_delay_minutes": 7 * DAY}}
-        company.state = {"ops": {"purchases": {"p": {"day": 0, "due": 2, "items": []}},
-                                 "changes": {}}, "physical": {}}
+        company.config = {
+            "seed": 41,
+            "world": True,
+            "receipt_delay": 1,
+            "world_fixture": {"transit_delay_minutes": 7 * DAY},
+        }
+        company.state = {"ops": {"purchases": {"p": {"day": 0, "due": 2, "items": []}}, "changes": {}}, "physical": {}}
         company.log = Mock()
         company.advance_clock = Mock()
         company.additions = None
         company.wh = {"hold": "Quarantine"}
-        submitted = {"name": "PO-1", "docstatus": 1,
-                     "items": [{"schedule_date": company.dated(4), "qty": 2, "received_qty": 2},
-                               {"schedule_date": company.dated(14), "qty": 1, "received_qty": 0}]}
+        submitted = {
+            "name": "PO-1",
+            "docstatus": 1,
+            "items": [
+                {"schedule_date": company.dated(4), "qty": 2, "received_qty": 2},
+                {"schedule_date": company.dated(14), "qty": 1, "received_qty": 0},
+            ],
+        }
         company.get = Mock(return_value=submitted)
         mail = {}
 
@@ -144,6 +163,7 @@ class RecurringWorldProof(TestCase):
         company.approvals()
         self.assertNotIn("arrival_due", company.state["ops"]["purchases"]["p"])
         company.day = 14
+
         def interrupted(key, sender, recipient, subject, body):
             if subject == "Supplier delay notice" and recipient == "WAREHOUSE":
                 raise PowerLoss()
@@ -153,15 +173,15 @@ class RecurringWorldProof(TestCase):
         with self.assertRaises(PowerLoss):
             company.run_additions(14 * DAY + 720)
         company.state = json.loads((root / "state.json").read_text())
-        company.additions = open_catalog(root, company.config, company.state,
-                                         company.advance_clock, company=company)
+        company.additions = open_catalog(root, company.config, company.state, company.advance_clock, company=company)
         company.mail.side_effect = confirmed
         company.run_additions(14 * DAY + 720)
         company.arrivals()
         self.assertFalse(company.state["physical"])
         company.write.assert_not_called()
-        self.assertEqual({entry[1] for entry in mail.values() if entry[2] == "Supplier delay notice"},
-                         {"SCM_MGR", "WAREHOUSE"})
+        self.assertEqual(
+            {entry[1] for entry in mail.values() if entry[2] == "Supplier delay notice"}, {"SCM_MGR", "WAREHOUSE"}
+        )
         self.assertEqual(sum(entry[2] == "Supplier delay notice" for entry in mail.values()), 2)
         self.assertEqual(evidence(company, "SALES"), [])
         visible = json.dumps(evidence(company, "SCM_MGR"))
@@ -187,6 +207,10 @@ class RecurringWorldProof(TestCase):
         company.run_additions(22 * DAY + 720)
         company.arrivals()
         company.arrivals()
-        company.write.assert_called_once_with("receipt:p", "Purchase Receipt",
-                                               {"items": [{"item_code": "X", "warehouse": "Quarantine"}]},
-                                               "WAREHOUSE", True)
+        company.write.assert_called_once_with(
+            "receipt:p",
+            "Purchase Receipt",
+            {"items": [{"item_code": "X", "warehouse": "Quarantine"}]},
+            "WAREHOUSE",
+            True,
+        )

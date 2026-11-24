@@ -1,19 +1,20 @@
 """Offline CLI checks using temporary stores and the actual Frappe REST client."""
-from contextlib import redirect_stderr, redirect_stdout
+
 import io
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
+from components.erp_client import ErpClient
 from environments.norvale import generate
 from test_engine_goals import Native
-from components.erp_client import ErpClient
 
 
 class FrappeFixture:
@@ -55,8 +56,11 @@ class FrappeFixture:
                 filters = json.loads(parse_qs(url.query)["filters"][0])
                 prefix = filters["custom_norvale_operation"][1].removesuffix("%")
                 after = filters.get("name", [None, ""])[1]
-                response = [{"name": row["name"]} for row in rows if row["name"] > after
-                            and row.get("custom_norvale_operation", "").startswith(prefix)]
+                response = [
+                    {"name": row["name"]}
+                    for row in rows
+                    if row["name"] > after and row.get("custom_norvale_operation", "").startswith(prefix)
+                ]
         else:
             assert request.method == "GET" and url.path.startswith("/api/resource/Sales%20Order/")
             if self.fail_read:
@@ -80,8 +84,9 @@ class CLI(unittest.TestCase):
 
         self.enterContext(patch("environments.norvale.native.incremental_erp.ErpClient", side_effect=client))
         self.enterContext(patch.dict(os.environ, {"NORVALE_INCREMENTAL_SALES_TOKEN": "test-only"}))
-        self.enterContext(patch("urllib.request.OpenerDirector.open",
-                                side_effect=AssertionError("offline test forbids network")))
+        self.enterContext(
+            patch("urllib.request.OpenerDirector.open", side_effect=AssertionError("offline test forbids network"))
+        )
 
     def cli(self, cutoff, plan=None, *, factory=None, directory=None):
         directory = directory or self.run_path
@@ -95,19 +100,37 @@ class CLI(unittest.TestCase):
         return json.loads(output.getvalue())["records"]
 
     def sales_plan(self):
-        return {"consumer": "norvale", "seed": 41, "config": {},
-                "erp": {"url": "http://isolated.test", "site": "isolated.test",
-                        "company": "Norvale Consumer Care BV", "customer": "Demo Retail",
-                        "item": "SKU-1", "warehouse": "Finished Goods - NCC"},
-                "events": [{"id": "retail-order", "kind": "order", "at": 540, "role": "sales",
-                            "duration": 10, "payload": {"case": "PO-812", "quantity": 8, "rate": 2}}]}
+        return {
+            "consumer": "norvale",
+            "seed": 41,
+            "config": {},
+            "erp": {
+                "url": "http://isolated.test",
+                "site": "isolated.test",
+                "company": "Norvale Consumer Care BV",
+                "customer": "Demo Retail",
+                "item": "SKU-1",
+                "warehouse": "Finished Goods - NCC",
+            },
+            "events": [
+                {
+                    "id": "retail-order",
+                    "kind": "order",
+                    "at": 540,
+                    "role": "sales",
+                    "duration": 10,
+                    "payload": {"case": "PO-812", "quantity": 8, "rate": 2},
+                }
+            ],
+        }
 
     def test_invalid_final_delivery_date_rejects_whole_plan(self):
         from datetime import date
+
         from environments.norvale.native.incremental_erp import EPOCH
+
         plan = self.sales_plan()
-        plan["events"].append({**plan["events"][0], "id": "later",
-                               "at": (date.max - EPOCH).days * 1440})
+        plan["events"].append({**plan["events"][0], "id": "later", "at": (date.max - EPOCH).days * 1440})
         with self.assertRaises(SystemExit):
             self.cli(10**12, plan)
         self.assertEqual(self.service.posts, 0)
@@ -115,7 +138,9 @@ class CLI(unittest.TestCase):
 
     def test_erp_redirect_origin_boundary(self):
         from urllib.request import Request
-        from components.erp_client import SameOriginRedirect, ErpError
+
+        from components.erp_client import ErpError, SameOriginRedirect
+
         client = ErpClient("https://erp.test", "fixture")
         handler = next(h for h in client.opener.handlers if isinstance(h, SameOriginRedirect))
         request = Request("https://erp.test/start")
@@ -126,16 +151,23 @@ class CLI(unittest.TestCase):
         self.assertEqual(allowed.full_url, "https://erp.test:443/end")
 
     def test_catalog_item_survives_native_readback(self):
-        from environments.norvale.native.incremental_erp import sales_transport
-        from environments.consumers.norvale import Consumer
         from types import SimpleNamespace
+
+        from environments.consumers.norvale import Consumer
+        from environments.norvale.native.incremental_erp import sales_transport
+
         adapter = sales_transport("1" * 32, self.sales_plan())
+
         def write(system, kind, fields):
             self.assertEqual(system, "east")
             key = adapter.send("erp", "write-1-1", {**fields, "kind": kind, "at": 15})
             return adapter.read("erp", key)
-        runtime = SimpleNamespace(event={"role": "buyer"}, catalog={
-            "products": {"lotion": {"system": "east", "item": "SKU-2"}}, "roles": {}}, write=write)
+
+        runtime = SimpleNamespace(
+            event={"role": "buyer"},
+            catalog={"products": {"lotion": {"system": "east", "item": "SKU-2"}}, "roles": {}},
+            write=write,
+        )
         payload = dict(case="request", quantity=2, rate=3, product="lotion")
         with self.assertRaises(ValueError):
             Consumer({}).handle(runtime, "order", payload)
@@ -151,6 +183,7 @@ class CLI(unittest.TestCase):
 
     def test_employee_profile_requires_the_enrolled_account_and_document_owner(self):
         from environments.norvale.native.incremental_erp import sales_transport
+
         employee = {"role": "desk", "user": "counter@warehouse.test"}
         adapter = sales_transport("a" * 32, self.sales_plan(), employee=employee)
         doc = dict(kind="order", at=30, case="PO", quantity=1, rate=5, order_role="desk")
@@ -163,7 +196,7 @@ class CLI(unittest.TestCase):
         self.assertEqual(self.service.posts, 0)
         name = adapter.send("erp", "write-1-1", doc)
         self.assertEqual(adapter.read("erp", name)["owner"], employee["user"])
-        row, = self.service.rows()
+        (row,) = self.service.rows()
         self.service.path.write_text(json.dumps([{**row, "owner": "other@warehouse.test"}]))
         with self.assertRaisesRegex(RuntimeError, "readback"):
             adapter.read("erp", name)
@@ -173,44 +206,75 @@ class CLI(unittest.TestCase):
         self.assertEqual(self.cli(5, plan), [])
         manifest = (self.run_path / "incremental.json").read_bytes()
         east = FrappeFixture(self.root / "east.json")
+
         def client(url, site, token):
             instance = ErpClient(url, site, token)
             instance.opener = east if url == "http://east.test" else self.service
             return instance
+
         registry = self.root / "host.json"
-        registry.write_text(json.dumps({"east-sales": {
-            "adapter": "erpnext-sales", "token_env": "TEST_EAST_TOKEN",
-            "employee": {"role": "east-salesperson", "user": east.user},
-            "erp": {**plan["erp"], "url": "http://east.test"}}}))
+        registry.write_text(
+            json.dumps(
+                {
+                    "east-sales": {
+                        "adapter": "erpnext-sales",
+                        "token_env": "TEST_EAST_TOKEN",
+                        "employee": {"role": "east-salesperson", "user": east.user},
+                        "erp": {**plan["erp"], "url": "http://east.test"},
+                    }
+                }
+            )
+        )
         east.omit_remarks = True
         extension = self.root / "addition.json"
-        extension.write_text(json.dumps({
-            "id": "open-east", "systems": {"east": {"connection": "east-sales"}},
-            "roles": {"east-salesperson": {"shifts": [[0, 1440]], "permissions": ["write:east", "observe:east"]}},
-            "products": {"lotion": {"system": "east", "item": "LOTION-2"}},
-            "events": [{"id": "east-order", "kind": "order", "role": "east-salesperson", "at": 20,
-                        "payload": {"product": "lotion", "case": "PO-E", "quantity": 2, "rate": 5}}]}))
-        with patch("environments.norvale.native.incremental_erp.ErpClient", side_effect=client), patch.dict(
-                os.environ, NORVALE_CONNECTIONS_FILE=str(registry), TEST_EAST_TOKEN="test-only"):
+        extension.write_text(
+            json.dumps(
+                {
+                    "id": "open-east",
+                    "systems": {"east": {"connection": "east-sales"}},
+                    "roles": {
+                        "east-salesperson": {"shifts": [[0, 1440]], "permissions": ["write:east", "observe:east"]}
+                    },
+                    "products": {"lotion": {"system": "east", "item": "LOTION-2"}},
+                    "events": [
+                        {
+                            "id": "east-order",
+                            "kind": "order",
+                            "role": "east-salesperson",
+                            "at": 20,
+                            "payload": {"product": "lotion", "case": "PO-E", "quantity": 2, "rate": 5},
+                        }
+                    ],
+                }
+            )
+        )
+        with (
+            patch("environments.norvale.native.incremental_erp.ErpClient", side_effect=client),
+            patch.dict(os.environ, NORVALE_CONNECTIONS_FILE=str(registry), TEST_EAST_TOKEN="test-only"),
+        ):
             args = ["incremental", "--run", str(self.run_path), "--extend", str(extension), "--until", "20"]
             with redirect_stdout(io.StringIO()):
                 generate.main(args)
                 generate.main(args)
             from engine import Engine
+
             reopened = []
+
             def capture(*args, **kwargs):
                 engine = Engine(*args, **kwargs)
                 reopened.append(engine)
                 return engine
+
             with patch("environments.norvale.native.incremental.Engine", side_effect=capture):
                 rows = self.cli(550)
-            self.assertEqual([r["case"] for r in reopened[-1].observe("east-salesperson", as_of=550)],
-                             ["PO-E"])
+            self.assertEqual([r["case"] for r in reopened[-1].observe("east-salesperson", as_of=550)], ["PO-E"])
             self.assertEqual(reopened[-1].observe("east-salesperson", as_of=19), [])
         self.assertEqual(self.service.posts, 1)
         self.assertEqual(east.posts, 1)
-        self.assertEqual([(r["system"], r["native_id"], r["case"]) for r in rows],
-                         [("east", "SO-1", "PO-E"), ("erp", "SO-1", "PO-812")])
+        self.assertEqual(
+            [(r["system"], r["native_id"], r["case"]) for r in rows],
+            [("east", "SO-1", "PO-E"), ("erp", "SO-1", "PO-812")],
+        )
         self.assertEqual(rows[0]["item"], "LOTION-2")
         self.assertEqual(rows[0]["roles"], ["east-salesperson"])
         self.assertEqual((self.run_path / "incremental.json").read_bytes(), manifest)
@@ -219,21 +283,41 @@ class CLI(unittest.TestCase):
         plan = self.sales_plan()
         self.cli(0, plan)
         registry = self.root / "registry.json"
-        registry.write_text(json.dumps({"secondary": {
-            "adapter": "erpnext-sales", "token_env": "NORVALE_INCREMENTAL_SALES_TOKEN",
-            "erp": plan["erp"]}}))
-        command = {"id": "old-extension", "systems": {"secondary": {"connection": "secondary"}},
-                   "products": {"lotion": {"system": "secondary", "item": "LOTION"}},
-                   "roles": {"desk": {"shifts": [[0, 1440]], "permissions": ["write:secondary"]}},
-                   "events": [{"id": "old-order", "kind": "order", "role": "desk", "at": 10,
-                               "payload": {"product": "lotion", "case": "OLD", "quantity": 1, "rate": 3}}]}
+        registry.write_text(
+            json.dumps(
+                {
+                    "secondary": {
+                        "adapter": "erpnext-sales",
+                        "token_env": "NORVALE_INCREMENTAL_SALES_TOKEN",
+                        "erp": plan["erp"],
+                    }
+                }
+            )
+        )
+        command = {
+            "id": "old-extension",
+            "systems": {"secondary": {"connection": "secondary"}},
+            "products": {"lotion": {"system": "secondary", "item": "LOTION"}},
+            "roles": {"desk": {"shifts": [[0, 1440]], "permissions": ["write:secondary"]}},
+            "events": [
+                {
+                    "id": "old-order",
+                    "kind": "order",
+                    "role": "desk",
+                    "at": 10,
+                    "payload": {"product": "lotion", "case": "OLD", "quantity": 1, "rate": 3},
+                }
+            ],
+        }
         extension = self.root / "extension.json"
         extension.write_text(json.dumps(command))
         args = ["incremental", "--run", str(self.run_path), "--extend", str(extension), "--until"]
         with patch.dict(os.environ, NORVALE_CONNECTIONS_FILE=str(registry)), redirect_stdout(io.StringIO()):
             # Seed the historical unbound descriptor and queued role using the old admission rule.
-            with patch("environments.norvale.native.software_connections.sales_binding", return_value={}), patch(
-                    "environments.norvale.native.software_connections.validate_sales_roles"):
+            with (
+                patch("environments.norvale.native.software_connections.sales_binding", return_value={}),
+                patch("environments.norvale.native.software_connections.validate_sales_roles"),
+            ):
                 generate.main([*args, "0"])
             self.service.omit_remarks = True
             self.service.fail_read = True
@@ -260,6 +344,7 @@ class CLI(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 generate.main([*args, "11"])
             from engine.__main__ import main as offline_command
+
             with self.assertRaises(SystemExit):
                 offline_command(["--run", str(self.run_path), "--extend", str(extension)])
             self.cli(11)
@@ -267,7 +352,9 @@ class CLI(unittest.TestCase):
 
     def test_legacy_help_and_incremental_help(self):
         for args, option in (([], "--provision"), (["incremental"], "--plan")):
-            output = subprocess.check_output([sys.executable, "-m", "environments.norvale.generate", *args, "--help"], text=True)
+            output = subprocess.check_output(
+                [sys.executable, "-m", "environments.norvale.generate", *args, "--help"], text=True
+            )
             self.assertIn(option, output)
 
     def test_native_orders_resume_after_readback_failure_and_isolate_runs(self):
@@ -285,30 +372,50 @@ class CLI(unittest.TestCase):
             self.cli(550)
         rows[0]["items"][0]["qty"] = 8
         self.service.path.write_text(json.dumps(rows))
-        first, = self.cli(550)
+        (first,) = self.cli(550)
         self.assertEqual(self.service.posts, 1)
-        self.assertEqual(first, {"kind": "order", "at": 550, "native_id": "SO-1", "system": "erp",
-                                 "case": "PO-812", "quantity": 8, "rate": 2, "roles": ["sales"],
-                                 "source_url": "http://isolated.test/app/sales-order/SO-1"})
+        self.assertEqual(
+            first,
+            {
+                "kind": "order",
+                "at": 550,
+                "native_id": "SO-1",
+                "system": "erp",
+                "case": "PO-812",
+                "quantity": 8,
+                "rate": 2,
+                "roles": ["sales"],
+                "source_url": "http://isolated.test/app/sales-order/SO-1",
+            },
+        )
         self.assertEqual(self.cli(551), [first])
         with self.assertRaises(SystemExit):
             self.cli(551, self.sales_plan())
 
         self.service.lose_reply = True
-        second, = self.cli(550, self.sales_plan(), directory=self.root / "second")
+        (second,) = self.cli(550, self.sales_plan(), directory=self.root / "second")
         self.assertNotEqual(second["native_id"], first["native_id"])
         self.assertEqual(self.service.posts, 2)
         from environments.norvale.native.incremental_erp import sales_transport
+
         manifest = json.loads((self.run_path / "incremental.json").read_text())
         adapter = sales_transport(manifest["namespace"], manifest["plan"])
         self.assertEqual(list(adapter.records()), [first])
         with self.assertRaises(RuntimeError):
             adapter.read("erp", second["native_id"])
-        from environments.consumers.norvale import Consumer
-        from engine import Engine
         from time import monotonic
-        checkpoint = Engine(self.run_path, Consumer({"_incremental_identity": manifest}),
-                            seed=41, native=adapter, providers=None, monotonic=monotonic)
+
+        from engine import Engine
+        from environments.consumers.norvale import Consumer
+
+        checkpoint = Engine(
+            self.run_path,
+            Consumer({"_incremental_identity": manifest}),
+            seed=41,
+            native=adapter,
+            providers=None,
+            monotonic=monotonic,
+        )
         self.assertEqual(checkpoint.observe("sales", as_of=550), [first])
         self.assertEqual(checkpoint.observe("sales", as_of=549), [])
         self.assertEqual(checkpoint.observe("warehouse", as_of=550), [])
@@ -332,15 +439,27 @@ class CLI(unittest.TestCase):
         def transport(namespace, plan):
             return Native(self.root / (namespace + "-double.json"))
 
-        plan = {"consumer": "managed_services", "seed": 41, "config": {},
-                "events": [
-                    {"id": "contract", "kind": "contract", "at": 540,
-                     "payload": {"case": "MS-21", "response_minutes": 60, "rate": 95}},
-                    {"id": "issue", "kind": "ticket", "at": 555,
-                     "payload": {"case": "MS-21", "ticket": "INC-412"}},
-                    {"id": "reply", "kind": "respond", "at": 560, "duration": 5,
-                     "payload": {"case": "MS-21", "ticket": "INC-412"}},
-                ]}
+        plan = {
+            "consumer": "managed_services",
+            "seed": 41,
+            "config": {},
+            "events": [
+                {
+                    "id": "contract",
+                    "kind": "contract",
+                    "at": 540,
+                    "payload": {"case": "MS-21", "response_minutes": 60, "rate": 95},
+                },
+                {"id": "issue", "kind": "ticket", "at": 555, "payload": {"case": "MS-21", "ticket": "INC-412"}},
+                {
+                    "id": "reply",
+                    "kind": "respond",
+                    "at": 560,
+                    "duration": 5,
+                    "payload": {"case": "MS-21", "ticket": "INC-412"},
+                },
+            ],
+        }
         contract, issue = self.cli(562, plan, factory=transport)
         self.assertEqual(issue["contract_id"], contract["native_id"])
         with self.assertRaises(SystemExit):

@@ -6,3 +6,90 @@ dev = ["enterpriseengine-environments[lake]"]
 
 [tool.uv.sources]
 enterpriseengine-environments = { workspace = true }
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+include = ["packages/**/*.py", "contracts/**/*.py", "scripts/**/*.py"]
+# PR #52 is changing the swarm runner scripts.
+extend-exclude = ["scripts/swarm"]
+force-exclude = true
+
+[tool.ruff.per-file-target-version]
+# These existing modules already use Python 3.11 syntax or ExceptionGroup.
+"packages/environments/src/environments/consumers/extraction.py" = "py311"
+"**/norvale/integrations/lake/boundary.py" = "py311"
+"**/norvale/integrations/company_run/lake.py" = "py311"
+"**/norvale/integrations/company_run/test_planning_report.py" = "py311"
+"**/norvale/integrations/lake/plm_reader.py" = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# The formatter sets the width. Leave long literals and comments intact.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Odoo loads add-on modules in declaration order.
+"**/norvale_mes/__init__.py" = ["F401", "I001"]
+
+# Odoo loads manifests as dictionary expressions.
+"**/norvale/integrations/**/__manifest__.py" = ["B018"]
+
+# Preserve existing import bindings, callback scopes, and runtime behavior.
+"contracts/test_company_erp.py" = ["F841"]
+"contracts/test_consumer_invariants.py" = ["E402"]
+"contracts/test_engine_goals.py" = ["B007", "B023", "B905"]
+"contracts/test_engine_storage.py" = ["B023"]
+"contracts/test_norvale_recovery.py" = ["B023"]
+"contracts/test_obligation_cases.py" = ["B023"]
+"contracts/test_production_profiles.py" = ["B007", "B905", "E731"]
+"contracts/test_release_recovery.py" = ["B023", "F841"]
+"contracts/test_v1_world.py" = ["B023", "B905"]
+"packages/components/src/components/erp_client.py" = ["E731"]
+"packages/components/src/components/qms.py" = ["B905"]
+"packages/engine/src/engine/__init__.py" = ["B023", "B905", "F402"]
+"packages/engine/tests/test_engine_resume_shifts.py" = ["B023"]
+"packages/environments/src/consumers/managed_services.py" = ["F401"]
+"packages/environments/src/consumers/norvale.py" = ["F401"]
+"**/norvale/environment/accounts.py" = ["E741"]
+"**/norvale/environment/stack.py" = ["E731"]
+"**/norvale/integrations/company_run/authority.py" = ["B023"]
+"**/norvale/integrations/company_run/definition_change.py" = ["B905"]
+"**/norvale/integrations/company_run/demo.py" = ["B023"]
+"**/norvale/integrations/company_run/lake.py" = ["B023"]
+"**/norvale/integrations/company_run/maintenance.py" = ["B905"]
+"**/norvale/integrations/company_run/mes_precision.py" = ["F821"]
+"**/norvale/integrations/company_run/operating.py" = ["B023"]
+"**/norvale/integrations/company_run/test_planning_report.py" = ["B023", "B905", "E731", "UP017"]
+"**/norvale/integrations/company_run/test_verification.py" = ["B023"]
+"**/norvale/integrations/company_run/timing.py" = ["B023"]
+"**/norvale/integrations/lake/boundary.py" = ["B023", "UP017"]
+"**/norvale/integrations/lake/genealogy.py" = ["B905"]
+"**/norvale/integrations/lake/rework_reader.py" = ["E731"]
+"**/norvale/integrations/lake/shipment_billing.py" = ["B007"]
+"**/norvale/integrations/lake/test_boundary.py" = ["B017"]
+"**/norvale/integrations/lake/test_rework_reader.py" = ["B007"]
+"**/norvale/integrations/lake/test_shipment_ledger.py" = ["F401"]
+"**/norvale/integrations/mes/__init__.py" = ["F401"]
+"**/norvale/integrations/mes/addons/norvale_mes/execution.py" = ["B023", "E741"]
+"**/norvale/integrations/mes/fixture.py" = ["B905", "F821"]
+"**/norvale/integrations/plm/check_live.py" = ["B905", "E731"]
+"**/norvale/integrations/quality_feedback/prove.py" = ["E402", "F821", "UP022"]
+"**/norvale/integrations/quality_feedback/prove_recovery.py" = ["B023"]
+"**/norvale/integrations/revisions/__init__.py" = ["B023"]
+"**/norvale/integrations/revisions/test_bridge.py" = ["B905"]
+"**/norvale/native/build_evidence.py" = ["B023"]
+"**/norvale/native/company.py" = ["B007", "B023", "F841"]
+"**/norvale/native/company_bank.py" = ["B023"]
+"**/norvale/native/company_erp.py" = ["B023"]
+"**/norvale/native/company_maintenance.py" = ["B023"]
+"**/norvale/native/company_rework.py" = ["B023"]
+"**/norvale/native/production_profiles.py" = ["F401"]
+"**/norvale/native/provision_tickets_v2.py" = ["B007", "E402", "F401"]
+"**/norvale/native/router.py" = ["F401"]
+"**/norvale/native/systems_v2.py" = ["F401"]
+"**/norvale/walkthrough.py" = ["B023", "E402", "E741", "F401", "F841"]
+"packages/environments/src/integrations/company_run/authority.py" = ["F401"]
+"scripts/build_viewer.py" = ["F401"]
+"scripts/check_expert_inbox.py" = ["F401"]
+"scripts/validation/profile_autotwin.py" = ["B905"]

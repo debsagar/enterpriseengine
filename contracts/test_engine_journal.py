@@ -1,25 +1,29 @@
 """Cross-consumer replay and offline inspection of genuine call evidence."""
+
 import sqlite3
 from unittest.mock import patch
 
 from engine.__main__ import main
-from test_engine_goals import CONSUMERS, Goals, OPEN, Page, PowerLoss
+from test_engine_goals import CONSUMERS, OPEN, Goals, Page, PowerLoss
 
 
 class Journal(Goals):
     def test_resume_before_decision_and_after_mail_send(self):
         for company in CONSUMERS:
             with self.subTest(company=company):
+
                 def boundary(stage, operation):
                     if stage == "after_send" and operation["system"] == "mail":
                         raise PowerLoss
 
                 run, native, providers, reopen = self.fixture(company, boundary=boundary)
                 visible = '<script>alert("evidence")</script>'
-                native.send("erp", "visible", {"kind": "evidence", "at": OPEN,
-                                              "roles": ["manager"], "text": visible})
-                native.send("erp", "restricted", {"kind": "evidence", "at": OPEN,
-                                                 "roles": ["auditor"], "text": "secret-auditor"})
+                native.send("erp", "visible", {"kind": "evidence", "at": OPEN, "roles": ["manager"], "text": visible})
+                native.send(
+                    "erp",
+                    "restricted",
+                    {"kind": "evidence", "at": OPEN, "roles": ["auditor"], "text": "secret-auditor"},
+                )
                 providers.first_timeout.add("model")
                 self.decision(run, hidden_state="private-event-input")
                 self.review(run)
@@ -34,8 +38,11 @@ class Journal(Goals):
                         run.run(until=OPEN + 15)
                 self.assertEqual([tier for tier, _, _ in providers.calls], ["jev", "model", "model"])
                 providers.replies["model"] = '{"action":"reject"}'
-                native.send("erp", "late", {"kind": "evidence", "at": OPEN,
-                                           "roles": ["manager"], "text": "late-backdated-evidence"})
+                native.send(
+                    "erp",
+                    "late",
+                    {"kind": "evidence", "at": OPEN, "roles": ["manager"], "text": "late-backdated-evidence"},
+                )
                 run = reopen(None)
                 run.providers = None
                 run.run(until=OPEN + 15)
@@ -45,9 +52,10 @@ class Journal(Goals):
                 trace = run.trace()
                 run.run(until=OPEN + 15)
                 self.assertEqual(run.trace(), trace)
-                self.assertEqual([row["method"] for row in trace if row["tier"] == "api"
-                                  and mail["native_id"] in row["native_ids"]],
-                                 ["send", "find", "read"])
+                self.assertEqual(
+                    [row["method"] for row in trace if row["tier"] == "api" and mail["native_id"] in row["native_ids"]],
+                    ["send", "find", "read"],
+                )
                 model = [row for row in trace if row["tier"] == "model"]
                 self.assertEqual([row["status"] for row in model], ["failed", "returned"])
                 self.assertIn(approval["native_id"], model[1]["native_ids"])
@@ -72,8 +80,7 @@ class Journal(Goals):
                 self.assertIn(visible, page.text(decision).replace('\\"', '"'))
                 self.assertIn("TimeoutError", page.text(page.click(decision, "call")))
                 with sqlite3.connect(database) as db:
-                    self.assertEqual(db.execute("SELECT count(*) FROM call_journal").fetchone()[0],
-                                     len(trace))
+                    self.assertEqual(db.execute("SELECT count(*) FROM call_journal").fetchone()[0], len(trace))
                 database.chmod(0o644)
                 with self.assertRaises(PermissionError):
                     run.viewer()

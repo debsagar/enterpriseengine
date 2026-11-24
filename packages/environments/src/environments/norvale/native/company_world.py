@@ -1,4 +1,5 @@
 """Project the calendar's public events through the recurring native controller."""
+
 from datetime import timedelta
 
 from engine import DAY, world
@@ -16,7 +17,8 @@ def binding(config):
 def check_binding(config, saved):
     configured = binding(config)
     if configured != saved.get("world_binding") and (
-            saved.get("completed") or saved.get("docs") or "world_binding" in saved):
+        saved.get("completed") or saved.get("docs") or "world_binding" in saved
+    ):
         raise ValueError("World processes require the original fresh-run configuration")
 
 
@@ -24,15 +26,20 @@ def dispatch(company, key, submitted, promised):
     from environments.norvale.native.recurring_extensions import COMPANY_OPEN, open_catalog
 
     if company.additions is None:
-        company.additions = open_catalog(company.run, company.config, company.state,
-                                         company.advance_clock, company=company)
+        company.additions = open_catalog(
+            company.run, company.config, company.state, company.advance_clock, company=company
+        )
     clock = company.additions
     # A late approval preserves the PO's original date in the notice while
     # allowing at least one calendar day for physical dispatch.
     minute = COMPANY_OPEN if "company_timing" in company.config else 720
-    world.dispatch(clock, key, promised * DAY + minute,
-                   {"key": key, "po": submitted["name"]},
-                   earliest=(company.day + 1) * DAY + minute)
+    world.dispatch(
+        clock,
+        key,
+        promised * DAY + minute,
+        {"key": key, "po": submitted["name"]},
+        earliest=(company.day + 1) * DAY + minute,
+    )
 
 
 def publish(company, clock, key, kind, subject, text, recipients):
@@ -49,7 +56,10 @@ def publish(company, clock, key, kind, subject, text, recipients):
             sender = "SCM_MGR" if role == "BUYER" else "BUYER"
             company.mail(mail_key, sender, role, subject, body)
             company.state.setdefault("world_observations", {})[mail_key] = {
-                "kind": kind, "date": date, "text": body, "role": role,
+                "kind": kind,
+                "date": date,
+                "text": body,
+                "role": role,
                 "message_id": company.state["mail_operations"][mail_key]["message_id"],
             }
         company.persist()
@@ -58,8 +68,11 @@ def publish(company, clock, key, kind, subject, text, recipients):
 
 
 def evidence(company, role):
-    visible = [row for row in company.state.get("world_observations", {}).values()
-               if row["role"] == role and row["date"] <= company.date()]
+    visible = [
+        row
+        for row in company.state.get("world_observations", {}).values()
+        if row["role"] == role and row["date"] <= company.date()
+    ]
     bulletins = [row for row in visible if row["kind"] == "world_bulletin"]
     delays = [row for row in visible if row["kind"] == "delay_notice"]
     return bulletins[-1:] + delays[-6:]

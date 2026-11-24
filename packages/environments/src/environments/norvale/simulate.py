@@ -1,12 +1,13 @@
 """Run one versioned native company scenario from a clean checkout."""
+
 import argparse
 import fcntl
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 from .paths import CHECKOUT, PACKAGE, SOURCE_LAYOUT
 
@@ -20,6 +21,7 @@ def load_scenario(path):
     if type(cfg["days"]) is not int or not 1 <= cfg["days"] <= 365 or type(cfg["seed"]) is not int:
         raise ValueError("Expected 1..365 days and an integer seed")
     from environments.norvale.walkthrough import EnterpriseSimV4
+
     catalog = EnterpriseSimV4(seed=cfg["seed"], days=30, mode="dry-run")
     items = {sku["sku_id"] for sku in catalog.skus}
     if not isinstance(cfg["opening_orders"], list):
@@ -41,8 +43,12 @@ def main(*, checkout=CHECKOUT):
     p.add_argument("--scenario", type=Path, default=PACKAGE / "scenarios/norvale-q1.json")
     p.add_argument("--run", type=Path, required=True)
     mode = p.add_mutually_exclusive_group()
-    mode.add_argument("--services", choices=("status", "stop", "start"), help="Operate existing containers for this run")
-    mode.add_argument("--plan", action="store_true", help="Validate inputs and print the setup without starting services")
+    mode.add_argument(
+        "--services", choices=("status", "stop", "start"), help="Operate existing containers for this run"
+    )
+    mode.add_argument(
+        "--plan", action="store_true", help="Validate inputs and print the setup without starting services"
+    )
     a = p.parse_args()
     runtime = a.run.resolve()
     try:
@@ -50,6 +56,7 @@ def main(*, checkout=CHECKOUT):
             raise ValueError("Choose a private run directory outside the checkout")
         if a.services:
             from environments.norvale.integrations.company_run.services import manage
+
             launcher_run = (runtime / "scenario.json").is_file() and (runtime / "revision").is_file()
             commissioned = (runtime / "services.json").is_file() and (runtime / "business/config.json").is_file()
             if not (launcher_run or commissioned):
@@ -63,10 +70,14 @@ def main(*, checkout=CHECKOUT):
             return
         cfg = load_scenario(a.scenario)
         if a.plan:
-            print(json.dumps(dict(scenario=cfg, run=str(runtime), mode="live", archive=str(runtime / "lake")), indent=2))
+            print(
+                json.dumps(dict(scenario=cfg, run=str(runtime), mode="live", archive=str(runtime / "lake")), indent=2)
+            )
             return
-        if os.environ.get("NORVALE_OFFLINE") == "1" or not os.environ.get("TYPESAFE_API_KEY") or not any(
-            os.environ.get(k) for k in ("OPENAI_API_KEY", "OPENROUTER_API_KEY")
+        if (
+            os.environ.get("NORVALE_OFFLINE") == "1"
+            or not os.environ.get("TYPESAFE_API_KEY")
+            or not any(os.environ.get(k) for k in ("OPENAI_API_KEY", "OPENROUTER_API_KEY"))
         ):
             raise ValueError("Live mode requires JEV and role-model credentials and NORVALE_OFFLINE unset")
         __import__("deltalake")
@@ -87,7 +98,9 @@ def main(*, checkout=CHECKOUT):
             if not (runtime / "scenario.json").is_file() or load_scenario(runtime / "scenario.json") != cfg:
                 raise ValueError("Run already exists with different or missing scenario")
             if not (runtime / "commissioned").is_file():
-                raise ValueError("Commissioning was interrupted; inspect provision.log before resuming the same services")
+                raise ValueError(
+                    "Commissioning was interrupted; inspect provision.log before resuming the same services"
+                )
         else:
             revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=checkout, text=True).strip()
             release.mkdir()
@@ -96,16 +109,24 @@ def main(*, checkout=CHECKOUT):
             subprocess.run(["git", "archive", revision, "-o", str(runtime / "source.tar")], cwd=checkout, check=True)
             subprocess.run(["tar", "-xf", str(runtime / "source.tar"), "-C", str(release)], check=True)
             integrations = release / SOURCE_LAYOUT / "integrations"
-            shutil.copytree(integrations / "revisions/odoo_addons",
-                            integrations / "mes/addons", dirs_exist_ok=True)
+            shutil.copytree(integrations / "revisions/odoo_addons", integrations / "mes/addons", dirs_exist_ok=True)
             with (runtime / "provision.log").open("w") as log:
-                subprocess.run(["uv", "sync", "--locked", "--all-packages", "--python", sys.executable],
-                               cwd=release,
-                               env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(release / ".venv")},
-                               check=True, stdout=log, stderr=subprocess.STDOUT)
-                subprocess.run(["bash", integrations / "company_run/provision.sh", str(runtime)],
-                               cwd=release, env={**os.environ, "NORVALE_COMPANY_OPERATING": "1"},
-                               check=True, stdout=log, stderr=subprocess.STDOUT)
+                subprocess.run(
+                    ["uv", "sync", "--locked", "--all-packages", "--python", sys.executable],
+                    cwd=release,
+                    env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(release / ".venv")},
+                    check=True,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                )
+                subprocess.run(
+                    ["bash", integrations / "company_run/provision.sh", str(runtime)],
+                    cwd=release,
+                    env={**os.environ, "NORVALE_COMPANY_OPERATING": "1"},
+                    check=True,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                )
             (runtime / "commissioned").touch()
         python = release / ".venv/bin/python" if (release / SOURCE_LAYOUT).is_dir() else sys.executable
         # Archives made before the entry points still carry the root launcher.

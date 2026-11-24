@@ -1,14 +1,20 @@
 """Norvale sales and duration-aware production."""
-from fractions import Fraction
-import math
+
 import json
-from . import extraction, shared
+import math
+from fractions import Fraction
+
 from engine import world
+
+from . import extraction, shared
 
 
 def may_order(role, system, permissions):
-    return ((system == "erp" and role == "sales")
-            or f"write:{system}" in permissions or f"write:{system}:order" in permissions)
+    return (
+        (system == "erp" and role == "sales")
+        or f"write:{system}" in permissions
+        or f"write:{system}:order" in permissions
+    )
 
 
 def number(value, *, positive=False):
@@ -20,16 +26,24 @@ class Consumer:
         self.config = config
 
     def delivery_notice(self, engine, fields, eta):
-        engine.write("mail", "delay_notice", {"case": fields["case"], "previous_eta": eta,
-                     "text": "Carrier reports a delay. Revised delivery timing is pending.",
-                     "roles": ["manager", "warehouse"]})
+        engine.write(
+            "mail",
+            "delay_notice",
+            {
+                "case": fields["case"],
+                "previous_eta": eta,
+                "text": "Carrier reports a delay. Revised delivery timing is pending.",
+                "roles": ["manager", "warehouse"],
+            },
+        )
 
     def delivery_arrival(self, engine, fields):
         engine.write("erp", "receipt", fields)
 
     def grade_extraction(self, records, cutoff):
-        return extraction.grade(records, cutoff,
-                                source="shipment", unit="units", links="shipment_id", quantity="quantity")
+        return extraction.grade(
+            records, cutoff, source="shipment", unit="units", links="shipment_id", quantity="quantity"
+        )
 
     def handle(self, engine, kind, payload):
         if kind == "policy_review":
@@ -53,20 +67,31 @@ class Consumer:
             reservation = reservations.get(reservation_key)
             if reservation is None and source_system == "erp":
                 reservation = reservations.get(order_id)  # Earlier single-ERP checkpoints.
-            expected = {"case": case, "quantity": payload.get("quantity"),
-                        "started_at": engine.event_started_at}
-            if (not number(payload.get("quantity"), positive=True) or not reservation
-                    or any(reservation[k] != v for k, v in expected.items())
-                    or engine.event.get("sequence") != reservation["sequence"]
-                    or engine.event.get("role") != "operator"
-                    or engine.event.get("duration") != reservation["duration"]
-                    or engine.now < reservation["started_at"] + reservation["duration"]
-                    or engine.event.get("id") != reservation["event_id"]):
+            expected = {"case": case, "quantity": payload.get("quantity"), "started_at": engine.event_started_at}
+            if (
+                not number(payload.get("quantity"), positive=True)
+                or not reservation
+                or any(reservation[k] != v for k, v in expected.items())
+                or engine.event.get("sequence") != reservation["sequence"]
+                or engine.event.get("role") != "operator"
+                or engine.event.get("duration") != reservation["duration"]
+                or engine.now < reservation["started_at"] + reservation["duration"]
+                or engine.event.get("id") != reservation["event_id"]
+            ):
                 raise ValueError("Production does not match its reservation")
             if reservation.get("completed"):
                 return
-            record = engine.write("erp", "production", {"case": case, "order_id": order_id, "order_system": source_system,
-                                  "quantity": reservation["quantity"], "started_at": reservation["started_at"]})
+            record = engine.write(
+                "erp",
+                "production",
+                {
+                    "case": case,
+                    "order_id": order_id,
+                    "order_system": source_system,
+                    "quantity": reservation["quantity"],
+                    "started_at": reservation["started_at"],
+                },
+            )
             reservation["production_id"] = shared.native_id(record)
             reservation["completed"] = True
             return
@@ -80,7 +105,12 @@ class Consumer:
             duration = self.config["production_minutes"]
             capacity = self.config.get("daily_capacity")
             material = self.config.get("opening_material")
-            if type(duration) is not int or duration <= 0 or not number(capacity, positive=True) or not number(material):
+            if (
+                type(duration) is not int
+                or duration <= 0
+                or not number(capacity, positive=True)
+                or not number(material)
+            ):
                 raise ValueError("Invalid production configuration")
             shift_start = getattr(engine, "shift_start", None)
             if not callable(shift_start):
@@ -95,9 +125,13 @@ class Consumer:
             reservations = engine.state.get("norvale_reservations", {})
             if any(r["source_event"] == event_id for r in reservations.values()):
                 raise ValueError("Duplicate order event")
-            if sum(Fraction(str(r["quantity"])) for r in reservations.values()) + Fraction(str(quantity)) > Fraction(str(material)):
+            if sum(Fraction(str(r["quantity"])) for r in reservations.values()) + Fraction(str(quantity)) > Fraction(
+                str(material)
+            ):
                 raise ValueError("Insufficient material")
-            if sum(Fraction(str(r["quantity"])) for r in reservations.values() if r["started_at"] // 1440 == start // 1440) + Fraction(str(quantity)) > Fraction(str(capacity)):
+            if sum(
+                Fraction(str(r["quantity"])) for r in reservations.values() if r["started_at"] // 1440 == start // 1440
+            ) + Fraction(str(quantity)) > Fraction(str(capacity)):
                 raise ValueError("Daily production capacity exceeded")
         fields = {"case": case, "quantity": quantity, "rate": rate}
         system = "erp"
@@ -120,10 +154,23 @@ class Consumer:
             reservation_key = json.dumps([system, order_id])
             if reservation_key in reservations or (system == "erp" and order_id in reservations):
                 raise ValueError("Duplicate native order ID")
-            reservations[reservation_key] = {"case": case, "quantity": quantity, "started_at": start,
-                                      "event_id": completion_id, "source_event": event_id, "duration": duration}
-            reservations[reservation_key]["sequence"] = engine.schedule(completion_id, "production", start, role="operator", duration=duration, book_staff=True,
-                            payload={"case": case, "order_id": order_id, "order_system": system, "quantity": quantity})
+            reservations[reservation_key] = {
+                "case": case,
+                "quantity": quantity,
+                "started_at": start,
+                "event_id": completion_id,
+                "source_event": event_id,
+                "duration": duration,
+            }
+            reservations[reservation_key]["sequence"] = engine.schedule(
+                completion_id,
+                "production",
+                start,
+                role="operator",
+                duration=duration,
+                book_staff=True,
+                payload={"case": case, "order_id": order_id, "order_system": system, "quantity": quantity},
+            )
 
 
 # Existing checkpoints identify the consumer by its original module name.

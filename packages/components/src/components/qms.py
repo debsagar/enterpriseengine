@@ -12,8 +12,13 @@ ACTION = "Quality Action"
 ENTITIES = ("Batch", "Stock Entry", INSPECTION, CASE, ACTION)
 OP = "custom_qms_operation"
 STATE = "workflow_state"
-STATES = {"Record": "Recorded", "Authorize Rework": "Rework Authorized",
-          "Reject Lot": "Lot Rejected", "Release Lot": "Released", "Revoke Release": "Revoked"}
+STATES = {
+    "Record": "Recorded",
+    "Authorize Rework": "Rework Authorized",
+    "Reject Lot": "Lot Rejected",
+    "Release Lot": "Released",
+    "Revoke Release": "Revoked",
+}
 
 
 class APIError(RuntimeError):
@@ -35,10 +40,18 @@ def eligible(records, batch, revision, quantity, uom):
         matches = scope == Decimal(str(record.get("custom_lot_quantity")))
     except InvalidOperation:
         return None
-    if (matches and batch and revision and uom and record.get("batch_no") == batch
-            and record.get("custom_spec_revision") == revision and record.get("custom_lot_uom") == uom
-            and record.get("docstatus") == 1 and record.get("status") == "Accepted"
-            and record.get(STATE) == "Released"):
+    if (
+        matches
+        and batch
+        and revision
+        and uom
+        and record.get("batch_no") == batch
+        and record.get("custom_spec_revision") == revision
+        and record.get("custom_lot_uom") == uom
+        and record.get("docstatus") == 1
+        and record.get("status") == "Accepted"
+        and record.get(STATE) == "Released"
+    ):
         return record
     return None
 
@@ -52,9 +65,12 @@ class QMS:
     def __init__(self, url, api_key, api_secret, site="qms.localhost"):
         self.url = url.rstrip("/")
         self.opener = build_opener(PinnedEndpoint())
-        self.headers = {"Authorization": f"token {api_key}:{api_secret}",
-                        "X-Frappe-Site-Name": site, "Content-Type": "application/json",
-                        "Accept": "application/json"}
+        self.headers = {
+            "Authorization": f"token {api_key}:{api_secret}",
+            "X-Frappe-Site-Name": site,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
 
     def request(self, method, path, data=None):
         body = None if data is None else json.dumps(data).encode()
@@ -77,10 +93,16 @@ class QMS:
     def get(self, doctype, name):
         return self.request("GET", self.resource(doctype, name))["data"]
 
-    def list(self, doctype, filters=None, *, limit=100, start=0, order="name asc",
-             fields=("name",)):
-        args = urlencode({"filters": json.dumps(filters or {}), "fields": json.dumps(fields),
-                          "limit_page_length": limit, "limit_start": start, "order_by": order})
+    def list(self, doctype, filters=None, *, limit=100, start=0, order="name asc", fields=("name",)):
+        args = urlencode(
+            {
+                "filters": json.dumps(filters or {}),
+                "fields": json.dumps(fields),
+                "limit_page_length": limit,
+                "limit_start": start,
+                "order_by": order,
+            }
+        )
         return self.request("GET", f"{self.resource(doctype)}?{args}")["data"]
 
     def create(self, doctype, operation, *, verify_fields=None, **fields):
@@ -108,9 +130,13 @@ class QMS:
                 continue
             observed = record.get(field)
             if isinstance(value, list):
-                matches = isinstance(observed, list) and len(observed) == len(value) and all(
-                    all(row.get(key) == cell for key, cell in expected.items())
-                    for row, expected in zip(observed, value)
+                matches = (
+                    isinstance(observed, list)
+                    and len(observed) == len(value)
+                    and all(
+                        all(row.get(key) == cell for key, cell in expected.items())
+                        for row, expected in zip(observed, value)
+                    )
                 )
             else:
                 matches = observed == value
@@ -131,8 +157,11 @@ class QMS:
         target = STATES[action]
         document = self.get(INSPECTION, inspection)
         if document.get(STATE) != target or document.get("docstatus") != 1:
-            self.request("POST", "method/frappe.model.workflow.apply_workflow",
-                         {"doc": {"doctype": INSPECTION, "name": inspection}, "action": action})
+            self.request(
+                "POST",
+                "method/frappe.model.workflow.apply_workflow",
+                {"doc": {"doctype": INSPECTION, "name": inspection}, "action": action},
+            )
         document = self.get(INSPECTION, inspection)
         if document.get(STATE) != target or document.get("docstatus") != 1:
             raise ValueError("QMS workflow readback mismatch")
@@ -140,9 +169,25 @@ class QMS:
 
     def release(self, batch, revision, quantity, uom):
         """Use the latest sample at the time of the query, including drafts and failures."""
-        rows = self.list(INSPECTION, {"batch_no": batch}, limit=2, order="creation desc, name desc",
-                         fields=("name", "creation", "modified", "modified_by", "docstatus", "status", STATE,
-                                 "batch_no", "custom_spec_revision", "custom_lot_quantity", "custom_lot_uom"))
+        rows = self.list(
+            INSPECTION,
+            {"batch_no": batch},
+            limit=2,
+            order="creation desc, name desc",
+            fields=(
+                "name",
+                "creation",
+                "modified",
+                "modified_by",
+                "docstatus",
+                "status",
+                STATE,
+                "batch_no",
+                "custom_spec_revision",
+                "custom_lot_quantity",
+                "custom_lot_uom",
+            ),
+        )
         if len(rows) == 2 and rows[0]["creation"] == rows[1]["creation"]:
             return None
         return eligible(rows[:1], batch, revision, quantity, uom)
@@ -150,8 +195,11 @@ class QMS:
     def dispatch_lease(self, lease, *, outcome, commit=None):
         """Change or read one QMS lease using the dedicated dispatcher credential."""
         try:
-            return self.request("POST", "method/norvale_dispatch_lease",
-                                {"lease": lease, "outcome": outcome, **({"commit": commit} if commit else {})}).get("message")
+            return self.request(
+                "POST",
+                "method/norvale_dispatch_lease",
+                {"lease": lease, "outcome": outcome, **({"commit": commit} if commit else {})},
+            ).get("message")
         except (APIError, json.JSONDecodeError) as exc:
             # The recurring runner treats an uncertain native transport as pending.
             raise URLError(str(exc)) from exc

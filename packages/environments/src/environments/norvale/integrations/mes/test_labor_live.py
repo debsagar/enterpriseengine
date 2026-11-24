@@ -2,8 +2,8 @@
 
 import json
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from .client import EVENT, MO, WO, Mes
 from .test_live import input_lots, must_fail
@@ -18,8 +18,7 @@ def run(fixture_path, lake_root):
     url = os.environ["MES_TEST_URL"]
     password = os.environ["MES_TEST_PASSWORD"]
     planner, operator, observer = [
-        Mes(url, "norvale_mes", role, password, source)
-        for role in ("planner", "operator", "observer")
+        Mes(url, "norvale_mes", role, password, source) for role in ("planner", "operator", "observer")
     ]
     reader = Mes(url, "norvale_mes", os.environ.get("MES_TEST_READER", "planner"), password, source)
     bom = fixture["boms"][0]
@@ -35,10 +34,19 @@ def run(fixture_path, lake_root):
         return planner.dispatch(origin, product, bom, revision, qty, hold)["id"]
 
     def envelope(mo, origin, intervals):
-        event = "company:" + json.dumps([["mes", source, str(mo), origin, "qualification"],
-                                         "complete", 0], separators=(",", ":"))
-        return dict(event=event, role="PRODUCTION", center=center, dispatch=str(mo), source=source,
-                    work_order=origin, intervals=intervals, minutes=sum(end - start for start, end in intervals))
+        event = "company:" + json.dumps(
+            [["mes", source, str(mo), origin, "qualification"], "complete", 0], separators=(",", ":")
+        )
+        return dict(
+            event=event,
+            role="PRODUCTION",
+            center=center,
+            dispatch=str(mo),
+            source=source,
+            work_order=origin,
+            intervals=intervals,
+            minutes=sum(end - start for start, end in intervals),
+        )
 
     def rows(qty):
         return input_lots((bulk, qty / 2), (bottle, qty))
@@ -49,11 +57,12 @@ def run(fixture_path, lake_root):
     must_fail(lambda: observer.complete(*args, labor=labor), "Manufacturing authority required")
     must_fail(lambda: operator.complete(*args, labor=labor), "original production operator and timer")
     wo = operator.start(mo, rows(4), released)
-    timer, = wo["time_ids"]
+    (timer,) = wo["time_ids"]
     start = operator.read(EVENT, timer)["date_start"]
     must_fail(lambda: planner.complete(*args, labor=labor), "original production operator and timer")
-    must_fail(lambda: operator.call(EVENT, "write", [timer], {"norvale_scheduled_labor": labor}),
-              "attribution is owned")
+    must_fail(
+        lambda: operator.call(EVENT, "write", [timer], {"norvale_scheduled_labor": labor}), "attribution is owned"
+    )
     must_fail(lambda: operator.complete(*args, labor=dict(labor, minutes=78)), "differ from the intervals")
     must_fail(lambda: operator.complete(mo, output, 2, rows(2), [], labor=labor), "held or lacks release")
     assert operator.read(MO, mo)["state"] != "done"
@@ -67,14 +76,15 @@ def run(fixture_path, lake_root):
     assert report["labor"]["native_id"] == timer and report["output"]["quantity"] == 2
     native = operator.read(EVENT, timer)
     assert native["date_start"] == start and native["date_end"] and native["duration"] < labor["minutes"]
-    must_fail(lambda: operator.complete(*args, labor=dict(labor, intervals=[[600, 648]])),
-              "different or missing scheduled labor")
-    must_fail(lambda: operator.complete(mo, output, 2, rows(1), [], labor=labor),
-              "Native completion or replay differs")
+    must_fail(
+        lambda: operator.complete(*args, labor=dict(labor, intervals=[[600, 648]])),
+        "different or missing scheduled labor",
+    )
+    must_fail(lambda: operator.complete(mo, output, 2, rows(1), [], labor=labor), "Native completion or replay differs")
     must_fail(lambda: planner.complete(*args, labor=labor), "original production operator and timer")
 
     child = report["backorder"]["native_id"]
-    child_wo, = operator.read(MO, child)["workorder_ids"]
+    (child_wo,) = operator.read(MO, child)["workorder_ids"]
     assert not operator.read(WO, child_wo)["time_ids"]
     assert scan_labor(lake_root, reader, [work_ref]) == 1
     operator.start(child, rows(2), released)
@@ -103,18 +113,32 @@ def run(fixture_path, lake_root):
     lake = Lake(Path(lake_root) / "delta", {"reader": [EVENT]})
     docs = {int(row["native_id"]): json.loads(row["payload"]) for row in lake.read("reader", EVENT)}
     assert len(docs) == 2 and {timer, child_timer} == docs.keys()
-    for native_id, production, operation, minutes in [(timer, mo, wo["id"], 48),
-                                                       (child_timer, child, child_wo, 30)]:
+    for native_id, production, operation, minutes in [(timer, mo, wo["id"], 48), (child_timer, child, child_wo, 30)]:
         row = docs[native_id]
         assert (row["production_id"], row["work_order_id"], row["user_id"], row["business_minutes"]) == (
-            production, operation, operator.uid, minutes)
+            production,
+            operation,
+            operator.uid,
+            minutes,
+        )
         assert "event" not in row and "description" not in row
     assert docs[timer]["business_minute_intervals"] == [[600, 630], [660, 678]]
     assert docs[timer]["odoo_timer_start_utc"] == start
     assert docs[timer]["odoo_timer_end_utc"] == native["date_end"]
     assert docs[timer]["odoo_timer_duration"] == native["duration"]
-    print(json.dumps(dict(labor=docs, interrupted_mo=interrupted, interrupted_wo=interrupted_wo["id"],
-                          fault=fault, delta_snapshots=len(docs), delta_commits=len(lake.history())), indent=2))
+    print(
+        json.dumps(
+            dict(
+                labor=docs,
+                interrupted_mo=interrupted,
+                interrupted_wo=interrupted_wo["id"],
+                fault=fault,
+                delta_snapshots=len(docs),
+                delta_commits=len(lake.history()),
+            ),
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

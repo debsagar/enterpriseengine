@@ -4,7 +4,6 @@ from copy import deepcopy
 from datetime import date
 from math import isfinite
 
-
 VERSION = 1
 JSON_TYPES = {
     "string": str,
@@ -143,11 +142,24 @@ class Registry:
         for index, descriptor in _array(descriptors, "descriptors"):
             path = f"descriptors[{index}]"
             _json(descriptor, path)
-            _object(descriptor, path, (
-                "version", "type", "instance_schema", "state_schema", "handles",
-                "emits", "parameters", "policies", "relations", "requires_adapters",
-                "provides_adapters", "provenance",
-            ))
+            _object(
+                descriptor,
+                path,
+                (
+                    "version",
+                    "type",
+                    "instance_schema",
+                    "state_schema",
+                    "handles",
+                    "emits",
+                    "parameters",
+                    "policies",
+                    "relations",
+                    "requires_adapters",
+                    "provides_adapters",
+                    "provenance",
+                ),
+            )
             _version(descriptor["version"], f"{path}.version")
             type_id = descriptor["type"]
             _name(type_id, f"{path}.type")
@@ -187,8 +199,11 @@ class Registry:
             if type_id not in self._types:
                 raise RegistryError(f"{path}.type", "unregistered component type")
             descriptor, descriptor_path = self._types[type_id]
-            for field, schema in (("config", "instance_schema"), ("state", "state_schema"),
-                                  ("parameters", "parameters")):
+            for field, schema in (
+                ("config", "instance_schema"),
+                ("state", "state_schema"),
+                ("parameters", "parameters"),
+            ):
                 _record(instance[field], descriptor[schema], f"{path}.{field}")
             _policies(instance["policies"], descriptor["policies"], f"{path}.policies")
             _object(instance["relations"], f"{path}.relations", descriptor["relations"])
@@ -214,7 +229,5 @@ class Registry:
             _, descriptor_path = self._types[instance["type"]]
             for offset, adapter in enumerate(descriptor["requires_adapters"]):
                 if adapter not in provided:
-                    raise RegistryError(
-                        f"{descriptor_path}.requires_adapters[{offset}]", f"missing adapter {adapter}"
-                    )
+                    raise RegistryError(f"{descriptor_path}.requires_adapters[{offset}]", f"missing adapter {adapter}")
         return deepcopy(resolved)

@@ -1,13 +1,13 @@
 """Draft Sales Orders through the existing Norvale Sales User client."""
-from datetime import date, timedelta
-from hashlib import sha256
+
 import json
 import os
 import re
+from datetime import date, timedelta
+from hashlib import sha256
 from urllib.parse import urlsplit
 
 from components.erp_client import ErpClient, q
-
 
 DOCTYPE = "Sales Order"
 OPERATION = "custom_norvale_operation"
@@ -31,19 +31,30 @@ def sales_transport(namespace, plan, *, token_env="NORVALE_INCREMENTAL_SALES_TOK
     if plan["consumer"] != "norvale" or plan["config"]:
         raise ValueError("Native transport supports Norvale orders with empty config only")
     target = plan.get("erp")
-    if (not isinstance(target, dict)
-            or set(target) != {"url", "site", "company", "customer", "item", "warehouse"}
-            or any(not isinstance(value, str) or not value.strip() for value in target.values())):
+    if (
+        not isinstance(target, dict)
+        or set(target) != {"url", "site", "company", "customer", "item", "warehouse"}
+        or any(not isinstance(value, str) or not value.strip() for value in target.values())
+    ):
         raise ValueError("ERP plan requires url, site, company, customer, item and warehouse")
     url = urlsplit(target["url"])
-    if (url.scheme not in ("http", "https") or not url.hostname or url.path
-            or url.username or url.password or url.query or url.fragment):
+    if (
+        url.scheme not in ("http", "https")
+        or not url.hostname
+        or url.path
+        or url.username
+        or url.password
+        or url.query
+        or url.fragment
+    ):
         raise ValueError("ERP url must be an HTTP(S) origin")
     validate_orders(plan["events"], epoch=epoch)
     token = os.environ.get(token_env)
     if not token:
         raise ValueError(f"Set {token_env} for the isolated Sales User")
-    return SalesOrders(ErpClient(target["url"], target["site"], token), namespace, target, epoch=epoch, employee=employee)
+    return SalesOrders(
+        ErpClient(target["url"], target["site"], token), namespace, target, epoch=epoch, employee=employee
+    )
 
 
 def validate_orders(events, *, epoch=EPOCH):
@@ -58,9 +69,16 @@ def validate_orders(events, *, epoch=EPOCH):
         if set(payload) - {"product"} != {"case", "quantity", "rate"}:
             raise ValueError("Order payload requires case, quantity and rate")
         case, quantity, rate = payload["case"], payload["quantity"], payload["rate"]
-        if (not isinstance(case, str) or not case or case != case.strip() or len(case) > 140
-                or type(quantity) not in (int, float) or not 0 < quantity < float("inf")
-                or type(rate) not in (int, float) or not 0 <= rate < float("inf")):
+        if (
+            not isinstance(case, str)
+            or not case
+            or case != case.strip()
+            or len(case) > 140
+            or type(quantity) not in (int, float)
+            or not 0 < quantity < float("inf")
+            or type(rate) not in (int, float)
+            or not 0 <= rate < float("inf")
+        ):
             raise ValueError("Invalid Sales Order reference, quantity or rate")
 
 
@@ -93,8 +111,7 @@ class SalesOrders:
 
     def find(self, system, retry_id):
         self._sales(system)
-        rows = self.client.list(DOCTYPE, {OPERATION: ["like", self._retry_prefix(retry_id) + "%"]},
-                                limit=2)
+        rows = self.client.list(DOCTYPE, {OPERATION: ["like", self._retry_prefix(retry_id) + "%"]}, limit=2)
         if len(rows) > 1:
             raise RuntimeError("Ambiguous ERP retry identity")
         return rows[0]["name"] if rows else None
@@ -118,15 +135,28 @@ class SalesOrders:
             marker += "-r" + role_digest(item, role)
         elif "item" in document:
             marker += "-i" + sha256(item.encode()).hexdigest()[:32]
-        row = self.client.create(DOCTYPE, {
-            OPERATION: marker,
-            **({"remarks": role} if role is not None else {}),
-            "company": self.target["company"], "customer": self.target["customer"],
-            "po_no": document["case"], "transaction_date": day.isoformat(),
-            "delivery_date": delivery, "ignore_pricing_rule": 1,
-            "items": [{"item_code": item, "warehouse": self.target["warehouse"],
-                       "delivery_date": delivery, "qty": document["quantity"], "rate": document["rate"]}],
-        })
+        row = self.client.create(
+            DOCTYPE,
+            {
+                OPERATION: marker,
+                **({"remarks": role} if role is not None else {}),
+                "company": self.target["company"],
+                "customer": self.target["customer"],
+                "po_no": document["case"],
+                "transaction_date": day.isoformat(),
+                "delivery_date": delivery,
+                "ignore_pricing_rule": 1,
+                "items": [
+                    {
+                        "item_code": item,
+                        "warehouse": self.target["warehouse"],
+                        "delivery_date": delivery,
+                        "qty": document["quantity"],
+                        "rate": document["rate"],
+                    }
+                ],
+            },
+        )
         return row["name"]
 
     def read(self, system, native_id):
@@ -134,10 +164,15 @@ class SalesOrders:
         row = self.client.get(DOCTYPE, native_id)
         match = self.marker.fullmatch(row.get(OPERATION) or "")
         items = row.get("items", [])
-        if (not match or row.get("name") != native_id or row.get("docstatus") != 0
-                or row.get("owner") != self.user or len(items) != 1
-                or any(row.get(key) != self.target[key] for key in ("company", "customer"))
-                or items[0].get("warehouse") != self.target["warehouse"]):
+        if (
+            not match
+            or row.get("name") != native_id
+            or row.get("docstatus") != 0
+            or row.get("owner") != self.user
+            or len(items) != 1
+            or any(row.get(key) != self.target[key] for key in ("company", "customer"))
+            or items[0].get("warehouse") != self.target["warehouse"]
+        ):
             raise RuntimeError("Sales Order readback is outside the expected draft or run scope")
         item = items[0].get("item_code")
         role = row.get("remarks") if match[2] == "r" else "sales"
@@ -146,8 +181,7 @@ class SalesOrders:
             # the item and role to the write. Resolve only a commissioned or
             # catalogued name whose digest matches that stored evidence.
             candidates = (self.role,) if self.role is not None else self.catalog_roles()
-            matches = [candidate for candidate in candidates
-                       if role_digest(item, candidate) == match[3]]
+            matches = [candidate for candidate in candidates if role_digest(item, candidate) == match[3]]
             if len(matches) != 1:
                 raise RuntimeError("Native Sales Order role marker cannot be resolved")
             role = matches[0]
@@ -156,20 +190,29 @@ class SalesOrders:
         if not isinstance(role, str) or not role.strip() or not isinstance(item, str):
             raise RuntimeError("Invalid Sales Order item or role")
         digest = role_digest(item, role) if match[2] == "r" else sha256(item.encode()).hexdigest()[:32]
-        if (digest != match[3] if match[2] else item != self.target["item"]):
+        if digest != match[3] if match[2] else item != self.target["item"]:
             raise RuntimeError("Sales Order native item differs from the intended product")
         at = int(match[1])
         day, delivery = order_dates(at, self.epoch)
-        if (row.get("transaction_date") != day.isoformat()
-                or row.get("delivery_date") != delivery or items[0].get("delivery_date") != delivery):
+        if (
+            row.get("transaction_date") != day.isoformat()
+            or row.get("delivery_date") != delivery
+            or items[0].get("delivery_date") != delivery
+        ):
             raise RuntimeError("Sales Order dates disagree with the business minute")
         return {
-            "kind": "order", "at": at, "native_id": row["name"], "system": system,
+            "kind": "order",
+            "at": at,
+            "native_id": row["name"],
+            "system": system,
             **({"item": item} if match[2] else {}),
-            "case": row["po_no"], "quantity": items[0]["qty"], "rate": items[0]["rate"],
+            "case": row["po_no"],
+            "quantity": items[0]["qty"],
+            "rate": items[0]["rate"],
             **({"order_role": role} if match[2] == "r" else {}),
             **({"owner": self.user} if self.role is not None else {}),
-            "roles": [role], "source_url": self.target["url"] + "/app/sales-order/" + q(row["name"]),
+            "roles": [role],
+            "source_url": self.target["url"] + "/app/sales-order/" + q(row["name"]),
         }
 
     def records(self):
