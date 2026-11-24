@@ -10,6 +10,48 @@ Set `world: true` in a new engine consumer configuration. For real recurring Nor
 - A delay notice identifies the PO and its original promised date and says revised timing is pending. The role evidence for subsequent approvals uses confirmed mail readbacks through `native.company_world.evidence`, including the recipient and the as-of date. The queued arrival time stays in the evaluator checkpoint. The existing warehouse phase maps and submits the Purchase Receipt after its configured booking lag, then carries on with quarantine, QA and billing.
 - Delay magnitudes are Norvale scenario assumptions. A disruption adds seven days and the supplier chain adds 0, 3, 7 or 14 days according to reliability. The last value models substitution delay after supplier failure. The checkpoint schedules one arrival per commitment. This increment uses one representative reliability process with a single checkpoint per shipment and retains the usual receipt quantity and pricing paths.
 
+## Registered weekly demand
+
+Consumers can install `components.weekly_demand.WeeklyDemand()` as their
+`world_process` and opt in with `{"world": true, "world_demand": {"version": 1,
+"roles": ["planner"]}}`. Reopening requires the same process, configuration
+and seed.
+
+`run.observe_world(role, as_of=minute)` returns committed week readings for
+authorized roles. Each row's `at` is the inclusive opening minute of the
+10,080-minute week. The forecast is a noisy estimate for that week and appears
+at opening. The realized sales total (`pos_units`) is null until the following
+boundary, when the week closes. A running handler can read only its own role
+and cannot ask for a future cutoff. The evaluator can inspect the latent
+process through `private_truth`. Company code reads the role-scoped projection.
+
+Version 1 models one
+aggregate demand series, sampled at opening and every 10,080 business minutes
+thereafter. Opening is normal. Each subsequent normal week has a 3% chance of
+starting a promotion, 1.5% of starting a seasonal lift, and 0.5% of starting a
+structural decline. A promotion lasts four sampled weeks. A seasonal lift
+continues with probability 0.85 up to eight sampled weeks. A decline continues
+with probability 0.97 each week, with no fixed cap.
+
+The normal mean is 20 units. Promotion and seasonal onset both have mean 26.
+Promotion stays at 26, later seasonal weeks use 30, and decline uses 14.
+The realized POS and forecast are independent Gaussian readings conditional on
+that week's mean, with standard deviations 4 and 6 units respectively, rounded
+to nonnegative integers. The forecast is a noisy estimate of the current demand
+level. The seed, sample minute and versioned stream names determine each of
+the transition, realized and forecast draws independently of the disruption
+and supplier streams.
+
+The [packing example](examples/demand_packing.py) books staffed work from the
+previous week's realized units when that total becomes available. The recurring
+Norvale launcher retains its existing demand rules.
+
+```sh
+uv run python -m docs.examples.demand_packing --run ./runs/demand-desk --until 0
+uv run python -m docs.examples.demand_packing --run ./runs/demand-desk --until 10140
+uv run python -m unittest discover -s contracts -p test_v1_world.py -v
+```
+
 ## Viewer integration
 
 `Engine.private_truth()` returns a detached evaluator snapshot with `world` samples and, after transit evaluation, `deliveries` keyed by commitment. The handoff is `Engine.viewer(include_private=True)` → `_journal.viewer(..., private_truth=...)` → the escaped `#private-world` section with an explicit private label. The default viewer passes `None`. Keep this argument out of role observations, providers, exports and the default viewer. Public bulletin and notice writes appear through the existing record → event and action → call attempts links. Native recurring notices use the native trace's `native_mail_readback` and the world event ID. The offline call-journal viewer covers journaled engine transports.

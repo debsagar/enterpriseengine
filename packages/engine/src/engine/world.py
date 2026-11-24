@@ -117,6 +117,9 @@ def tick(engine):
                       engine.config.get("world_fixture", {}).get("initial_disruption", "calm"))
     supplier = reliability(prior.get("supplier_reliability"), stream(engine.seed, "supplier", at))
     rows.append(dict(at=at, disruption=lane, supplier_reliability=supplier))
+    if engine._world_process is not None:
+        samples = engine._world_samples
+        samples.append(engine._world_process.sample(samples[-1] if samples else None, engine.seed, at))
     state = lane["event_state"]
     band = "warning" if state == "false_alarm" or (state == "disruption" and lane["event_age"] == 0) else state
     fields = {"text": BULLETINS[band]}
