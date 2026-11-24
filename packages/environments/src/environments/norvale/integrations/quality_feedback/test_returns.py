@@ -1,6 +1,5 @@
 import hashlib
 import json
-import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -90,7 +89,7 @@ class ReturnReplayTest(unittest.TestCase):
         line, = note["items"]
         receipt = dict(observation="receipt-a", quantity="1", observed_on="2026-01-09",
                        complaint="CASE", delivery="DN", line="ROW", batch="LOT")
-        with TemporaryDirectory(dir=os.getenv("TMPDIR", "/data")) as path:
+        with TemporaryDirectory() as path:
             def run(**overrides):
                 return receive(checkpoint_engine(Path(path), api),
                                SimpleNamespace(**{**receipt, **overrides}), case, note, line, release, scope, "erp")
@@ -147,7 +146,7 @@ class ReturnReplayTest(unittest.TestCase):
         line, = note["items"]
         receipt = SimpleNamespace(observation="receipt-kg", quantity="0.5", observed_on="2026-01-09",
                                   complaint="CASE", delivery="DN", line="ROW", batch="LOT")
-        with TemporaryDirectory(dir=os.getenv("TMPDIR", "/data")) as path:
+        with TemporaryDirectory() as path:
             e = checkpoint_engine(Path(path), api)
             with self.assertRaisesRegex(ValueError, "exceed"):
                 receive(e, receipt, case, note, line, release, scope, "erp")
