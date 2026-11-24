@@ -289,7 +289,7 @@ class Runner:
         return {"head": self.git("rev-parse", "HEAD"),
                 "status_sha256": sha256(status.encode()).hexdigest()}
 
-    def verify_model_checkout(self, path, number, before, read_only):
+    def verify_model_checkout(self, path, number, before, head, *, write):
         try:
             after = self.clone_snapshot()
             self.journal.add(number, "clone-check", before=before, after=after)
@@ -301,7 +301,9 @@ class Runner:
             for entry in status.split("\0"):
                 if entry and not (path / entry[3:]).resolve().is_relative_to(path):
                     raise JobError("A changed path resolves outside the issue worktree.")
-            if read_only and (status or self.git("rev-parse", "HEAD", cwd=path) != read_only):
+            if self.git("rev-parse", "HEAD", cwd=path) != head:
+                raise JobError("The model changed the issue worktree HEAD.")
+            if not write and status:
                 raise JobError("A read-only model run changed the issue worktree.")
         except JobError:
             raise
@@ -311,11 +313,9 @@ class Runner:
     def model(self, path, model, prompt, payload, fields, *, write=False):
         unrestricted = self.sandbox == "danger-full-access"
         sandbox = self.sandbox if write or unrestricted else "read-only"
-        before = read_only = None
         if unrestricted:
             before = self.clone_snapshot()
-            if not write:
-                read_only = self.git("rev-parse", "HEAD", cwd=path)
+            head = self.git("rev-parse", "HEAD", cwd=path)
             prompt = (
                 f"Modify files only inside {path}. Leave Git metadata and commits to the runner. "
                 "Never read or print .env*, state.json, secrets.json, or .local/ contents. "
@@ -340,7 +340,7 @@ class Runner:
                 return None
             finally:
                 if unrestricted:
-                    self.verify_model_checkout(path, payload["number"], before, read_only)
+                    self.verify_model_checkout(path, payload["number"], before, head, write=write)
             if not isinstance(result, dict) or set(result) != set(fields):
                 return None
             for key, field in fields.items():
@@ -350,13 +350,17 @@ class Runner:
             return result
 
     def work(self, item, path, head, findings, *, verify=False):
-        action = (
-            f"Verify acceptance on the current immutable head {head}. Make no changes."
-            if verify else
-            "Implement or repair this issue. Run the exact acceptance test before committing. "
-            "Commit the issue changes locally. If Git metadata is sandboxed, leave only the "
-            "intended source changes in the worktree for the runner to commit."
-        )
+        if verify:
+            action = f"Verify acceptance on the current immutable head {head}. Make no changes."
+        else:
+            action = "Implement or repair this issue. Run the exact acceptance test. "
+            if self.sandbox == "danger-full-access":
+                action += "Leave the intended source changes for the runner to commit."
+            else:
+                action += (
+                    "Commit the issue changes locally. If Git metadata is sandboxed, leave only "
+                    "the intended source changes in the worktree for the runner to commit."
+                )
         report = self.model(
             path, "gpt-6.2-sol",
             TASK_RULES + action + "\nReturn passed, the exact acceptance command, and concise "
