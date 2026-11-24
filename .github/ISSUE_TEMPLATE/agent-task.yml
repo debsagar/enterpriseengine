@@ -1,0 +1,37 @@
+name: Agent task
+description: Define a scoped task and an acceptance test for an implementation agent.
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: Describe the outcome and its scope.
+    validations:
+      required: true
+  - type: input
+    id: acceptance
+    attributes:
+      label: Acceptance test command
+      description: Give the exact command and expected result.
+    validations:
+      required: true
+  - type: dropdown
+    id: packages
+    attributes:
+      label: Packages
+      multiple: true
+      options:
+        - engine
+        - components
+        - environments
+        - contracts
+        - repository tooling
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Link prerequisite issues or pull requests, or enter None.
+    validations:
+      required: true

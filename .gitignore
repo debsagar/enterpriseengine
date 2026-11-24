@@ -5,8 +5,9 @@ __pycache__/
 .env.*
 !.env.example
 runs/
-native/*-run/
-native/run/
+**/*-run/
+**/run/
+.local/
 env-cache/
 **/env/
 *.sql
@@ -17,6 +18,8 @@ env-cache/
 **/private/expert-inbox-v1/
 
 # Python distribution artifacts
-/build/
-/dist/
 *.egg-info/
+**/build/
+**/dist/
+.pytest_cache/
+.coverage

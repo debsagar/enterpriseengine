@@ -8,3 +8,16 @@ Then update Norvale's engine lock to the tested commit, carry the corresponding 
 
 - [Norvale runtime and dataset repository](https://github.com/debsagar/norvale)
 - [Historical research index](https://github.com/debsagar/enterpriseknowledge/blob/main/INDEX.md)
+
+## Agent tasks on dev
+
+Assign one `agent-ready` issue per worktree based on `origin/dev`. Record the
+goal, acceptance command, affected packages and dependencies in the issue.
+Open the pull request against `dev`, include the test result and compatibility
+notes, then request review from a different model. A human merges after review
+and the required checks pass.
+
+Install the workspace with `uv sync --locked --all-packages`. Run the engine
+tests in `packages/engine/tests` and the cross-package replay tests in
+`contracts`. The package workflow lists the offline commands and also checks
+import direction and installed-wheel compatibility.

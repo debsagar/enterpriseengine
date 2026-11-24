@@ -21,3 +21,25 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: bash scripts/check_release.sh
+
+  workspace:
+    name: Offline workspace tests
+    if: github.base_ref == 'dev' || github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NORVALE_OFFLINE: '1'
+      NORVALE_RELEASE: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install uv==0.12.13
+      - run: uv sync --locked --all-packages
+      - run: uv run --no-sync --offline python scripts/check_imports.py
+      - run: uv run --no-sync --offline python -m unittest discover -s packages/engine/tests
+      - run: uv run --no-sync --offline python -m unittest discover -s contracts
+      - run: uv run --no-sync --offline python -m unittest discover -s packages/environments/src/environments/norvale/integrations -t packages/environments/src
