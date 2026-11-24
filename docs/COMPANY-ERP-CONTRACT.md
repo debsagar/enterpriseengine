@@ -1,6 +1,6 @@
 # Recurring ERP company authority contract
 
-Enable on a fresh run with `python generate.py --run PATH --provision --company-authority package.module:factory`.
+Enable on a fresh run with `uv run norvale-generate --run PATH --provision --company-authority package.module:factory`.
 The saved `config.json` selects the integration on every restart. `factory(Path(run))` returns the authority object. Programmatic callers can pass the same interface as `Engine(run, company_authority=adapter)` or `initialize(run, config, company_authority=adapter)` with the configuration key present. A separate run/site is required because serial-and-batch tracking starts at Item creation.
 
 The authority composes authenticated PLM, MES and QMS adapters. Use role-scoped credentials and read the authoritative system each time. The role argument is the requested controller identity. The adapter is responsible for checking native identity, approval authority, effectivity, the accessible evidence and the latest version. Return only JSON-native values. Return `None` for an authoritative absence on singular reads, and raise `native.company_erp.Pending` (or a transport error) when authority is unavailable or ambiguous. Use ISO business dates and native, nonempty string IDs and versions. A repeated successful read of a version must return the same payload.

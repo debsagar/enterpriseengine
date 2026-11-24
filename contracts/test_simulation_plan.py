@@ -5,14 +5,15 @@ import sys
 import tempfile
 import unittest
 
-from simulate import ROOT, load_scenario
+from environments.norvale.paths import CHECKOUT
+from environments.norvale.simulate import load_scenario
 
 
 class ScenarioContract(unittest.TestCase):
     def test_native_q1_plan_and_invalid_opening_work(self):
         with tempfile.TemporaryDirectory() as tmp:
-            run = ROOT.parent / (Path(tmp).name + "-company")
-            output = subprocess.check_output([sys.executable, ROOT / "simulate.py",
+            run = CHECKOUT.parent / (Path(tmp).name + "-company")
+            output = subprocess.check_output([sys.executable, "-m", "environments.norvale.simulate",
                                               "--run", run, "--plan"], text=True)
             plan = json.loads(output)
             self.assertFalse(run.exists())

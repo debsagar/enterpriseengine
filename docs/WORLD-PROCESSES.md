@@ -1,6 +1,6 @@
 # Seeded world processes
 
-Set `world: true` in a new engine consumer configuration. For real recurring Norvale, `generate.py --provision --world --run <fresh-directory>` opts in during provisioning. Resume with the saved configuration. The recurring company checkpoint binds the seed and fixture at the first persist, and the calendar checkpoint binds the complete consumer configuration. Leave the option absent for the existing recurring behavior. The 120-day dataset and fixed-scenario run are protected by the existing run-path checks.
+Set `world: true` in a new engine consumer configuration. For real recurring Norvale, `norvale-generate --provision --world --run <fresh-directory>` opts in during provisioning. Resume with the saved configuration. The recurring company checkpoint binds the seed and fixture at the first persist, and the calendar checkpoint binds the complete consumer configuration. Leave the option absent for the existing recurring behavior. The 120-day dataset and fixed-scenario run are protected by the existing run-path checks.
 
 ## Calendar and role evidence
 

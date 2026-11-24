@@ -316,7 +316,7 @@ outside the viewer.
   inspectable with whatever evidence exists. Calls that predate the journal
   have no attempt history.
 - Coverage is at the integrated engine adapter boundary. The ordinary
-  `generate.py incremental` ERP path currently supplies sales operations
+  `norvale-generate incremental` ERP path currently supplies sales operations
   and has no configured provider. Per-request HTTP/SMTP internals and
   the separate legacy daily generator use their own paths. The two-consumer
   provider checks use injected offline adapters.

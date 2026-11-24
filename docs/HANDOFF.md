@@ -74,7 +74,7 @@ In addition to routing and missing applications above: nominal passing QA, aggre
 - docs/GENERATING.md: isolated new-run commands and model configuration.
 - docs/PROVENANCE.md: trajectory corrections and release limitations.
 - native/company.py, router.py, regimes.py, systems_v2.py: implementation.
-- notebooks/Behavior.ipynb: six-cell read-only behavior view.
+- docs/notebooks/Behavior.ipynb: six-cell read-only behavior view.
 - PROJECT-LOG.jsonl: append-only evidence history.
 
 The original chat/transcripts and private run evidence are not shipped. This handoff records the necessary intent; do not assume access to the author's VM or reconstruct missing history from guesses.

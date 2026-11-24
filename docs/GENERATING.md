@@ -36,9 +36,9 @@ Generation makes paid network calls. There is no built-in spending ceiling. Miss
 Use a new empty run directory; never point this at the published `data/` snapshot or another existing run.
 
 ```sh
-uv run python generate.py --run "$PWD/runs/my-run" --provision --days 120
+uv run norvale-generate --run "$PWD/runs/my-run" --provision --days 120
 uv run python -m environments.norvale.native.provision_tickets_v2 "$PWD/runs/my-run"
-uv run python generate.py --run "$PWD/runs/my-run"
+uv run norvale-generate --run "$PWD/runs/my-run"
 uv run python -m environments.norvale.native.verify_run "$PWD/runs/my-run"
 ```
 
@@ -51,7 +51,7 @@ A fresh run is not guaranteed to reproduce the delivered trajectory byte-for-byt
 Submit from a second shell, including while the ordinary recurring controller is running.
 
 ```sh
-uv run python generate.py --run runs/my-run --extend additions.json
+uv run norvale-generate --run runs/my-run --extend additions.json
 ```
 
 The operator-only command uses the existing stack identity and writes an
@@ -242,7 +242,7 @@ is recorded for that source and the collector continues reading its peers.
 
 ## Run an incremental event plan
 
-`generate.py incremental` runs the integrated minute-based engine against a
+`norvale-generate incremental` runs the integrated minute-based engine against a
 separate checkpoint. Use a private, isolated ERPNext installation with the
 Norvale master data, the existing unique `Sales Order.custom_norvale_operation`
 field, and a token for the seeded `sales@norvale.test` Sales User. This command
@@ -281,10 +281,10 @@ record names there.
 
 ```sh
 # Create with a path that does not exist. The order starts at minute 540.
-uv run python generate.py incremental --run runs/orders-jan04 --plan incremental-orders.json --until 540
+uv run norvale-generate incremental --run runs/orders-jan04 --plan incremental-orders.json --until 540
 
 # Resume the in-flight order at its completion minute without adding events.
-uv run python generate.py incremental --run runs/orders-jan04 --until 555
+uv run norvale-generate incremental --run runs/orders-jan04 --until 555
 ```
 
 Minutes start at Monday, January 4, 2027 00:00 UTC. The cutoff is inclusive.
@@ -335,8 +335,8 @@ python3 scripts/build_viewer.py
 To rebuild the executed notebook over bundled data:
 
 ```sh
-uv pip install -r requirements.txt
-uv run --no-sync python -m environments.norvale.native.build_behavior_notebook --out notebooks
+uv pip install -r docs/notebooks/requirements.txt
+uv run --no-sync python -m environments.norvale.native.build_behavior_notebook --out docs/notebooks
 ```
 
-Open notebooks from `notebooks/`; their data path is `../data/observable`. Run All only reads files. To inspect a new run, pass `--run runs/my-run/export`; the generated notebook uses a relative path to that export's `observable/` directory. `packages/environments/src/environments/norvale/native/build_evidence.py` separately builds development reference questions from private trace/state of a new run; private traces are not included in this release.
+Open notebooks from `docs/notebooks/`; their data path is `../../data/observable`. Run All only reads files. To inspect a new run, pass `--run runs/my-run/export`; the generated notebook uses a relative path to that export's `observable/` directory. `packages/environments/src/environments/norvale/native/build_evidence.py` separately builds development reference questions from private trace/state of a new run; private traces are not included in this release.

@@ -7,7 +7,7 @@ For employee identities, API credentials, native permissions and approval handof
 The published starter opens with four customer orders totaling 720 units. This example uses the native Norvale company implementation. Change quantities and due days to change the pressure on its planner. A due day is an offset from the start of the scenario.
 
 ```python
-from examples.norvale import norvale_quarter
+from docs.examples.norvale import norvale_quarter
 import json
 from pathlib import Path
 
@@ -19,7 +19,7 @@ Path("my-norvale.json").write_text(json.dumps(scenario))
 From the checkout, inspect the customized scenario before provisioning:
 
 ```sh
-uv run python simulate.py --scenario my-norvale.json --run /data/enterprise/runs/my-norvale --plan
+uv run norvale-simulate --scenario my-norvale.json --run /data/enterprise/runs/my-norvale --plan
 ```
 
 For the full company, complete the [native prerequisites](GENERATING.md) and use the same command without `--plan`. That provisions a private deployment and can incur live provider costs. A successfully commissioned run resumes from its original directory. Pick a fresh directory for a different opening.
@@ -44,7 +44,7 @@ def open_sales_day(directory, native):
     return company
 ```
 
-This small API example covers one draft sales order. For the complete native manufacturing company, the [scenario launcher](../simulate.py) invokes the [recurring operating loop](../packages/environments/src/environments/norvale/native/company.py). Its [ERP controller](../packages/environments/src/environments/norvale/native/company_erp.py) and [cross-application adapters](../packages/environments/src/environments/norvale/integrations/company_run) coordinate product revisions, factory execution, quality decisions, shipment and lake ingestion. Following one order reads links produced by that loop. Other orders remain in competition for stock and staff.
+This small API example covers one draft sales order. For the complete native manufacturing company, the [scenario launcher](../packages/environments/src/environments/norvale/simulate.py) invokes the [recurring operating loop](../packages/environments/src/environments/norvale/native/company.py). Its [ERP controller](../packages/environments/src/environments/norvale/native/company_erp.py) and [cross-application adapters](../packages/environments/src/environments/norvale/integrations/company_run) coordinate product revisions, factory execution, quality decisions, shipment and lake ingestion. Following one order reads links produced by that loop. Other orders remain in competition for stock and staff.
 
 ## Changing a running company
 

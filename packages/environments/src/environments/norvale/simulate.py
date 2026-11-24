@@ -108,7 +108,9 @@ def main(*, checkout=CHECKOUT):
                                check=True, stdout=log, stderr=subprocess.STDOUT)
             (runtime / "commissioned").touch()
         python = release / ".venv/bin/python" if (release / SOURCE_LAYOUT).is_dir() else sys.executable
-        subprocess.run([python, "generate.py", "--run", str(runtime / "business")], cwd=release, check=True)
+        # Archives made before the entry points still carry the root launcher.
+        generator = ["generate.py"] if (release / "generate.py").is_file() else ["-m", "environments.norvale.generate"]
+        subprocess.run([python, *generator, "--run", str(runtime / "business")], cwd=release, check=True)
     except (OSError, ImportError, ValueError, subprocess.CalledProcessError) as exc:
         p.exit(1, f"{exc}\n")
 

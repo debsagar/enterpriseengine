@@ -4,7 +4,7 @@
 
 ## Purpose and domain
 
-Norvale is a synthetic consumer-care manufacturer. Its existing catalogue includes shampoo and body lotion (`walkthrough/engine.py`). We need believable work to create records in real applications so an extraction harness can reconstruct relationships, decisions and history. We are extending the existing engine, not building a second company simulator.
+Norvale is a synthetic consumer-care manufacturer. Its existing catalogue includes shampoo and body lotion (`packages/environments/src/environments/norvale/walkthrough.py`). We need believable work to create records in real applications so an extraction harness can reconstruct relationships, decisions and history. We are extending the existing engine, not building a second company simulator.
 
 The working domain is batch manufacture followed by filling and packing. Configured runs can schedule lab turnaround, pin an approved revision, and link an intermediate bulk lot to the lots used for packing. The bulk path supports one intermediate stage. Recipes, assay limits, staffing and durations are explicit simulation inputs. [Production workflow](../tests/test_company_bulk.py)
 

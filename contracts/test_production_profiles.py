@@ -12,7 +12,7 @@ from xmlrpc.client import Fault
 from unittest import TestCase
 from unittest.mock import patch
 
-import generate
+from environments.norvale import generate
 from environments.norvale.native import company
 from environments.norvale.integrations.company_run.authority import Authority
 from environments.norvale.integrations.company_run.maintenance_staff import ACTORS

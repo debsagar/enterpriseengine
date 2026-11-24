@@ -9,10 +9,10 @@ Run from the checkout with the employee obligation API available. Use a fresh
 directory for each app and the same directory for both cutoffs.
 
 ```sh
-python3 -m examples.obligation_cases warehouse --run ./runs/shortage --until 19
-python3 -m examples.obligation_cases warehouse --run ./runs/shortage --until 27
-python3 -m examples.obligation_cases sla --run ./runs/restoration --until 19
-python3 -m examples.obligation_cases sla --run ./runs/restoration --until 27
+python3 -m docs.examples.obligation_cases warehouse --run ./runs/shortage --until 19
+python3 -m docs.examples.obligation_cases warehouse --run ./runs/shortage --until 27
+python3 -m docs.examples.obligation_cases sla --run ./runs/restoration --until 19
+python3 -m docs.examples.obligation_cases sla --run ./runs/restoration --until 27
 ```
 
 | Business minute | Warehouse shortage | Managed services restoration SLA |

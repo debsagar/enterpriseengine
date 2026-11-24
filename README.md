@@ -81,8 +81,8 @@ From a Linux or other supported POSIX checkout with Python 3.10+, SQLite and uv,
 git clone https://github.com/debsagar/enterpriseengine.git
 cd enterpriseengine
 uv sync --locked --all-packages
-uv run python -m examples.first_run --run ./runs/desk --until 550
-uv run python -m examples.first_run --run ./runs/desk --until 560
+uv run python -m docs.examples.first_run --run ./runs/desk --until 550
+uv run python -m docs.examples.first_run --run ./runs/desk --until 560
 ```
 
 The first command that runs the engine completes A at 09:10. The second reopens the same checkpoint and completes B at 09:20. Its output is:
@@ -106,7 +106,7 @@ The file below is the complete input to the example. Minutes are offsets from th
 }
 ```
 
-Try changing `staff` to `2` in a copy of the JSON. Pass it with `--opening your-file.json` and use a **fresh run directory**. Both reviews then finish at 09:10. In an existing run, replaying the same opening ID with changed contents is rejected. [Opening file](examples/first-run/opening.json) · [Field reference and runtime additions](docs/ENGINE-INPUTS.md)
+Try changing `staff` to `2` in a copy of the JSON. Pass it with `--opening your-file.json` and use a **fresh run directory**. Both reviews then finish at 09:10. In an existing run, replaying the same opening ID with changed contents is rejected. [Opening file](docs/examples/first-run/opening.json) · [Field reference and runtime additions](docs/ENGINE-INPUTS.md)
 
 Load that JSON in your host with ordinary Python:
 
@@ -114,12 +114,12 @@ Load that JSON in your host with ordinary Python:
 import json
 from pathlib import Path
 
-opening = json.loads(Path("examples/first-run/opening.json").read_text())
+opening = json.loads(Path("docs/examples/first-run/opening.json").read_text())
 # run is an Engine whose handler implements the "review" action.
 run.extend(opening["id"], roles=opening["roles"], events=opening["events"])
 ```
 
-[Complete JSON-driven host](examples/first_run.py) · [Constructor, event and catalog fields](docs/ENGINE-INPUTS.md)
+[Complete JSON-driven host](docs/examples/first_run.py) · [Constructor, event and catalog fields](docs/ENGINE-INPUTS.md)
 
 ## Features and boundaries
 
@@ -151,5 +151,5 @@ Norvale models a manufacturer with engineering, production, quality, warehouse a
 
 - [Write the Norvale scenario in Python](docs/write-norvale.md)
 - [Connect employee identities, software APIs and approval authority](docs/roles-and-software.md)
-- [Operate the full company and inspect the historical dataset](NORVALE.md)
+- [Operate the full company and inspect the historical dataset](docs/NORVALE.md)
 - [Norvale operating-loop architecture](docs/ARCHITECTURE.md)

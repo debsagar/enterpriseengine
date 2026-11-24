@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-import generate
+from environments.norvale import generate
 from test_engine_goals import Native
 
 
