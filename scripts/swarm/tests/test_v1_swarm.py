@@ -1239,5 +1239,22 @@ class SwarmTest(unittest.TestCase):
             provenance.check(provenance.block({**record, "issue_reason": ""}), commits)
 
 
+class SingleMerger(unittest.TestCase):
+    def test_second_merger_process_is_refused_while_first_holds_lock(self):
+        # Issue #50 acceptance: the Merger stays single-instance across host processes.
+        script = ("import sys; from pathlib import Path; import run; run.STATE = Path(sys.argv[1])\n"
+                  "try:\n    cm = run.role_lock('merger'); cm.__enter__()\nexcept run.JobError as e:\n"
+                  "    print(e); sys.exit(3)\nprint('acquired'); sys.exit(0)\n")
+        with TemporaryDirectory() as root, patch.object(swarm, "STATE", Path(root)):
+            with swarm.role_lock("merger"):
+                second = subprocess.run([sys.executable, "-c", script, root], capture_output=True, text=True,
+                                        cwd=Path(swarm.__file__).parent, timeout=60)
+                self.assertEqual(second.returncode, 3, second.stdout + second.stderr)
+                self.assertIn("Another merger process holds the lock", second.stdout)
+            third = subprocess.run([sys.executable, "-c", script, root], capture_output=True, text=True,
+                                   cwd=Path(swarm.__file__).parent, timeout=60)
+            self.assertEqual(third.returncode, 0, third.stdout + third.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
