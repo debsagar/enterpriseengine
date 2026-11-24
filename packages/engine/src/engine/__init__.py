@@ -287,6 +287,7 @@ class Engine:
             checkpoint = self._load()
             if from_command:
                 self._consumer_identity = checkpoint.get("consumer")
+                self._world_process_identity = checkpoint.get("world_process")
                 self.seed = checkpoint["seed"]
                 self.config = checkpoint["config"]
             if from_command or checkpoint != self._checkpoint:
