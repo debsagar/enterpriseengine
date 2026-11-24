@@ -108,3 +108,21 @@ An instance supplies a list of entries for each declared name with `value`,
 half-open, allow an unbounded end with JSON null, and must be disjoint per
 instance and parameter. Empty declaration maps and lists express unused
 capabilities. The offline contract is exercised by `contracts/test_v1_registry.py`.
+
+## TK-101 equipment step
+
+The host supplies six chronological scan inputs for an engine minute (B).
+Each input provides feed, ambient temperature, header pressure, controller
+setpoints and modes, and transmitter calibration offsets. The component (C)
+advances ten one-second substeps per scan and returns samples at `+10` through
+`+60` seconds relative to the opening checkpoint. These are scan-close times.
+The reference batch arrays label the same rows by scan index.
+
+`components.equipment.tank` returns controller readings and commands (D)
+separately from physical truth and the private JSON checkpoint. The readings
+are controller PVs before historian processing. The deterministic kernel has
+no random stream. The host owns any stochastic input generation and its
+checkpoint. The component is available for host composition and writes no
+native records. The offline `contracts/test_v1_tank.py` suite checks all 13
+kernel outputs against the reference and checks JSON resume across a mode
+transition.
