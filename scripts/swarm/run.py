@@ -182,6 +182,10 @@ def scope_paths(entries):
     return sorted(set(paths))
 
 
+def scoped_commit_message(subject, identity, scope):
+    return provenance.commit_message(subject, identity) + "\nClaim-Scope: " + (" ".join(scope) or "Unknown")
+
+
 def file_scope(item):
     sections = FILE_SCOPE.findall(item.get("body") or "")
     return scope_paths(sections[0].splitlines()) if len(sections) == 1 else []
@@ -728,8 +732,7 @@ class Runner(Client):
                     "run": token, "runner": self.runner_sha, "reviewer": REVIEWER_MODEL}
         scope = file_scope(item)
         sha = self.git("commit-tree", f"{base}^{{tree}}", "-p", base, "-m",
-                       provenance.commit_message(f"Swarm claim #{number} by {self.worker}", identity)
-                       + "\nClaim-Scope: " + (" ".join(scope) or "Unknown"))
+                       scoped_commit_message(f"Swarm claim #{number} by {self.worker}", identity, scope))
         self.journal.add(number, "claim", sha=sha, worker=self.worker, host=socket.gethostname(),
                          base=base, run=token, runner=self.runner_sha, model=model, effort=effort,
                          reviewer=REVIEWER_MODEL, scope=scope)
@@ -840,7 +843,8 @@ class Runner(Client):
                 if code:
                     raise JobError("The rebase resolution has conflict markers or whitespace errors.")
             self.git("-c", "core.hooksPath=/dev/null", "commit", "-m",
-                     provenance.commit_message(f"Implement issue #{number}", self.record(number)), cwd=path)
+                     scoped_commit_message(f"Implement issue #{number}", self.record(number),
+                                           self.journal.last(number, "claim").get("scope", [])), cwd=path)
         return self.git("rev-parse", "HEAD", cwd=path)
 
     def pr_body(self, number, evidence):
@@ -1127,7 +1131,7 @@ class Runner(Client):
                 if number in remote_claims:
                     head = remote_claims[number]
                     self.git("fetch", "--no-tags", "--no-write-fetch-head", "origin", head)
-                    pinned = self.git("log", "-1", "--first-parent", f"--grep=^Swarm claim #{number} by ",
+                    pinned = self.git("log", "-1", "--first-parent", "--grep=^Claim-Scope: ",
                                       "--format=%(trailers:key=Claim-Scope,valueonly)", head, "^origin/dev")
                     if pinned:
                         scope = scope_paths(pinned.split())

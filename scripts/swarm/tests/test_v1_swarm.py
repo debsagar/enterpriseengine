@@ -576,6 +576,8 @@ class SwarmTest(unittest.TestCase):
         self.assertEqual(git(fake.remote, "show", repaired + ":README.md"), "author and dev")
         self.assertIn(f"Acceptance at `{repaired}`", fake.pulls[100]["body"])
         message = git(fake.remote, "show", "-s", "--format=%B", repaired)
+        original_scope = author.journal.last(1, "claim")["scope"]
+        self.assertIn("Claim-Scope: " + (" ".join(original_scope) or "Unknown"), message.splitlines())
         provenance.check(fake.pulls[100]["body"], [{"sha": repaired, "commit": {"message": message}}])
 
         fake.runner().poll()
