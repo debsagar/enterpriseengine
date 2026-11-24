@@ -1,0 +1,57 @@
+<?xml version='1.0' encoding='utf-8'?>
+<log xes.version="1.0">
+  <trace>
+    <string key="concept:name" value="example-1" />
+    <event>
+      <string key="concept:name" value="Purchase Requisition Created" />
+      <date key="time:timestamp" value="2023-01-26T07:21:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Purchase Order Issued" />
+      <date key="time:timestamp" value="2023-01-27T17:30:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Supplier Confirmation Received" />
+      <date key="time:timestamp" value="2023-01-30T08:23:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Goods Receipt Posted" />
+      <date key="time:timestamp" value="2023-01-30T09:16:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Incoming Inspection Started" />
+      <date key="time:timestamp" value="2023-02-01T08:25:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Incoming Inspection Passed" />
+      <date key="time:timestamp" value="2023-02-03T07:26:00Z" />
+    </event>
+  </trace>
+  <trace>
+    <string key="concept:name" value="example-2" />
+    <event>
+      <string key="concept:name" value="Purchase Requisition Created" />
+      <date key="time:timestamp" value="2023-01-27T07:27:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Purchase Order Issued" />
+      <date key="time:timestamp" value="2023-01-27T08:34:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Supplier Confirmation Received" />
+      <date key="time:timestamp" value="2023-01-27T11:03:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Goods Receipt Posted" />
+      <date key="time:timestamp" value="2023-01-27T20:54:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Incoming Inspection Started" />
+      <date key="time:timestamp" value="2023-01-30T08:31:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Incoming Inspection Failed" />
+      <date key="time:timestamp" value="2023-01-30T15:35:00Z" />
+    </event>
+  </trace>
+</log>

@@ -1,0 +1,874 @@
+{
+  "references": {
+    "benchmark/p2p_synthetic.xes": {
+      "case_object": "Purchase requisition",
+      "collection": "benchmark",
+      "fixture": {
+        "path": "fixtures/p2p_synthetic.xes",
+        "source": {
+          "bytes": 11385,
+          "sha256": "5cc82d65af96fca995b865184f143f903d5fa7348a93a0429f9fd405aa792565"
+        }
+      },
+      "profile": {
+        "activities": {
+          "Amend Purchase Requisition": 27,
+          "Amend Request for Quotation Requester": 305,
+          "Amend Request for Quotation Requester Manager": 62,
+          "Analyze Purchase Requisition": 688,
+          "Analyze Quotation comparison Map": 603,
+          "Analyze Request for Quotation": 1208,
+          "Approve Purchase Order for payment": 603,
+          "Authorize Supplier's Invoice payment": 603,
+          "Choose best option": 603,
+          "Confirm Purchase Order": 603,
+          "Create Purchase Order": 603,
+          "Create Purchase Requisition": 1000,
+          "Create Quotation comparison Map": 603,
+          "Create Request for Quotation Requester": 339,
+          "Create Request for Quotation Requester Manager": 502,
+          "Deliver Goods Services": 603,
+          "Pay invoice": 603,
+          "Release Purchase Order": 660,
+          "Release Supplier's Invoice": 603,
+          "Send Request for Quotation to Supplier": 603,
+          "Send invoice": 603,
+          "Settle conditions with supplier": 603,
+          "Settle dispute with supplier Financial Manager": 603,
+          "Settle dispute with supplier Purchasing Agent": 57
+        },
+        "adjacent_source_time_decreases": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "cases": 1000,
+        "empty_cases": 0,
+        "equal_time_events_after_first": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "events": 13290,
+        "explicit_interval_seconds": {
+          "max": 321360.0,
+          "median": 590.0,
+          "min": 1.0
+        },
+        "explicit_intervals": 13290,
+        "lifecycle": {
+          "(absent)": 13290
+        },
+        "most_frequent_variant": [
+          {
+            "activity": "Create Purchase Requisition",
+            "lifecycle": null
+          },
+          {
+            "activity": "Analyze Purchase Requisition",
+            "lifecycle": null
+          },
+          {
+            "activity": "Create Request for Quotation Requester Manager",
+            "lifecycle": null
+          },
+          {
+            "activity": "Analyze Request for Quotation",
+            "lifecycle": null
+          },
+          {
+            "activity": "Send Request for Quotation to Supplier",
+            "lifecycle": null
+          },
+          {
+            "activity": "Create Quotation comparison Map",
+            "lifecycle": null
+          },
+          {
+            "activity": "Analyze Quotation comparison Map",
+            "lifecycle": null
+          },
+          {
+            "activity": "Choose best option",
+            "lifecycle": null
+          },
+          {
+            "activity": "Settle conditions with supplier",
+            "lifecycle": null
+          },
+          {
+            "activity": "Create Purchase Order",
+            "lifecycle": null
+          },
+          {
+            "activity": "Confirm Purchase Order",
+            "lifecycle": null
+          },
+          {
+            "activity": "Deliver Goods Services",
+            "lifecycle": null
+          },
+          {
+            "activity": "Release Purchase Order",
+            "lifecycle": null
+          },
+          {
+            "activity": "Approve Purchase Order for payment",
+            "lifecycle": null
+          },
+          {
+            "activity": "Send invoice",
+            "lifecycle": null
+          },
+          {
+            "activity": "Release Supplier's Invoice",
+            "lifecycle": null
+          },
+          {
+            "activity": "Settle dispute with supplier Financial Manager",
+            "lifecycle": null
+          },
+          {
+            "activity": "Authorize Supplier's Invoice payment",
+            "lifecycle": null
+          },
+          {
+            "activity": "Pay invoice",
+            "lifecycle": null
+          }
+        ],
+        "most_frequent_variant_cases": 217,
+        "observed_case_span_seconds": {
+          "max": 588488.29,
+          "median": 165801.915,
+          "min": 2220.0
+        },
+        "variants": 57
+      },
+      "semantics": "AutoTwin XES conversion of the published synthetic Procure_to_Pay CSV. Explicit simulated start_timestamp and completion time:timestamp.",
+      "source": {
+        "bytes": 3674967,
+        "sha256": "a508e2067455f8cd03277d80768b98e6a5be90488fd9f14c2dd54d447f40ba99"
+      },
+      "upstream": "https://zenodo.org/records/10435849"
+    },
+    "bpi2017/bpi2017.xes.gz": {
+      "case_object": "Loan application",
+      "collection": "bpi2017",
+      "profile": {
+        "activities": {
+          "A_Accepted": 31509,
+          "A_Cancelled": 10431,
+          "A_Complete": 31362,
+          "A_Concept": 31509,
+          "A_Create Application": 31509,
+          "A_Denied": 3753,
+          "A_Incomplete": 23055,
+          "A_Pending": 17228,
+          "A_Submitted": 20423,
+          "A_Validating": 38816,
+          "O_Accepted": 17228,
+          "O_Cancelled": 20898,
+          "O_Create Offer": 42995,
+          "O_Created": 42995,
+          "O_Refused": 4695,
+          "O_Returned": 23305,
+          "O_Sent (mail and online)": 39707,
+          "O_Sent (online only)": 2026,
+          "W_Assess potential fraud": 3282,
+          "W_Call after offers": 191092,
+          "W_Call incomplete files": 168529,
+          "W_Complete application": 148900,
+          "W_Handle leads": 47264,
+          "W_Personal Loan collection": 22,
+          "W_Shortened completion ": 238,
+          "W_Validate application": 209496
+        },
+        "adjacent_source_time_decreases": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "cases": 31509,
+        "empty_cases": 0,
+        "equal_time_events_after_first": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "events": 1202267,
+        "explicit_interval_seconds": null,
+        "explicit_intervals": 0,
+        "lifecycle": {
+          "ate_abort": 85224,
+          "complete": 475306,
+          "resume": 127160,
+          "schedule": 149104,
+          "start": 128227,
+          "suspend": 215402,
+          "withdraw": 21844
+        },
+        "most_frequent_variant": [
+          {
+            "activity": "A_Create Application",
+            "lifecycle": "complete"
+          },
+          {
+            "activity": "A_Submitted",
+            "lifecycle": "complete"
+          },
+          {
+            "activity": "W_Handle leads",
+            "lifecycle": "schedule"
+          },
+          {
+            "activity": "W_Handle leads",
+            "lifecycle": "withdraw"
+          },
+          {
+            "activity": "W_Complete application",
+            "lifecycle": "schedule"
+          },
+          {
+            "activity": "A_Concept",
+            "lifecycle": "complete"
+          },
+          {
+            "activity": "W_Complete application",
+            "lifecycle": "start"
+          },
+          {
+            "activity": "A_Accepted",
+            "lifecycle": "complete"
+          },
+          {
+            "activity": "O_Create Offer",
+            "lifecycle": "complete"
+          },
+          {
+            "activity": "O_Created",
+            "lifecycle": "complete"
+          },
+          {
+            "activity": "O_Sent (mail and online)",
+            "lifecycle": "complete"
+          },
+          {
+            "activity": "W_Complete application",
+            "lifecycle": "complete"
+          },
+          {
+            "activity": "W_Call after offers",
+            "lifecycle": "schedule"
+          },
+          {
+            "activity": "W_Call after offers",
+            "lifecycle": "start"
+          },
+          {
+            "activity": "A_Complete",
+            "lifecycle": "complete"
+          },
+          {
+            "activity": "W_Call after offers",
+            "lifecycle": "suspend"
+          },
+          {
+            "activity": "W_Call after offers",
+            "lifecycle": "resume"
+          },
+          {
+            "activity": "W_Call after offers",
+            "lifecycle": "suspend"
+          },
+          {
+            "activity": "A_Cancelled",
+            "lifecycle": "complete"
+          },
+          {
+            "activity": "O_Cancelled",
+            "lifecycle": "complete"
+          },
+          {
+            "activity": "W_Call after offers",
+            "lifecycle": "ate_abort"
+          }
+        ],
+        "most_frequent_variant_cases": 919,
+        "observed_case_span_seconds": {
+          "max": 24716658.654,
+          "median": 1649180.668,
+          "min": 201.062
+        },
+        "variants": 16692
+      },
+      "semantics": "Original application traces with application, offer and workflow observations. time:timestamp records each lifecycle transition; no inferred start/complete pairing.",
+      "source": {
+        "bytes": 29658747,
+        "sha256": "183c5e5189282779c811c78c33ff936351b3dd201165d612211fc220936f8249"
+      },
+      "upstream": "https://doi.org/10.4121/uuid:5f3067df-f10b-45da-b98b-86ae4c7a310b"
+    },
+    "bpi2019/BPI_Challenge_2019.xes": {
+      "case_object": "Purchasing document item",
+      "collection": "bpi2019",
+      "profile": {
+        "activities": {
+          "Block Purchase Order Item": 514,
+          "Cancel Goods Receipt": 3096,
+          "Cancel Invoice Receipt": 7096,
+          "Cancel Subsequent Invoice": 491,
+          "Change Approval for Purchase Order": 7541,
+          "Change Currency": 35,
+          "Change Delivery Indicator": 3289,
+          "Change Final Invoice Indicator": 11,
+          "Change Price": 12423,
+          "Change Quantity": 21449,
+          "Change Rejection Indicator": 2,
+          "Change Storage Location": 415,
+          "Change payment term": 7,
+          "Clear Invoice": 194393,
+          "Create Purchase Order Item": 251734,
+          "Create Purchase Requisition Item": 46592,
+          "Delete Purchase Order Item": 8875,
+          "Reactivate Purchase Order Item": 543,
+          "Receive Order Confirmation": 32065,
+          "Record Goods Receipt": 314097,
+          "Record Invoice Receipt": 228760,
+          "Record Service Entry Sheet": 164975,
+          "Record Subsequent Invoice": 167,
+          "Release Purchase Order": 1610,
+          "Release Purchase Requisition": 467,
+          "Remove Payment Block": 57136,
+          "SRM: Awaiting Approval": 1628,
+          "SRM: Change was Transmitted": 1440,
+          "SRM: Complete": 1628,
+          "SRM: Created": 1628,
+          "SRM: Deleted": 188,
+          "SRM: Document Completed": 1628,
+          "SRM: Held": 6,
+          "SRM: In Transfer to Execution Syst.": 1765,
+          "SRM: Incomplete": 6,
+          "SRM: Ordered": 1628,
+          "SRM: Transaction Completed": 8,
+          "SRM: Transfer Failed (E.Sys.)": 45,
+          "Set Payment Block": 124,
+          "Update Order Confirmation": 244,
+          "Vendor creates debit memo": 6255,
+          "Vendor creates invoice": 219919
+        },
+        "adjacent_source_time_decreases": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "cases": 251734,
+        "empty_cases": 0,
+        "equal_time_events_after_first": {
+          "event_timestamp": 233463,
+          "ordering_time": 233463
+        },
+        "events": 1595923,
+        "explicit_interval_seconds": null,
+        "explicit_intervals": 0,
+        "lifecycle": {
+          "(absent)": 1595923
+        },
+        "most_frequent_variant": [
+          {
+            "activity": "Create Purchase Order Item",
+            "lifecycle": null
+          },
+          {
+            "activity": "Vendor creates invoice",
+            "lifecycle": null
+          },
+          {
+            "activity": "Record Goods Receipt",
+            "lifecycle": null
+          },
+          {
+            "activity": "Record Invoice Receipt",
+            "lifecycle": null
+          },
+          {
+            "activity": "Clear Invoice",
+            "lifecycle": null
+          }
+        ],
+        "most_frequent_variant_cases": 50286,
+        "observed_case_span_seconds": {
+          "max": 2217935340.0,
+          "median": 5533410.0,
+          "min": 0.0
+        },
+        "variants": 11973
+      },
+      "semantics": "Original item traces. Purchasing Document and Item identify the item context; time:timestamp is the posting/event time with no explicit activity interval.",
+      "source": {
+        "bytes": 728558522,
+        "sha256": "af63bc687fc4152f2123b05c3af7772b37ef3fce2d3f67f812666c9e356baae7"
+      },
+      "upstream": "https://doi.org/10.4121/uuid:d06aff4b-79f0-45e6-8ec8-e19730c248f1"
+    },
+    "forgeflow/o2c.xes": {
+      "case_object": "SalesOrder",
+      "collection": "forgeflow",
+      "fixture": {
+        "path": "fixtures/o2c.xes",
+        "source": {
+          "bytes": 5091,
+          "sha256": "b7c2a0ae757213b6926e35f4d9f864ce5988f8ae790a99aa252bc558eb889afb"
+        }
+      },
+      "profile": {
+        "activities": {
+          "BOM Revision Released": 3000,
+          "Configuration Frozen": 3000,
+          "Credit Check Failed": 300,
+          "Credit Check Passed": 3000,
+          "Delivery Confirmed": 3000,
+          "Engineering Change Approved": 428,
+          "Engineering Change Implemented": 428,
+          "Engineering Change Requested": 428,
+          "Invoice Issued": 3000,
+          "Order Closed": 3000,
+          "Order Line Added": 3000,
+          "Order Released": 3000,
+          "Package Sealed": 3000,
+          "Payment Received": 3000,
+          "Sales Order Created": 3000,
+          "Serial Number Assigned": 3000,
+          "Shipment Dispatched": 3000,
+          "Shipment Planned": 3000,
+          "Warranty Registered": 3000,
+          "Work Order Released": 3000
+        },
+        "adjacent_source_time_decreases": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "cases": 3000,
+        "empty_cases": 0,
+        "equal_time_events_after_first": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "events": 49584,
+        "explicit_interval_seconds": null,
+        "explicit_intervals": 0,
+        "lifecycle": {
+          "(absent)": 49584
+        },
+        "most_frequent_variant": [
+          {
+            "activity": "Sales Order Created",
+            "lifecycle": null
+          },
+          {
+            "activity": "Order Line Added",
+            "lifecycle": null
+          },
+          {
+            "activity": "Configuration Frozen",
+            "lifecycle": null
+          },
+          {
+            "activity": "Credit Check Passed",
+            "lifecycle": null
+          },
+          {
+            "activity": "Order Released",
+            "lifecycle": null
+          },
+          {
+            "activity": "BOM Revision Released",
+            "lifecycle": null
+          },
+          {
+            "activity": "Work Order Released",
+            "lifecycle": null
+          },
+          {
+            "activity": "Serial Number Assigned",
+            "lifecycle": null
+          },
+          {
+            "activity": "Shipment Planned",
+            "lifecycle": null
+          },
+          {
+            "activity": "Package Sealed",
+            "lifecycle": null
+          },
+          {
+            "activity": "Shipment Dispatched",
+            "lifecycle": null
+          },
+          {
+            "activity": "Delivery Confirmed",
+            "lifecycle": null
+          },
+          {
+            "activity": "Invoice Issued",
+            "lifecycle": null
+          },
+          {
+            "activity": "Payment Received",
+            "lifecycle": null
+          },
+          {
+            "activity": "Warranty Registered",
+            "lifecycle": null
+          },
+          {
+            "activity": "Order Closed",
+            "lifecycle": null
+          }
+        ],
+        "most_frequent_variant_cases": 2314,
+        "observed_case_span_seconds": {
+          "max": 4849980.0,
+          "median": 2128860.0,
+          "min": 1306140.0
+        },
+        "variants": 4
+      },
+      "semantics": "Selected order-to-cash events directly linked to SalesOrder objects. Completion-only projection; AutoTwin appends ' #n' to repeated steps after the first.",
+      "source": {
+        "bytes": 9168408,
+        "sha256": "64d761553e003bfe5e97604b06e0489882ba35c1eb61a7ca13a0c59b4b9add94"
+      },
+      "upstream": "https://doi.org/10.5281/zenodo.22079246"
+    },
+    "forgeflow/p2p.xes": {
+      "case_object": "SalesOrder",
+      "collection": "forgeflow",
+      "fixture": {
+        "path": "fixtures/p2p.xes",
+        "source": {
+          "bytes": 2139,
+          "sha256": "64dfeded70b91131c7bed458b26b908c3248c4664c3bdd5ddfc0907f528d4aeb"
+        }
+      },
+      "profile": {
+        "activities": {
+          "Goods Receipt Posted": 600,
+          "Incoming Inspection Failed": 300,
+          "Incoming Inspection Passed": 300,
+          "Incoming Inspection Started": 600,
+          "Purchase Order Issued": 600,
+          "Purchase Requisition Created": 600,
+          "Supplier Confirmation Received": 600
+        },
+        "adjacent_source_time_decreases": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "cases": 600,
+        "empty_cases": 0,
+        "equal_time_events_after_first": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "events": 3600,
+        "explicit_interval_seconds": null,
+        "explicit_intervals": 0,
+        "lifecycle": {
+          "(absent)": 3600
+        },
+        "most_frequent_variant": [
+          {
+            "activity": "Purchase Requisition Created",
+            "lifecycle": null
+          },
+          {
+            "activity": "Purchase Order Issued",
+            "lifecycle": null
+          },
+          {
+            "activity": "Supplier Confirmation Received",
+            "lifecycle": null
+          },
+          {
+            "activity": "Goods Receipt Posted",
+            "lifecycle": null
+          },
+          {
+            "activity": "Incoming Inspection Started",
+            "lifecycle": null
+          },
+          {
+            "activity": "Incoming Inspection Passed",
+            "lifecycle": null
+          }
+        ],
+        "most_frequent_variant_cases": 300,
+        "observed_case_span_seconds": {
+          "max": 954300.0,
+          "median": 528570.0,
+          "min": 86700.0
+        },
+        "variants": 2
+      },
+      "semantics": "Selected purchasing events directly linked to SalesOrder objects. Completion-only projection; AutoTwin appends ' #n' to repeated steps after the first.",
+      "source": {
+        "bytes": 711052,
+        "sha256": "ca769540aa6ae8e3452dcaad19b5cdac4833639eae5079d62b0327d992acded7"
+      },
+      "upstream": "https://doi.org/10.5281/zenodo.22079246"
+    },
+    "forgeflow/production.xes": {
+      "case_object": "WorkOrder",
+      "collection": "forgeflow",
+      "fixture": {
+        "path": "fixtures/production.xes",
+        "source": {
+          "bytes": 2397,
+          "sha256": "306d3a923f91b3bf2ec51c827979d93e61c67cd3400a6eeea9905dddedb9a35f"
+        }
+      },
+      "profile": {
+        "activities": {
+          "Final Inspection Failed": 600,
+          "Final Inspection Passed": 3000,
+          "Finished Goods Received": 3000,
+          "Material Issued to Work Order": 3000,
+          "Material Reserved": 3000,
+          "Material Shortage Detected": 600,
+          "Nonconformance Raised": 600,
+          "Operation Completed": 3000,
+          "Operation Completed #2": 600,
+          "Operation Started": 3000,
+          "Operation Started #2": 600,
+          "Production Paused": 375,
+          "Production Resumed": 375,
+          "Rework Completed": 600,
+          "Rework Ordered": 600,
+          "Work Order Created": 3000
+        },
+        "adjacent_source_time_decreases": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "cases": 3000,
+        "empty_cases": 0,
+        "equal_time_events_after_first": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "events": 25950,
+        "explicit_interval_seconds": null,
+        "explicit_intervals": 0,
+        "lifecycle": {
+          "(absent)": 25950
+        },
+        "most_frequent_variant": [
+          {
+            "activity": "Work Order Created",
+            "lifecycle": null
+          },
+          {
+            "activity": "Material Reserved",
+            "lifecycle": null
+          },
+          {
+            "activity": "Material Issued to Work Order",
+            "lifecycle": null
+          },
+          {
+            "activity": "Operation Started",
+            "lifecycle": null
+          },
+          {
+            "activity": "Operation Completed",
+            "lifecycle": null
+          },
+          {
+            "activity": "Final Inspection Passed",
+            "lifecycle": null
+          },
+          {
+            "activity": "Finished Goods Received",
+            "lifecycle": null
+          }
+        ],
+        "most_frequent_variant_cases": 2100,
+        "observed_case_span_seconds": {
+          "max": 3356880.0,
+          "median": 793110.0,
+          "min": 261840.0
+        },
+        "variants": 4
+      },
+      "semantics": "WorkOrder-linked events excluding purchase requisition creation and incoming inspection events. Completion-only projection; AutoTwin appends ' #n' to repeated steps after the first.",
+      "source": {
+        "bytes": 4981027,
+        "sha256": "3e54f5ddbd9b332ddf671ccee84970a207110286aba3f88fcb01ca01d7e98a83"
+      },
+      "upstream": "https://doi.org/10.5281/zenodo.22079246"
+    },
+    "forgeflow/quote.xes": {
+      "case_object": "RFQ",
+      "collection": "forgeflow",
+      "fixture": {
+        "path": "fixtures/quote.xes",
+        "source": {
+          "bytes": 1989,
+          "sha256": "62a3adff5725f3c0919558bc25ec7632a61eff00949eb3d18718bb1c0d2121c1"
+        }
+      },
+      "profile": {
+        "activities": {
+          "Quote Accepted": 3000,
+          "Quote Approved": 3000,
+          "Quote Prepared": 3000,
+          "Quote Revised": 750,
+          "Quote Sent": 3000,
+          "RFQ Created": 3000,
+          "RFQ Line Added": 3000
+        },
+        "adjacent_source_time_decreases": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "cases": 3000,
+        "empty_cases": 0,
+        "equal_time_events_after_first": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "events": 18750,
+        "explicit_interval_seconds": null,
+        "explicit_intervals": 0,
+        "lifecycle": {
+          "(absent)": 18750
+        },
+        "most_frequent_variant": [
+          {
+            "activity": "RFQ Created",
+            "lifecycle": null
+          },
+          {
+            "activity": "RFQ Line Added",
+            "lifecycle": null
+          },
+          {
+            "activity": "Quote Prepared",
+            "lifecycle": null
+          },
+          {
+            "activity": "Quote Approved",
+            "lifecycle": null
+          },
+          {
+            "activity": "Quote Sent",
+            "lifecycle": null
+          },
+          {
+            "activity": "Quote Accepted",
+            "lifecycle": null
+          }
+        ],
+        "most_frequent_variant_cases": 2250,
+        "observed_case_span_seconds": {
+          "max": 1290960.0,
+          "median": 604920.0,
+          "min": 87240.0
+        },
+        "variants": 2
+      },
+      "semantics": "Selected RFQ and quote events directly linked to RFQ objects. Completion-only projection; AutoTwin appends ' #n' to repeated steps after the first.",
+      "source": {
+        "bytes": 3401302,
+        "sha256": "9531f3e4dc921df89bfdfee4753dc32746bbe53306337770f821ea24a0f1e9c1"
+      },
+      "upstream": "https://doi.org/10.5281/zenodo.22079246"
+    },
+    "sales/om/orders.xes": {
+      "case_object": "Order",
+      "collection": "sales",
+      "fixture": {
+        "path": "fixtures/orders.xes",
+        "source": {
+          "bytes": 2941,
+          "sha256": "47a1cd60d63e34f7563c9ad35f66e6f922ab5b0c5dc1bc30b5430a455cb0a296"
+        }
+      },
+      "profile": {
+        "activities": {
+          "confirm order": 2000,
+          "create package": 4264,
+          "failed delivery": 1117,
+          "item out of stock": 1544,
+          "package delivered": 4264,
+          "pay order": 2000,
+          "payment reminder": 566,
+          "pick item": 7659,
+          "place order": 2000,
+          "reorder item": 1544,
+          "send package": 4264
+        },
+        "adjacent_source_time_decreases": {
+          "event_timestamp": 0,
+          "ordering_time": 0
+        },
+        "cases": 2000,
+        "empty_cases": 0,
+        "equal_time_events_after_first": {
+          "event_timestamp": 66,
+          "ordering_time": 66
+        },
+        "events": 31222,
+        "explicit_interval_seconds": null,
+        "explicit_intervals": 0,
+        "lifecycle": {
+          "(absent)": 31222
+        },
+        "most_frequent_variant": [
+          {
+            "activity": "place order",
+            "lifecycle": null
+          },
+          {
+            "activity": "confirm order",
+            "lifecycle": null
+          },
+          {
+            "activity": "pick item",
+            "lifecycle": null
+          },
+          {
+            "activity": "pick item",
+            "lifecycle": null
+          },
+          {
+            "activity": "create package",
+            "lifecycle": null
+          },
+          {
+            "activity": "send package",
+            "lifecycle": null
+          },
+          {
+            "activity": "package delivered",
+            "lifecycle": null
+          },
+          {
+            "activity": "pay order",
+            "lifecycle": null
+          }
+        ],
+        "most_frequent_variant_cases": 23,
+        "observed_case_span_seconds": {
+          "max": 8082702.0,
+          "median": 1393423.5,
+          "min": 183050.0
+        },
+        "variants": 1633
+      },
+      "semantics": "OCEL order events and events on order items, including package events via item links, deduplicated per order. Completion-only projection.",
+      "source": {
+        "bytes": 5466216,
+        "sha256": "cba55c248f72e5eabb56905f86c9c2b3776004969c846d93b5481c38ae32f40f"
+      },
+      "upstream": "https://zenodo.org/records/18373906"
+    }
+  },
+  "schema_version": 1
+}

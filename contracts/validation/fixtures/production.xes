@@ -1,0 +1,65 @@
+<?xml version='1.0' encoding='utf-8'?>
+<log xes.version="1.0">
+  <trace>
+    <string key="concept:name" value="example-1" />
+    <event>
+      <string key="concept:name" value="Work Order Created" />
+      <date key="time:timestamp" value="2023-01-11T11:03:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Material Reserved" />
+      <date key="time:timestamp" value="2023-01-12T14:51:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Material Issued to Work Order" />
+      <date key="time:timestamp" value="2023-01-16T08:16:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Operation Started" />
+      <date key="time:timestamp" value="2023-01-17T14:27:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Operation Completed" />
+      <date key="time:timestamp" value="2023-01-19T08:18:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Final Inspection Passed" />
+      <date key="time:timestamp" value="2023-01-23T08:19:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Finished Goods Received" />
+      <date key="time:timestamp" value="2023-01-23T12:03:00Z" />
+    </event>
+  </trace>
+  <trace>
+    <string key="concept:name" value="example-2" />
+    <event>
+      <string key="concept:name" value="Work Order Created" />
+      <date key="time:timestamp" value="2023-01-18T12:41:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Material Reserved" />
+      <date key="time:timestamp" value="2023-01-20T08:16:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Material Issued to Work Order" />
+      <date key="time:timestamp" value="2023-01-23T08:17:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Operation Started" />
+      <date key="time:timestamp" value="2023-01-24T16:05:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Operation Completed" />
+      <date key="time:timestamp" value="2023-01-26T07:19:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Final Inspection Passed" />
+      <date key="time:timestamp" value="2023-01-30T08:20:00Z" />
+    </event>
+    <event>
+      <string key="concept:name" value="Finished Goods Received" />
+      <date key="time:timestamp" value="2023-01-30T15:18:00Z" />
+    </event>
+  </trace>
+</log>

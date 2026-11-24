@@ -1,0 +1,229 @@
+<?xml version='1.0' encoding='utf-8'?>
+<log xes.version="1.0">
+  <trace>
+    <string key="concept:name" value="example-1" />
+    <event>
+      <string key="concept:name" value="Create Purchase Requisition" />
+      <date key="start_timestamp" value="2023-01-02T09:30:00.070000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T10:00:00.070000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Analyze Purchase Requisition" />
+      <date key="start_timestamp" value="2023-01-02T10:00:00.070000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T10:07:00.070000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Create Request for Quotation Requester Manager" />
+      <date key="start_timestamp" value="2023-01-02T10:07:00.070000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T10:09:00.070000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Analyze Request for Quotation" />
+      <date key="start_timestamp" value="2023-01-02T10:09:00.070000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T10:32:00.070000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Send Request for Quotation to Supplier" />
+      <date key="start_timestamp" value="2023-01-02T10:32:00.070000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T10:56:00.070000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Create Quotation comparison Map" />
+      <date key="start_timestamp" value="2023-01-02T10:56:00.070000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T14:18:00.070000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Analyze Quotation comparison Map" />
+      <date key="start_timestamp" value="2023-01-02T14:19:06.140000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T14:39:06.140000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Choose best option" />
+      <date key="start_timestamp" value="2023-01-02T14:39:06.140000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T14:39:07.140000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Settle conditions with supplier" />
+      <date key="start_timestamp" value="2023-01-02T14:39:07.140000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T14:48:07.140000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Create Purchase Order" />
+      <date key="start_timestamp" value="2023-01-02T14:48:07.140000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T14:58:07.140000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Confirm Purchase Order" />
+      <date key="start_timestamp" value="2023-01-02T14:58:07.140000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T15:18:07.140000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Deliver Goods Services" />
+      <date key="start_timestamp" value="2023-01-02T15:18:07.140000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T13:18:07.140000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Release Purchase Order" />
+      <date key="start_timestamp" value="2023-01-03T13:27:30.940000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T13:28:30.940000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Approve Purchase Order for payment" />
+      <date key="start_timestamp" value="2023-01-03T13:36:30.940000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T13:37:30.940000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Send invoice" />
+      <date key="start_timestamp" value="2023-01-03T13:37:30.940000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T13:37:31.940000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Release Supplier's Invoice" />
+      <date key="start_timestamp" value="2023-01-03T13:37:31.940000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T13:42:01.940000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Settle dispute with supplier Financial Manager" />
+      <date key="start_timestamp" value="2023-01-03T13:42:01.940000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T14:05:01.940000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Authorize Supplier's Invoice payment" />
+      <date key="start_timestamp" value="2023-01-03T14:05:01.940000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T14:05:02.940000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Pay invoice" />
+      <date key="start_timestamp" value="2023-01-03T14:05:02.940000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T14:14:22.940000+00:00" />
+    </event>
+  </trace>
+  <trace>
+    <string key="concept:name" value="example-2" />
+    <event>
+      <string key="concept:name" value="Create Purchase Requisition" />
+      <date key="start_timestamp" value="2023-01-02T10:00:00.270000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T10:30:00.270000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Analyze Purchase Requisition" />
+      <date key="start_timestamp" value="2023-01-02T10:30:00.270000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T10:37:00.270000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Create Request for Quotation Requester Manager" />
+      <date key="start_timestamp" value="2023-01-02T10:37:00.270000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T10:39:00.270000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Analyze Request for Quotation" />
+      <date key="start_timestamp" value="2023-01-02T10:39:00.270000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T11:02:00.270000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Amend Request for Quotation Requester Manager" />
+      <date key="start_timestamp" value="2023-01-02T11:07:02.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T11:26:02.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Analyze Request for Quotation" />
+      <date key="start_timestamp" value="2023-01-02T11:26:02.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T11:49:02.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Amend Request for Quotation Requester" />
+      <date key="start_timestamp" value="2023-01-02T11:49:02.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T11:58:52.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Analyze Request for Quotation" />
+      <date key="start_timestamp" value="2023-01-02T11:58:52.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T12:21:52.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Amend Request for Quotation Requester" />
+      <date key="start_timestamp" value="2023-01-02T12:21:52.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T12:31:42.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Analyze Request for Quotation" />
+      <date key="start_timestamp" value="2023-01-02T12:31:42.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T12:54:42.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Send Request for Quotation to Supplier" />
+      <date key="start_timestamp" value="2023-01-02T12:54:42.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T13:18:42.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Create Quotation comparison Map" />
+      <date key="start_timestamp" value="2023-01-02T13:18:42.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-02T16:40:42.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Analyze Quotation comparison Map" />
+      <date key="start_timestamp" value="2023-01-02T16:40:42.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T09:00:42.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Choose best option" />
+      <date key="start_timestamp" value="2023-01-03T09:00:42.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T09:00:43.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Settle conditions with supplier" />
+      <date key="start_timestamp" value="2023-01-03T09:02:09.320000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T09:11:09.320000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Create Purchase Order" />
+      <date key="start_timestamp" value="2023-01-03T09:19:42.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T09:29:42.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Confirm Purchase Order" />
+      <date key="start_timestamp" value="2023-01-03T09:29:42.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T09:49:42.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Deliver Goods Services" />
+      <date key="start_timestamp" value="2023-01-03T09:49:42.020000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T15:49:42.020000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Release Purchase Order" />
+      <date key="start_timestamp" value="2023-01-03T16:00:46.330000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T16:01:46.330000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Approve Purchase Order for payment" />
+      <date key="start_timestamp" value="2023-01-03T16:14:11.990000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T16:15:11.990000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Send invoice" />
+      <date key="start_timestamp" value="2023-01-03T16:15:11.990000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T16:15:12.990000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Release Supplier's Invoice" />
+      <date key="start_timestamp" value="2023-01-03T16:18:42.320000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T16:23:12.320000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Settle dispute with supplier Financial Manager" />
+      <date key="start_timestamp" value="2023-01-03T16:23:12.320000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T16:46:12.320000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Authorize Supplier's Invoice payment" />
+      <date key="start_timestamp" value="2023-01-03T16:46:12.320000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T16:46:13.320000+00:00" />
+    </event>
+    <event>
+      <string key="concept:name" value="Pay invoice" />
+      <date key="start_timestamp" value="2023-01-03T16:46:13.320000+00:00" />
+      <date key="time:timestamp" value="2023-01-03T16:55:33.320000+00:00" />
+    </event>
+  </trace>
+</log>
