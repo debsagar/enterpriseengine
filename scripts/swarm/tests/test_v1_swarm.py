@@ -254,6 +254,9 @@ class Fake:
             return [item for item in self.issues.values() if item["state"] == "open"]
         if path == "pulls":
             if method == "GET":
+                if query.get("state") == ["closed"]:
+                    return [pr for pr in self.pulls.values() if pr["state"] == "closed"
+                            and pr.get("base", {}).get("ref") == query["base"][0]]
                 if "head" in query:
                     ref = query["head"][0].split(":", 1)[1]
                     return [self.pull(pr) for pr in self.pulls.values() if pr["head"]["ref"] == ref]
@@ -469,6 +472,25 @@ class SwarmTest(unittest.TestCase):
         posts = [c for c in fake.calls if c[:4] == ("gh", "api", "-X", "POST")]
         self.assertEqual(len(posts), 1)
 
+    def test_completed_issue_requires_a_matching_merged_dev_pr(self):
+        fake = self.fake
+        fake.issue(1, state="closed")
+        fake.issues[1]["state_reason"] = "completed"
+        runner = fake.runner(dry=True)
+        item = {"body": "### Dependencies\n- #1"}
+        pr = {"state": "closed", "base": {"ref": "dev"}, "head": {"ref": "feature"},
+              "body": "Fixes #1", "merged_at": None}
+        fake.pulls[100] = pr
+        self.assertTrue(runner.pending_dependencies(item))
+        pr["merged_at"] = "now"
+        self.assertFalse(runner.pending_dependencies(item))
+        pr["body"] = "Closes #10"
+        self.assertTrue(runner.pending_dependencies(item))
+        pr["head"]["ref"] = "swarm/issue-1"
+        self.assertFalse(runner.pending_dependencies(item))
+        pr["base"]["ref"] = "main"
+        self.assertTrue(runner.pending_dependencies(item))
+
     def test_legacy_triage_backfills_scope(self):
         fake = self.fake
         fake.issue(1, swarm.LARGE, body="Legacy issue")
@@ -483,7 +505,7 @@ class SwarmTest(unittest.TestCase):
         self.ready_prs(1)
         finding = {"title": "Improve wording", "evidence": "Ambiguous message", "impact": "Affects operators"}
         fake.findings["advisory_findings"] = [finding]
-        fake.findings["blocking_findings"] = [dict(finding, criterion="Unrequested wording")]
+        fake.findings["advisory_findings"].append(finding)
         fake.runner(role=Swarm).poll()
         self.assertIn('"verdict": "PASS"', fake.comments[100][-1]["body"])
         self.assertTrue(any("Non-blocking: #2" in c["body"] for c in fake.comments[100]))
@@ -491,10 +513,10 @@ class SwarmTest(unittest.TestCase):
         self.assertIn(swarm.READY, swarm.labels(fake.issues[2]))
         self.assertIn(finding["impact"], fake.issues[2]["body"])
 
-    def test_verified_acceptance_failure_blocks(self):
+    def test_verified_spec_violation_outside_acceptance_blocks(self):
         fake = self.fake
         self.ready_prs(1)
-        fake.findings["blocking_findings"] = [{"criterion": "uv run python -m unittest",
+        fake.findings["blocking_findings"] = [{"criterion": "R19 requires disjoint active claims",
             "title": "Missing test", "evidence": "Required assertion missing", "impact": "Coverage"}]
         fake.runner(role=Swarm).poll()
         self.assertIn('"verdict": "FAIL"', fake.comments[100][-1]["body"])
@@ -577,7 +599,6 @@ class SwarmTest(unittest.TestCase):
         self.assertEqual(sum(call[:3] == ("git", "worktree", "add") for call in fake.calls), 1)
 
         fake.pulls[100].update(state="closed", merged_at="now", merged_by={"login": "maintainer"})
-        fake.issues[1].update(state="closed", state_reason="completed", closer={"__typename":"PullRequest", "merged":True})
         restart = fake.runner()
         restart.poll()
         terminal = [e for e in restart.journal.events[1] if e["event"] == "terminal"]

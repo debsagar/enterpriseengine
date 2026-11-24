@@ -455,7 +455,7 @@ class Client:
                     query = """query($owner:String!,$name:String!,$number:Int!) {
                       repository(owner:$owner,name:$name) { issue(number:$number) {
                         timelineItems(last:1,itemTypes:[CLOSED_EVENT]) { nodes {
-                          ... on ClosedEvent { closer { __typename ... on PullRequest { merged } } }
+                          ... on ClosedEvent { closer { __typename ... on PullRequest { merged baseRefName } } }
                         } }
                       } }
                     }"""
@@ -464,7 +464,14 @@ class Client:
                                            "-F", f"number={number}"])
                     nodes = json.loads(output)["data"]["repository"]["issue"]["timelineItems"]["nodes"]
                     closer = (nodes[-1].get("closer") or {}) if nodes else {}
-                    done = closer.get("__typename") == "PullRequest" and closer.get("merged") is True
+                    done = (closer.get("__typename") == "PullRequest" and closer.get("merged") is True
+                            and closer.get("baseRefName") == "dev")
+                    if not done:
+                        endpoint = f"repos/{repo}/pulls?state=closed&base=dev&per_page=100"
+                        keyword = re.compile(rf"\b(?:closes|fixes)\s+#{number}\b", re.I)
+                        done = any(pr.get("merged_at") and (
+                            pr["head"]["ref"] == f"swarm/issue-{number}" or keyword.search(pr.get("body") or "")
+                        ) for page in self.api(endpoint, pages=True) for pr in page)
                     human |= not done
             if not done:
                 pending.append(f"{repo}#{number}")
