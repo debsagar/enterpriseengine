@@ -3,6 +3,7 @@ from contextlib import redirect_stdout
 from copy import deepcopy
 from io import StringIO
 import json
+from engine.versioning import stamp
 from hashlib import sha256
 from pathlib import Path
 import sqlite3
@@ -137,7 +138,7 @@ class DefinitionChangeTest(TestCase):
         with sqlite3.connect(run/'scheduled-additions/engine.sqlite3') as db:
             db.execute('CREATE TABLE checkpoint(id INTEGER PRIMARY KEY, data TEXT)')
             db.execute('INSERT INTO checkpoint VALUES(1, ?)', (json.dumps(
-                dict(extensions={'east': {'systems': {system: spec}}})),))
+                dict(**stamp(), extensions={'east': {'systems': {system: spec}}})),))
 
         stores = {f'http://{source}.test': SimpleNamespace(parts={}, lines={}, meta={}, guard=True)
                   for source in ('primary', 'east')}
