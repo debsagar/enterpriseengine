@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 
 import provenance
-from run import CLONE, Journal, REPO, STATE, WORKTREES, Runner, ToolError, safe_evidence
+from run import CLONE, Journal, REPO, STATE, WORKTREES, Client, ToolError, safe_evidence
 
 
 def timeline(api, target, state):
@@ -67,7 +67,18 @@ def timeline(api, target, state):
             add(check["created_at"], f"CI {check['context']}: {check['state']} at {head[:12]}")
 
     run = record.get("run")
-    journal = Journal(state / "log.jsonl")
+    author = state / "author" if record.get("role") == "author" else state
+    if not (author / "log.jsonl").exists() and (state / "log.jsonl").exists():
+        author = state
+    journal = Journal(author / "log.jsonl")
+    for role, filename in (("swarm", "log.jsonl"), ("merger", "history.jsonl")):
+        for entry in Journal(state / role / filename).events.get(number, []):
+            kind = entry["event"]
+            if kind in {"verdict", "selected", "rebased", "decision", "bounce", "release"}:
+                details = " ".join(f"{key}={entry[key]}" for key in
+                                   ("head", "base", "status", "passed", "reason", "sha")
+                                   if entry.get(key) is not None)
+                add(entry["ts"], f"{role} {kind} {details}".rstrip())
     found = False
     if run:
         for entries in journal.events.values():
@@ -88,7 +99,7 @@ def timeline(api, target, state):
     else:
         lines.append("No valid provenance block (GitHub history only).")
     if run:
-        path = state / "attempts" / f"{run}.jsonl"
+        path = author / "attempts" / f"{run}.jsonl"
         if path.is_file():
             retained = []
             with path.open("rb") as file:
@@ -112,7 +123,7 @@ def main():
     parser.add_argument("--state-dir", type=Path, default=STATE)
     args = parser.parse_args()
     try:
-        runner = Runner(CLONE, WORKTREES, Journal(args.state_dir / "log.jsonl"), dry=True,
+        runner = Client(CLONE, WORKTREES, Journal(args.state_dir / "log.jsonl"), dry=True,
                         runner_sha="trace")
         print(timeline(runner.api, args.target, args.state_dir))
     except (ToolError, ValueError) as error:
