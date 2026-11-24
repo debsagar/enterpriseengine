@@ -274,14 +274,53 @@ class Role(Client):
 class Swarm(Role):
     role = "swarm"
     infrastructure_lock = Lock()
+    sandbox_probe = None
+    sandbox_probe_lock = Lock()
+
+    @staticmethod
+    def acceptance_argv(command):
+        # Acceptance text is untrusted. Only this narrow argv-shaped subset may
+        # run outside Codex's shell sandbox.
+        if re.search(r"[;&|`$><\n]", command):
+            return None
+        try:
+            args = shlex.split(command)
+        except ValueError:
+            return None
+        if args[:4] == ["uv", "run", "--no-sync", "--offline"]:
+            args = args[:2] + args[4:]
+        if args[:3] != ["uv", "run", "python"]:
+            return None
+        if args[3:5] == ["-m", "unittest"]:
+            return args
+        return args if len(args) >= 4 and re.fullmatch(r"scripts/[^/]+\.py", args[3]) else None
+
+    @classmethod
+    def sandbox_available(cls, path):
+        with cls.sandbox_probe_lock:
+            if cls.sandbox_probe is not None:
+                return cls.sandbox_probe
+            try:
+                result = subprocess.run(
+                    ["timeout", "--kill-after=5", "600", "codex", "sandbox", "linux", "-c",
+                     'sandbox_mode="workspace-write"', "--", "true"],
+                    cwd=path, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, errors="replace")
+                cls.sandbox_probe = (result.returncode == 0, result.stdout)
+            except OSError as error:
+                cls.sandbox_probe = (False, str(error))
+            return cls.sandbox_probe
 
     def command_result(self, command, path):
         script = re.sub(r"^uv run (?!--no-sync --offline )", "uv run --no-sync --offline ", command)
-        args = ["bash", "-o", "pipefail", "-c", script]
-        # Issue and PR text can supply arbitrary shell syntax. Only built-in checks
-        # inherit the deployment's explicit full-access setting.
-        if self.sandbox == "workspace-write" or script not in (*OFFLINE, NORVALE):
-            args = ["codex", "sandbox", "linux", "-c", 'sandbox_mode="workspace-write"', "--", *args]
+        args = self.acceptance_argv(script)
+        if args is None:
+            available, output = self.sandbox_available(path)
+            if not available:
+                return {"command": command, "exit_code": 127, "infrastructure": True,
+                        "output": safe_evidence(output)[-8000:]}
+            args = ["codex", "sandbox", "linux", "-c", 'sandbox_mode="workspace-write"', "--",
+                    "bash", "-o", "pipefail", "-c", script]
         env = {key: value for key, value in os.environ.items()
                if key in {"PATH", "LANG", "UV_CACHE_DIR", "UV_PYTHON_INSTALL_DIR"}}
         with TemporaryDirectory() as home:
@@ -329,7 +368,17 @@ class Swarm(Role):
             if "scripts/norvale_dry_run.py" in self.git(
                     "ls-files", "--", "scripts/norvale_dry_run.py", cwd=path).splitlines():
                 required.append(NORVALE)
-            results = [self.command_result(command, path) for command in dict.fromkeys(required)]
+            results = []
+            for command in dict.fromkeys(required):
+                results.append(self.command_result(command, path))
+                if results[-1].get("infrastructure"):
+                    break
+            if infrastructure := next((entry for entry in results if entry.get("infrastructure")), None):
+                reason = "Codex sandbox preflight failed: " + infrastructure["output"]
+                self.event("infra-failure", head=head, base=base, reason=reason)
+                with self.infrastructure_lock:
+                    self.report_regression(["codex sandbox linux"], {}, reason, infrastructure=True)
+                return
             ran = {command_key(entry["command"]): entry["exit_code"] for entry in results}
             failed = [entry["command"] for entry in results if entry["exit_code"] != 0]
             acceptance = {"required": list(dict.fromkeys(required)), "commands": results}

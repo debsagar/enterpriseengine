@@ -6,6 +6,7 @@ from copy import deepcopy
 from hashlib import sha256
 import io
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -336,6 +337,7 @@ class SwarmTest(unittest.TestCase):
     real_command_result = Swarm.command_result
 
     def setUp(self):
+        Swarm.sandbox_probe = None
         fake_commands = patch.object(Swarm, "command_result", side_effect=lambda command, path:
                                      {"command": command, "exit_code": 0, "output": "ok"})
         self.commands = fake_commands.start()
@@ -583,9 +585,66 @@ class SwarmTest(unittest.TestCase):
     def test_command_result_runs_inside_snapshot_and_captures_stderr(self):
         runner = self.fake.runner(role=Swarm)
         command = "pwd >&2; exit 7"
-        with patch("roles.OFFLINE", (command,)):
+        sandbox = self.fake.root / "bin"
+        sandbox.mkdir()
+        codex = sandbox / "codex"
+        codex.write_text("#!/bin/sh\nwhile [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"\n")
+        codex.chmod(0o755)
+        with patch.dict(os.environ, {"PATH": f"{sandbox}:{os.environ['PATH']}"}), \
+                patch.object(Swarm, "sandbox_available", return_value=(True, "")), patch("roles.OFFLINE", (command,)):
             result = SwarmTest.real_command_result(runner, command, self.fake.root)
         self.assertEqual((result["exit_code"], result["output"]), (7, str(self.fake.root)))
+
+    def test_allowlisted_unittest_runs_without_sandbox_and_records_exit_code(self):
+        runner = self.fake.runner(role=Swarm)
+        scripts = self.fake.root / "scripts"
+        scripts.mkdir()
+        (scripts / "test_exit.py").write_text(
+            "import unittest\n\nclass ExitCode(unittest.TestCase):\n    def test_failure(self):\n        self.fail('expected')\n")
+        sandbox = self.fake.root / "bin"
+        sandbox.mkdir()
+        codex = sandbox / "codex"
+        codex.write_text("#!/bin/sh\ntouch sandbox-used\nexit 99\n")
+        codex.chmod(0o755)
+        command = "uv run --no-sync --offline python -m unittest scripts/test_exit.py"
+        with patch.dict(os.environ, {"PATH": f"{sandbox}:{os.environ['PATH']}"}):
+            result = SwarmTest.real_command_result(runner, command, self.fake.root)
+        self.assertEqual(result["exit_code"], 1)
+        self.assertFalse((self.fake.root / "sandbox-used").exists())
+
+    def test_shell_metacharacter_command_uses_sandbox(self):
+        runner = self.fake.runner(role=Swarm)
+        sandbox = self.fake.root / "bin"
+        sandbox.mkdir()
+        codex = sandbox / "codex"
+        codex.write_text("#!/bin/sh\nprintf '%s\\n' \"$*\" >> sandbox.log\n"
+                         "while [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"\n")
+        codex.chmod(0o755)
+        with patch.dict(os.environ, {"PATH": f"{sandbox}:{os.environ['PATH']}"}):
+            result = SwarmTest.real_command_result(runner, "true; true", self.fake.root)
+        self.assertEqual(result["exit_code"], 0)
+        calls = (self.fake.root / "sandbox.log").read_text()
+        self.assertIn("-- true", calls)
+        self.assertIn("bash -o pipefail -c true; true", calls)
+
+    def test_failed_sandbox_probe_defers_pr_without_fail_verdict(self):
+        self.ready_prs(1)
+        self.fake.issues[1]["body"] = "### Acceptance test command\n\n`true; true`"
+        sandbox = self.fake.root / "bin"
+        sandbox.mkdir()
+        codex = sandbox / "codex"
+        codex.write_text("#!/bin/sh\necho probe unavailable\nexit 1\n")
+        codex.chmod(0o755)
+        validator = self.fake.runner(role=Swarm)
+        pr, base = self.fake.pull(self.fake.pulls[100]), validator.dev()
+        with patch.dict(os.environ, {"PATH": f"{sandbox}:{os.environ['PATH']}"}), \
+                patch.object(Swarm, "command_result", SwarmTest.real_command_result):
+            validator.validate(pr, base)
+            validator.validate(pr, base)
+        self.assertIsNone(validator.journal.last(100, "swarm-verdict"))
+        self.assertNotIn(self.fake.head(1), self.fake.statuses)
+        self.assertEqual(len(self.fake.issues), 2)
+        self.assertIn("probe unavailable", validator.journal.last(100, "infra-failure")["reason"])
 
     def test_advisory_error_after_publication(self):
         self.ready_prs(1)

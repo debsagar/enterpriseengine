@@ -115,9 +115,11 @@ network access. Keep the runner on the designated host, use the shared
 `debsagar` GitHub identity and provide cached offline dependencies. Hosts with
 working Codex sandboxing can opt into `--sandbox workspace-write`.
 After setup the harness runs each required command in the snapshot with a
-ten-minute timeout and records its exit code and redacted output tail. Custom
-commands from issue or PR text use the workspace sandbox even on full-access
-hosts. A sandbox startup failure counts as a failed command.
+ten-minute timeout and records its exit code and redacted output tail. Only
+argv-safe `uv run [--no-sync --offline] python -m unittest ...` and `uv run
+[--no-sync --offline] python scripts/<name>.py ...` commands run directly; every other issue or PR command
+uses the workspace sandbox, whose unavailable preflight is an infrastructure
+deferral rather than a verdict.
 
 ## Provenance
 
