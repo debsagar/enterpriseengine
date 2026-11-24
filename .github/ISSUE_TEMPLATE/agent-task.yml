@@ -32,6 +32,7 @@ body:
     id: dependencies
     attributes:
       label: Dependencies
-      description: Link prerequisite issues or pull requests, or enter None.
+      description: >-
+        Use one task-list line per prerequisite (- [ ] #123, a GitHub issue/PR URL, or - [ ] manual: confirmation). Enter None for no dependencies.
     validations:
       required: true

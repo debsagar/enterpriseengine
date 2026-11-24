@@ -51,7 +51,7 @@ The latest task is newcomer documentation, not a new simulation. Choose a bounde
 3. Expand connected external/internal/organizational evolution. External factors change conditions; actions change wear/workload; authorized decisions change mandates and policies.
 4. Strengthen references across easy factual, medium cross-system/temporal, and hard explanation/insufficient-evidence questions. Specify distribution and evidence before multiplying questions. Avoid building a grading framework prematurely.
 
-For any change, follow the A–L change contract in docs/ARCHITECTURE.md, keep the diff focused, run the relevant offline checks, and record evidence in PROJECT-LOG.jsonl. Use docs/GENERATING.md only when the task calls for a new run.
+For any change, follow the A–L change contract in docs/ARCHITECTURE.md, keep the diff focused, run the relevant offline checks, and record evidence in the contribution provenance record. Maintainers can append shared project events to PROJECT-LOG.jsonl. Use docs/GENERATING.md only when the task calls for a new run.
 
 ## Open bugs / unresolved
 
