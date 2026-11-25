@@ -5,9 +5,10 @@ from engine.versions import artifact_versions
 from .factory import DESCRIPTORS as FACTORY_DESCRIPTORS
 from .norvale import DESCRIPTORS as NORVALE_DESCRIPTORS
 from .registry import VERSION, Registry
+from .sim import DESCRIPTOR as PROCESS_TANK
 from .weekly_demand import DESCRIPTOR as WEEKLY_DEMAND
 
-DESCRIPTORS = (*NORVALE_DESCRIPTORS, *FACTORY_DESCRIPTORS, WEEKLY_DEMAND)
+DESCRIPTORS = (*NORVALE_DESCRIPTORS, *FACTORY_DESCRIPTORS, WEEKLY_DEMAND, PROCESS_TANK)
 
 
 def registry():
