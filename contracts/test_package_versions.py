@@ -64,7 +64,7 @@ class ReleaseContract(unittest.TestCase):
                         if name is None:
                             del checkpoint["versions"]
                         else:
-                            checkpoint["versions"] = {**original["versions"], name: "0.2.0"}
+                            checkpoint["versions"] = {**original["versions"], name: "9.9.9"}
                         encoded = json.dumps(checkpoint)
                         with db:
                             db.execute("UPDATE checkpoint SET data=?", (encoded,))
@@ -73,7 +73,8 @@ class ReleaseContract(unittest.TestCase):
                         with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
                             engine_cli(["--run", tmp, "--metrics"])
                         self.assertEqual(db.execute("SELECT data FROM checkpoint").fetchone()[0], encoded)
-                original["versions"]["engine"] = "0.3.99"
+                major, minor, _ = original["versions"]["engine"].split(".")
+                original["versions"]["engine"] = f"{major}.{minor}.99"
                 with db:
                     db.execute("UPDATE checkpoint SET data=?", (json.dumps(original),))
             self.assertEqual(open_engine(tmp, Consumer()).history(), run.history())
