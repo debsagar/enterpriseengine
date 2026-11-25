@@ -64,3 +64,27 @@ uv run python scripts/check_versions.py
 
 - **Offline mode (`NORVALE_OFFLINE=1`):** Disables paid LLM API calls and routes role decisions through deterministic rules (`operating.offline_decision`).
 - **Live mode:** Connects to the Docker stack (ERPNext, Gitea, QMS, mail) and live model providers.
+
+## Install and use from Python
+
+```python
+from pathlib import Path
+from enterpriseengine import Engine
+
+ROLES = {"analyst": {"staff": 1, "shifts": [[540, 1020]]}}
+EVENTS = [
+    {"id": "sample-A", "kind": "inspect", "at": 525, "duration": 10, "role": "analyst", "payload": {"lot": "A", "ph": 7.2}},
+    {"id": "sample-B", "kind": "inspect", "at": 525, "duration": 10, "role": "analyst", "payload": {"lot": "B", "ph": 5.5}},
+]
+
+def handle(run, event):
+    ph = event["payload"]["ph"]
+    run.state[event["payload"]["lot"]] = [run.now, "in range" if 6.0 <= ph <= 7.0 else "out of range"]
+
+engine = Engine(Path("my_company.sqlite"), roles=ROLES, handle=handle)
+if not engine.state:
+    for event in EVENTS:
+        engine.schedule(**event)
+engine.run_until(600)
+print(engine.state)
+```
