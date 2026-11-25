@@ -1,85 +1,73 @@
 # EnterpriseEngine
 
-EnterpriseEngine contains a generic Python engine for scheduling work and saving simulation runs, a library of reusable component declarations, and the Norvale manufacturing environment. Norvale holds the company logic and connects to ERPNext, Odoo, InvenTree, QMS and model providers. Its full operating run still uses a separate controller. It uses the generic engine for scheduled additions, and the component declarations are available through a registry. [Engine split map](docs/ENGINE-SPLIT-MAP.md)
+A **causal digital-twin and counterfactual simulation engine** for companies.
 
-The small Python and notebook examples run offline.
+It lets you run a company forward in time across real software (ERPNext, Gitea, QMS, mail) and physical equipment, then **fork** the timeline at any event to test *"what-if"* decisions—and see the exact downstream impact on quality, inventory, orders, and communications.
 
-## Install
+---
 
-```sh
-git clone --branch dev https://github.com/debsagar/enterpriseengine.git
-cd enterpriseengine
-uv sync --locked --all-packages
+## Architecture: Three Packages
+
+```
+┌─────────────────────────┐     ┌──────────────────────────┐     ┌───────────────────────────┐
+│     packages/engine     │     │   packages/components    │     │   packages/environments   │
+│    (v0.3.0, generic)    │     │  (v0.1.0, physics/math)  │     │    (v0.1.0, companies)    │
+│                         │     │                          │     │                           │
+│ • Simulation clock      │◄───►│ • process.tank (TK-101)  │◄───►│ • Norvale company loop    │
+│ • Priority event queue  │     │ • Continuous ODE / scans │     │ • ERP, QMS, Gitea, mail   │
+│ • SQLite checkpointing  │     │ • Alarm thresholds       │     │ • Role policies & routing │
+│ • Engine.fork()         │     │ • Zero company knowledge │     │ • Causal record exports   │
+└─────────────────────────┘     └──────────────────────────┘     └───────────────────────────┘
 ```
 
-## Install and use from Python
+1. **`packages/engine` (`0.3.0`)** — Domain-agnostic discrete-event engine. Manages the shared simulation clock, event queue, SQLite checkpoints, and `Engine.fork()` (deep-copying engine + registered component state into parallel branches). Knows nothing about tanks or companies.
+2. **`packages/components` (`0.1.0`)** — Reusable, executable physical/process models (e.g. `process.tank` for heated tank `TK-101`). Advances in 10-second scans, tracks temperature/level/purity (`AI-101`), and emits boundary events when thresholds trip.
+3. **`packages/environments` (`0.1.0`)** — Company assemblies (e.g. **Norvale**). Wires components onto the `Engine` clock, routes events to company roles, executes actions in ERP/QMS/Gitea/mail, and exports causal records.
 
-Save this as `my_company.py` and run `python my_company.py`. It needs no services or credentials.
+---
 
-```python
-from time import monotonic
+## How a Counterfactual Fork Works (TK-101 Example)
 
-from enterpriseengine import Engine
-
-
-class QualityDesk:
-    config = {}
-
-    def handle(self, run, kind, payload):
-        if kind != "inspect":
-            raise ValueError(kind)
-        result = "in range" if 5.0 <= payload["ph"] <= 6.0 else "out of range"
-        run.state.setdefault("inspections", {})[payload["lot"]] = [run.now, result]
-
-
-company = Engine("quality-run", QualityDesk(), seed=42, native=None, providers=None, monotonic=monotonic)
-company.extend(
-    "opening-v1",
-    roles={"analyst": {"shifts": [[540, 1020]], "staff": 1}},
-    events=[
-        {"id": "sample-A", "kind": "inspect", "at": 525, "duration": 10, "role": "analyst", "payload": {"lot": "A", "ph": 7.2}},
-        {"id": "sample-B", "kind": "inspect", "at": 525, "duration": 10, "role": "analyst", "payload": {"lot": "B", "ph": 5.5}},
-    ],
-)
-company.run(until=560)
-print(company.state["inspections"])
+```
+Min 0   Normal run: steam = 6 bar, tank = 78°C, Lot L1 purity = 99.39%
+  │
+Min 60  Disturbance: steam pressure drops → tank begins cooling
+  │
+Min 75  Alarm (< 65°C): tank stops, emits `tank_boundary` onto Engine queue
+  │
+  ├──► Engine.fork() ──► Branch A (Policy: pause / slow feed × 0.3)
+  │                        └─► L2 purity 97.46% → QMS Release → Stock 100 → 0 shortfall
+  │
+  └──► Engine.fork() ──► Branch B (Policy: continue / do nothing)
+                           └─► L2 purity 94.48% → QMS Hold    → Stock  40 → 60 shortfall
 ```
 
-## Run a small simulation
+Both branches share identical history and records up to the fork event, then diverge solely due to the injected role policy.
 
-These are the offline commands used for this repository. They create a fresh temporary run, complete one queued review, then resume it to complete the second.
+---
 
-```sh
-RUN_DIR=$(mktemp -d)
-uv run --no-sync --offline python -m docs.examples.first_run --run "$RUN_DIR" --until 550
-uv run --no-sync --offline python -m docs.examples.first_run --run "$RUN_DIR" --until 560
+## Setup & Running Tests
+
+Requires Python 3.10+ and [`uv`](https://docs.astral.sh/uv/).
+
+```bash
+# Install workspace packages in editable mode
+uv sync --all-packages
+
+# Run offline contract & engine tests (no Docker, no paid API calls)
+NORVALE_OFFLINE=1 uv run pytest contracts/ packages/engine/tests/
+
+# Lint & version checks
+uv run ruff check .
+uv run python scripts/check_versions.py
 ```
 
-The second command prints two review records with their business start and finish minutes.
+- **Offline mode (`NORVALE_OFFLINE=1`):** Disables paid LLM API calls and routes role decisions through deterministic rules (`operating.offline_decision`).
+- **Live mode:** Connects to the Docker stack (ERPNext, Gitea, QMS, mail) and live model providers.
 
-## Components
+---
 
-Each component is a small declaration: its type, JSON configuration and state, events, relations and any required adapter. `components.catalog.registry()` loads the bundled declarations and `Registry.resolve()` checks an environment manifest before a simulation begins. The built-in catalog includes Norvale site, role, product and customer declarations plus generic factory workstation, warehouse, supplier, purchase order, work order and quality-check declarations.
+## Using with AI
 
-See the [component guide](docs/COMPONENTS.md).
-
-## Run the notebook
-
-After installing the workspace, set up the notebook kernel.
-
-```sh
-uv pip install --python .venv/bin/python ipykernel
-.venv/bin/python -m ipykernel install --user --name enterpriseengine
-```
-
-Open the notebook and select the `enterpriseengine` kernel. This toy demo does not run the Norvale company. [Engine tour notebook](notebooks/engine_tour.ipynb)
-
-## Repository map
-
-- `packages/engine`: time, scheduling, save/resume and confirmed record export.
-- `packages/components`: reusable component declarations and registry.
-- `packages/environments` holds company implementations, including [Norvale](packages/environments/src/environments/norvale).
-- `contracts`: offline behavior and compatibility tests.
-- `docs`: guides and longer architecture notes.
-
-For the full Norvale operating loop and its limits, read [docs/NORVALE.md](docs/NORVALE.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- **JEV + LLM routing:** A lightweight router (**JEV**) checks whether an incoming situation matches an existing policy. Routine cases run deterministically; only unfamiliar or judgment-heavy cases wake the role LLM.
+- **Decision model + small LLM for comms:** For high-throughput runs (e.g. 180-day datasets), use a fast decision model/policy to pick the action, and a small/fast LLM only to draft the resulting emails, DMs, and issue comments—reserving full LLMs for rare, ambiguous cases.
