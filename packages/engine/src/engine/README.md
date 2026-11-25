@@ -67,6 +67,34 @@ resume automatically.
   The optional `boundary(stage, operation)` hook exposes intent, send,
   readback and result checkpoints to diagnostics and crash tests.
 
+## Fork a run
+
+After a successful `run.run(until=minute, advance=True)`, call
+`branch_dir = run.fork(new_directory, snapshot_external=hook)`. The cutoff
+is inclusive. The fork uses the current committed minute, including idle
+time recorded with `advance=True`, and copies queued work, history, decisions
+and the write journal. Reopen the returned path with `Engine`, the original
+seed and consumer identity/configuration, and fresh runtime objects bound to
+the branch. A fork must use a new directory. If another controller has
+advanced the checkpoint, reopen the source before forking.
+
+Use `run.register_component_state(component_id, initial_state)` to initialize
+JSON state under `run.state[component_id]`. Registration copies the supplied
+value and rejects an existing key. Outside a handler it commits immediately.
+Inside a handler it commits with the rest of the handler's state edits.
+Serialize component objects to JSON data before storing them and update their
+saved state in the handler so restarts and forks use the correct version.
+
+The host's hook receives `(staging_dir, minute)` while the source engine is
+locked. It must copy every external store the run uses, including stores
+accessed directly by consumers. Quiesce other writers to those stores and
+retain native IDs and retry keys when copying. Files saved under
+`staging_dir` move to the branch directory on success. If the hook fails,
+the engine discards its staged files and propagates the error. The hook owns
+cleanup of resources it provisions outside that directory. The hook is
+required for attached native transports or adapter factories and can be
+omitted for a run with no external state.
+
 ## Track employee obligations
 
 Obligation calls require the scheduled acting role to be registered in the
