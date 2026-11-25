@@ -92,6 +92,6 @@ company.extend(
         {"id": "sample-B", "kind": "inspect", "at": 525, "duration": 10, "role": "analyst", "payload": {"lot": "B", "ph": 5.5}},
     ],
 )
-company.run_until(600)
+company.run(until=600)
 print(company.state["inspections"])
 ```
