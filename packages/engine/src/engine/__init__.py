@@ -1,18 +1,16 @@
 """Durable minute-based dispatch through injected consumers and transports."""
 
-from contextlib import closing, contextmanager, ExitStack
-from copy import deepcopy
 import fcntl
+import json
+import sqlite3
+from contextlib import ExitStack, closing, contextmanager
+from copy import deepcopy
 from hashlib import sha256
 from heapq import heappop, heappush
-import json
 from pathlib import Path
-import sqlite3
 
-from . import _journal
-from . import world
+from . import _journal, world
 from ._extension import SECTIONS, name, validate_entries, validate_event, validate_json
-
 
 DAY = 1440
 
@@ -61,9 +59,12 @@ def _calendars(config):
         if not isinstance(windows, (list, tuple)) or not windows:
             raise ValueError(f"No shift windows for role {role!r}")
         for window in windows:
-            if (not isinstance(window, (list, tuple)) or len(window) != 2
-                    or any(type(minute) is not int for minute in window)
-                    or not 0 <= window[0] < window[1] <= DAY):
+            if (
+                not isinstance(window, (list, tuple))
+                or len(window) != 2
+                or any(type(minute) is not int for minute in window)
+                or not 0 <= window[0] < window[1] <= DAY
+            ):
                 raise ValueError("Shifts require half-open integer windows within a day")
         ordered = sorted(tuple(window) for window in windows)
         if any(end > start for (_, end), (start, _) in zip(ordered, ordered[1:])):
@@ -73,8 +74,20 @@ def _calendars(config):
 
 
 class Engine:
-    def __init__(self, directory, consumer, *, seed, native, providers,
-                 monotonic, boundary=None, adapters=None, start=0, standalone_extensions=True):
+    def __init__(
+        self,
+        directory,
+        consumer,
+        *,
+        seed,
+        native,
+        providers,
+        monotonic,
+        boundary=None,
+        adapters=None,
+        start=0,
+        standalone_extensions=True,
+    ):
         if type(start) is not int or start < 0:
             raise ValueError("start must be a nonnegative integer minute")
         self._consumer = consumer
@@ -92,8 +105,9 @@ class Engine:
                 raise ValueError("A world process requires world: true")
             self._world_process.validate(self.config)
         process_class = type(self._world_process)
-        self._world_process_identity = ([process_class.__module__, process_class.__qualname__]
-                                        if self._world_process is not None else None)
+        self._world_process_identity = (
+            [process_class.__module__, process_class.__qualname__] if self._world_process is not None else None
+        )
         self._calendars = _calendars(self.config)
         cls = type(consumer)
         identity = getattr(consumer, "resume_identity", None)
@@ -116,20 +130,32 @@ class Engine:
             db.execute("BEGIN")
             db.execute("CREATE TABLE IF NOT EXISTS checkpoint (id INTEGER PRIMARY KEY, data TEXT)")
             db.execute("CREATE TABLE IF NOT EXISTS writes (id TEXT PRIMARY KEY, data TEXT)")
-            initial = {"consumer": self._consumer_identity, "now": start, "sequence": 0,
-                       "queue": [], "history": [], "state": {}, "seed": seed,
-                       "config": self.config, "world_process": self._world_process_identity}
+            initial = {
+                "consumer": self._consumer_identity,
+                "now": start,
+                "sequence": 0,
+                "queue": [],
+                "history": [],
+                "state": {},
+                "seed": seed,
+                "config": self.config,
+                "world_process": self._world_process_identity,
+            }
             created = db.execute("INSERT OR IGNORE INTO checkpoint VALUES (1, ?)", (_json(initial),)).rowcount
-            db.execute("CREATE TABLE IF NOT EXISTS extension_admission (id INTEGER PRIMARY KEY, standalone INTEGER NOT NULL)")
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS extension_admission (id INTEGER PRIMARY KEY, standalone INTEGER NOT NULL)"
+            )
             # Only the owning runtime may enroll a checkpoint for offline commands.
             # Once it requires application validation, a reopen cannot loosen that rule.
-            db.execute("INSERT INTO extension_admission VALUES (1, ?) ON CONFLICT(id) DO UPDATE "
-                       "SET standalone = MIN(standalone, excluded.standalone)", (int(standalone_extensions),))
+            db.execute(
+                "INSERT INTO extension_admission VALUES (1, ?) ON CONFLICT(id) DO UPDATE "
+                "SET standalone = MIN(standalone, excluded.standalone)",
+                (int(standalone_extensions),),
+            )
             self._restore(self._load())
             self._migrate()
             if created and self.config.get("world"):
-                self._enqueue(self._scheduled_edge(f"world:week:{start}", world.TICK,
-                                                    start, {}, priority=-100))
+                self._enqueue(self._scheduled_edge(f"world:week:{start}", world.TICK, start, {}, priority=-100))
                 self._save()
 
     @contextmanager
@@ -153,28 +179,30 @@ class Engine:
             return
         db = self._db
         db.execute("CREATE TABLE event_ids (id TEXT PRIMARY KEY, sequence INTEGER)")
-        db.execute("CREATE TABLE queue (sequence INTEGER PRIMARY KEY, minute BLOB NOT NULL, "
-                   "priority BLOB NOT NULL, role TEXT, edge TEXT NOT NULL)")
+        db.execute(
+            "CREATE TABLE queue (sequence INTEGER PRIMARY KEY, minute BLOB NOT NULL, "
+            "priority BLOB NOT NULL, role TEXT, edge TEXT NOT NULL)"
+        )
         db.execute("CREATE INDEX queue_order ON queue (minute, priority, sequence)")
         db.execute("CREATE INDEX queue_role ON queue (role)")
         db.execute("CREATE TABLE history (id INTEGER PRIMARY KEY, entry TEXT NOT NULL)")
         self._index_terminal_history()
-        db.execute("CREATE TABLE IF NOT EXISTS decisions (operation INTEGER PRIMARY KEY, "
-                   "event_id TEXT UNIQUE NOT NULL, data TEXT NOT NULL)")
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS decisions (operation INTEGER PRIMARY KEY, "
+            "event_id TEXT UNIQUE NOT NULL, data TEXT NOT NULL)"
+        )
         for edge in checkpoint["queue"]:
             db.execute("INSERT INTO event_ids VALUES (?, ?)", (_json(edge[4]), edge[2]))
             self._insert_edge(edge)
         for entry in checkpoint["history"]:
             db.execute("INSERT OR IGNORE INTO event_ids VALUES (?, NULL)", (_json(entry["id"]),))
             db.execute("INSERT INTO history (entry) VALUES (?)", (_json(entry),))
-        migrated = {key: value for key, value in checkpoint.items()
-                    if key not in {"queue", "history", "extensions"}}
+        migrated = {key: value for key, value in checkpoint.items() if key not in {"queue", "history", "extensions"}}
         migrated["history_end"] = len(checkpoint["history"])
         migrated["revision"] = 0
         if self._extensions:
             migrated["extensions"] = {
-                id: {**{key: command[key] for key in SECTIONS},
-                     "digest": _command_digest(command)}
+                id: {**{key: command[key] for key in SECTIONS}, "digest": _command_digest(command)}
                 for id, command in self._extensions.items()
             }
         db.execute("UPDATE checkpoint SET data = ? WHERE id = 1", (_json(migrated),))
@@ -210,8 +238,7 @@ class Engine:
             raise ValueError("Legacy checkpoint has no consumer identity")
         if checkpoint["consumer"] != self._consumer_identity:
             raise ValueError("Resume requires the original consumer identity")
-        if (checkpoint["seed"] != self.seed
-                or _json(checkpoint["config"]) != _json(self.config)):
+        if checkpoint["seed"] != self.seed or _json(checkpoint["config"]) != _json(self.config):
             raise ValueError("Resume requires the original seed and configuration")
         if checkpoint.get("world_process") != self._world_process_identity:
             raise ValueError("Resume requires the original world process")
@@ -224,8 +251,9 @@ class Engine:
             obligation = deepcopy(saved)
             if "id" not in obligation:
                 # Old checkpoints stored only a global short key and the current owner.
-                obligation.update(id=_json([key]), origin=obligation["owner"],
-                                  opening_due=obligation["due"], priority=0)
+                obligation.update(
+                    id=_json([key]), origin=obligation["owner"], opening_due=obligation["due"], priority=0
+                )
             self._obligations[obligation["id"]] = obligation
         self._superseded_reminders = set()
         self._pending.clear()
@@ -240,8 +268,9 @@ class Engine:
         for section in SECTIONS:
             mapping = self._checkpoint["config"].get(section)
             self._catalog[section] = (
-                deepcopy(mapping) if isinstance(mapping, dict)
-                and all(isinstance(spec, dict) for spec in mapping.values()) else {}
+                deepcopy(mapping)
+                if isinstance(mapping, dict) and all(isinstance(spec, dict) for spec in mapping.values())
+                else {}
             )
         self._added = {section: {} for section in SECTIONS}
         for entry in self._extensions.values():
@@ -273,8 +302,7 @@ class Engine:
             raise ValueError("Extension ID must be a nonblank string")
         if self._active is not None:
             raise RuntimeError("Submit extensions outside event handlers")
-        command = {key: {} if value is None else value
-                   for key, value in zip(SECTIONS, (systems, roles, products))}
+        command = {key: {} if value is None else value for key, value in zip(SECTIONS, (systems, roles, products))}
         command["events"] = [] if events is None else events
         validate_json(command)
         try:
@@ -301,23 +329,33 @@ class Engine:
                     raise ValueError(f"Conflicting extension ID: {extension_id!r}")
                 return
             if from_command:
-                enrolled = db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'extension_admission'").fetchone()
-                if not enrolled or not db.execute("SELECT 1 FROM extension_admission WHERE id = 1 AND standalone = 1").fetchone():
+                enrolled = db.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'extension_admission'"
+                ).fetchone()
+                if (
+                    not enrolled
+                    or not db.execute("SELECT 1 FROM extension_admission WHERE id = 1 AND standalone = 1").fetchone()
+                ):
                     raise ValueError("Submit new extensions through the owning application")
             validate_entries(command, self._catalog, self._calendars, self._adapters)
             if validate is not None:
                 validate(self.catalog)
-            if any(db.execute("SELECT 1 FROM queue WHERE role = ? LIMIT 1", (_json(role),)).fetchone()
-                   for role in command["roles"]):
+            if any(
+                db.execute("SELECT 1 FROM queue WHERE role = ? LIMIT 1", (_json(role),)).fetchone()
+                for role in command["roles"]
+            ):
                 raise ValueError("Extension cannot replace a role used by queued work")
             for system in command["systems"]:
-                used = db.execute("SELECT 1 FROM writes WHERE json_extract(data, '$.system') = "
-                                  "json_extract(?, '$') LIMIT 1", (_json(system),)).fetchone()
+                used = db.execute(
+                    "SELECT 1 FROM writes WHERE json_extract(data, '$.system') = json_extract(?, '$') LIMIT 1",
+                    (_json(system),),
+                ).fetchone()
                 if used:
                     raise ValueError("Extension cannot replace a system used by prior writes")
             try:
                 self._extensions[extension_id] = {
-                    **{key: command[key] for key in SECTIONS}, "digest": digest,
+                    **{key: command[key] for key in SECTIONS},
+                    "digest": digest,
                 }
                 self._set_catalog()
                 for event in command["events"]:
@@ -331,12 +369,19 @@ class Engine:
 
     def _insert_edge(self, edge):
         at, priority, sequence, _, _, _, _, _, role, _ = edge[:10]
-        self._db.execute("INSERT INTO queue VALUES (?, ?, ?, ?, ?)",
-                         (sequence, _order_key(at), _order_key(priority), _json(role), _json(edge)))
+        self._db.execute(
+            "INSERT INTO queue VALUES (?, ?, ?, ?, ?)",
+            (sequence, _order_key(at), _order_key(priority), _json(role), _json(edge)),
+        )
 
     def _save(self, *, remove=None, edge=None, history=None):
-        checkpoint = {**self._checkpoint, "now": self.now, "sequence": self._sequence,
-                      "state": self.state, "revision": self._checkpoint["revision"] + 1}
+        checkpoint = {
+            **self._checkpoint,
+            "now": self.now,
+            "sequence": self._sequence,
+            "state": self.state,
+            "revision": self._checkpoint["revision"] + 1,
+        }
         if self._world_samples:
             checkpoint["world_samples"] = self._world_samples
         if self._staff_available:
@@ -354,9 +399,11 @@ class Engine:
             if edge is not None:
                 self._insert_edge(edge)
                 if edge[3] == 3:
-                    db.execute("UPDATE writes SET data = json_set(data, '$.next_attempt', ?) "
-                               "WHERE id GLOB ? AND json_extract(data, '$.status') = 'pending'",
-                               (edge[0], f"write-{remove}-*"))
+                    db.execute(
+                        "UPDATE writes SET data = json_set(data, '$.next_attempt', ?) "
+                        "WHERE id GLOB ? AND json_extract(data, '$.status') = 'pending'",
+                        (edge[0], f"write-{remove}-*"),
+                    )
             for id, queued in self._pending.items():
                 db.execute("INSERT INTO event_ids VALUES (?, ?)", (_json(id), queued[2]))
                 self._insert_edge(queued)
@@ -458,19 +505,30 @@ class Engine:
     def _has_saved_event(self, db, id):
         # Migrated completed events have no recoverable sequence. New IDs are
         # visible to this instance up to its last synchronized boundary.
-        return db.execute("SELECT 1 FROM event_ids WHERE id = ? AND "
-                          "(sequence IS NULL OR sequence < ?)",
-                          (_json(id), self._checkpoint["sequence"])).fetchone() is not None
+        return (
+            db.execute(
+                "SELECT 1 FROM event_ids WHERE id = ? AND (sequence IS NULL OR sequence < ?)",
+                (_json(id), self._checkpoint["sequence"]),
+            ).fetchone()
+            is not None
+        )
 
-    def schedule(self, id, kind, at, *, payload, priority=0, duration=0, role=None,
-                 elapsed=False, book_staff=False):
+    def schedule(self, id, kind, at, *, payload, priority=0, duration=0, role=None, elapsed=False, book_staff=False):
         """Enqueue work. Role work counts shift minutes unless elapsed is true."""
         world.check_event_name(id, kind)
-        return self._schedule(id, kind, at, payload=payload, priority=priority,
-                              duration=duration, role=role, elapsed=elapsed, book_staff=book_staff)
+        return self._schedule(
+            id,
+            kind,
+            at,
+            payload=payload,
+            priority=priority,
+            duration=duration,
+            role=role,
+            elapsed=elapsed,
+            book_staff=book_staff,
+        )
 
-    def _schedule(self, id, kind, at, *, payload, priority=0, duration=0, role=None,
-                  elapsed=False, book_staff=False):
+    def _schedule(self, id, kind, at, *, payload, priority=0, duration=0, role=None, elapsed=False, book_staff=False):
         params = (id, kind, at, payload, priority, duration, role, elapsed)
         if self._active is not None:
             return self._enqueue(self._scheduled_edge(*params), book_staff=book_staff)
@@ -487,8 +545,7 @@ class Engine:
                 raise
         return sequence
 
-    def _scheduled_edge(self, id, kind, at, payload, priority=0, duration=0, role=None,
-                        elapsed=False):
+    def _scheduled_edge(self, id, kind, at, payload, priority=0, duration=0, role=None, elapsed=False):
         if not isinstance(id, str) or not id.strip():
             raise ValueError("Event ID must be a nonblank string")
         if type(priority) is not int or type(duration) is not int or duration < 0:
@@ -498,9 +555,18 @@ class Engine:
         start = self._shift_start(at, role)
         # Phase 2 admits work to a staffed queue. Phase 0 starts admitted work.
         phase = 2 if duration and not elapsed and role in self._staffing else 0
-        return (start, priority, self._sequence, phase, id, kind,
-                json.loads(_json(payload)), duration, role,
-                self._completion(start, duration, role, elapsed))
+        return (
+            start,
+            priority,
+            self._sequence,
+            phase,
+            id,
+            kind,
+            json.loads(_json(payload)),
+            duration,
+            role,
+            self._completion(start, duration, role, elapsed),
+        )
 
     def _enqueue(self, edge, *, book_staff=False):
         id = edge[4]
@@ -527,9 +593,10 @@ class Engine:
                         if self._extensions == checkpoint.get("extensions", {}):
                             raise RuntimeError("Checkpoint changed; reopen the engine")
                         self._restore(checkpoint)
-                    row = db.execute("SELECT edge FROM queue WHERE minute <= ? "
-                                     "ORDER BY minute, priority, sequence LIMIT 1",
-                                     (_order_key(until),)).fetchone()
+                    row = db.execute(
+                        "SELECT edge FROM queue WHERE minute <= ? ORDER BY minute, priority, sequence LIMIT 1",
+                        (_order_key(until),),
+                    ).fetchone()
                     try:
                         if row is not None:
                             self._step(json.loads(row[0]))
@@ -558,15 +625,15 @@ class Engine:
             # Admit staffed work in arrival order, including any earlier bookings.
             at, other_at = self._book_staff(self.now, duration, role)
             if at > self.now:
-                self._save(remove=seq, edge=(at, priority, seq, 0, id, kind, payload,
-                                             duration, role, other_at))
+                self._save(remove=seq, edge=(at, priority, seq, 0, id, kind, payload, duration, role, other_at))
                 return
             phase = 0
         if phase == 0:
-            self._save(remove=seq,
-                       edge=(other_at, priority, seq, 1, id, kind, payload, duration, role,
-                             self.now, *reminder),
-                       history={"id": id, "phase": "start", "at": self.now})
+            self._save(
+                remove=seq,
+                edge=(other_at, priority, seq, 1, id, kind, payload, duration, role, self.now, *reminder),
+                history={"id": id, "phase": "start", "at": self.now},
+            )
             return
         if reminder:
             # A failed or deferred handler rolls this back with its other edits.
@@ -576,8 +643,9 @@ class Engine:
         self._active_role = role
         # A deferred edge retains the two original business timestamps.
         self.event_started_at, self._completion_at = other_at if phase == 3 else (other_at, self.now)
-        self.event = dict(id=id, sequence=seq, kind=kind, role=role, duration=duration,
-                          at=self.event_started_at, priority=priority)
+        self.event = dict(
+            id=id, sequence=seq, kind=kind, role=role, duration=duration, at=self.event_started_at, priority=priority
+        )
         self._write_index = self._provider_index = self._observation_index = 0
         self._active_readbacks = set()
         try:
@@ -596,8 +664,9 @@ class Engine:
             timestamps = (self.event_started_at, self._completion_at)
             self._restore(self._checkpoint)
             self.now = at
-            self._save(remove=seq, edge=(at + DAY, priority, seq, 3, id, kind, payload,
-                                         duration, role, timestamps, *reminder))
+            self._save(
+                remove=seq, edge=(at + DAY, priority, seq, 3, id, kind, payload, duration, role, timestamps, *reminder)
+            )
             return
         finally:
             self._active = self._active_id = self._active_role = None
@@ -607,9 +676,12 @@ class Engine:
 
     def history(self):
         with closing(sqlite3.connect(self._database)) as db:
-            return [json.loads(entry) for entry, in db.execute(
-                "SELECT entry FROM history WHERE id <= ? ORDER BY id",
-                (self._checkpoint["history_end"],))]
+            return [
+                json.loads(entry)
+                for (entry,) in db.execute(
+                    "SELECT entry FROM history WHERE id <= ? ORDER BY id", (self._checkpoint["history_end"],)
+                )
+            ]
 
     def _obligation_role(self):
         if self._active is None or self._active_role not in self._catalog["roles"]:
@@ -623,8 +695,7 @@ class Engine:
         obligation = self._obligations.get(obligation_id)
         if obligation is not None:
             owner = obligation["owner"]
-            allowed = (f"obligation:reassign:{owner}" in self._scopes(role)
-                       if reassign else owner == role)
+            allowed = f"obligation:reassign:{owner}" in self._scopes(role) if reassign else owner == role
             if allowed:
                 return obligation
         raise PermissionError("Obligation is unavailable to the active role")
@@ -643,9 +714,14 @@ class Engine:
         event_id = f"obligation:{self._sequence}"
         while self.has_event(event_id):
             event_id += ":"
-        edge = self._scheduled_edge(event_id, "obligation_due", max(self.now, due),
-                                    payload={"key": obligation["key"], "id": obligation["id"]},
-                                    priority=obligation["priority"], role=owner)
+        edge = self._scheduled_edge(
+            event_id,
+            "obligation_due",
+            max(self.now, due),
+            payload={"key": obligation["key"], "id": obligation["id"]},
+            priority=obligation["priority"],
+            role=owner,
+        )
         # Only engine-generated edges carry this marker. Older and consumer-
         # scheduled events keep their ordinary shape, even with the same kind.
         reminder = self._enqueue((*edge, obligation["id"]))
@@ -671,15 +747,25 @@ class Engine:
             if legacy is not None and legacy["origin"] == owner:
                 existing = legacy
         if existing is not None:
-            if (existing["opening_due"] != due or existing["priority"] != priority
-                    or _json(existing["evidence"]) != _json(evidence)):
+            if (
+                existing["opening_due"] != due
+                or existing["priority"] != priority
+                or _json(existing["evidence"]) != _json(evidence)
+            ):
                 raise ValueError("Obligation key already has different terms from opening")
             return existing["id"]
-        obligation = dict(id=obligation_id, key=key, origin=owner, opening_due=due,
-                          priority=priority, evidence=evidence, resolution=None, reminder=None)
+        obligation = dict(
+            id=obligation_id,
+            key=key,
+            origin=owner,
+            opening_due=due,
+            priority=priority,
+            evidence=evidence,
+            resolution=None,
+            reminder=None,
+        )
         self._set_obligation_deadline(obligation, owner, due)
-        self._audit_obligation(obligation, "open", owner=owner, due=due, priority=priority,
-                               evidence=evidence)
+        self._audit_obligation(obligation, "open", owner=owner, due=due, priority=priority, evidence=evidence)
         self._obligations[obligation_id] = obligation
         return obligation_id
 
@@ -689,8 +775,7 @@ class Engine:
 
     def reassign_obligation(self, obligation_id, *, owner, due):
         """Transfer an obligation with an explicit grant for its current owner."""
-        self._transfer_obligation(self._authorized_obligation(obligation_id, reassign=True),
-                                  owner, due, "reassign")
+        self._transfer_obligation(self._authorized_obligation(obligation_id, reassign=True), owner, due, "reassign")
 
     def _transfer_obligation(self, obligation, owner, due, action):
         if obligation["resolution"] is not None:
@@ -702,14 +787,18 @@ class Engine:
         if (owner, due) != (obligation["owner"], obligation["due"]):
             previous_owner, previous_due = obligation["owner"], obligation["due"]
             self._set_obligation_deadline(obligation, owner, due)
-            self._audit_obligation(obligation, action, previous_owner=previous_owner,
-                                   previous_due=previous_due, owner=owner, due=due)
+            self._audit_obligation(
+                obligation, action, previous_owner=previous_owner, previous_due=previous_due, owner=owner, due=due
+            )
 
     def resolve_obligation(self, obligation_id, *, evidence):
         """Close an owned obligation with a confirmed native record reference."""
         obligation = self._authorized_obligation(obligation_id)
-        if (not isinstance(evidence, dict) or set(evidence) != {"system", "native_id"}
-                or not all(map(name, evidence.values()))):
+        if (
+            not isinstance(evidence, dict)
+            or set(evidence) != {"system", "native_id"}
+            or not all(map(name, evidence.values()))
+        ):
             raise ValueError("Resolution evidence requires system and native_id")
         if obligation["resolution"] is not None:
             if obligation["resolution"] != evidence:
@@ -719,8 +808,13 @@ class Engine:
         if operation is None:
             raise ValueError("Resolution requires visible, confirmed native evidence")
         obligation["resolution"] = dict(evidence)
-        self._audit_obligation(obligation, "resolve", evidence=obligation["resolution"],
-                               evidence_event=operation["event"]["id"], operation=operation["retry_id"])
+        self._audit_obligation(
+            obligation,
+            "resolve",
+            evidence=obligation["resolution"],
+            evidence_event=operation["event"]["id"],
+            operation=operation["retry_id"],
+        )
         self._cancel_obligation_reminder(obligation)
 
     def obligations(self):
@@ -749,13 +843,17 @@ class Engine:
 
     def _observation_scopes(self, role):
         scopes = self._scopes(role)
-        return (role not in self._added["roles"] or "observe" in scopes,
-                {scope.removeprefix("observe:") for scope in scopes
-                 if isinstance(scope, str) and scope.startswith("observe:")})
+        return (
+            role not in self._added["roles"] or "observe" in scopes,
+            {
+                scope.removeprefix("observe:")
+                for scope in scopes
+                if isinstance(scope, str) and scope.startswith("observe:")
+            },
+        )
 
     def _visible_record(self, row, role, as_of):
-        return row["at"] <= as_of and (
-            "roles" not in row or (isinstance(row["roles"], list) and role in row["roles"]))
+        return row["at"] <= as_of and ("roles" not in row or (isinstance(row["roles"], list) and role in row["roles"]))
 
     def _confirmed_obligation_evidence(self, system, native_id):
         role = self._active_role
@@ -772,8 +870,9 @@ class Engine:
         )
         for data, terminal in rows:
             operation = json.loads(data)
-            if ((operation["retry_id"] in self._active_readbacks or (terminal and system_visible))
-                    and self._visible_record(operation["record"], role, self.now)):
+            if (
+                operation["retry_id"] in self._active_readbacks or (terminal and system_visible)
+            ) and self._visible_record(operation["record"], role, self.now):
                 return operation
         return None
 
@@ -784,8 +883,7 @@ class Engine:
         added_systems = self._added["systems"]
 
         def visible(transport, allowed):
-            return [row for row in transport.records()
-                    if allowed(row) and self._visible_record(row, role, as_of)]
+            return [row for row in transport.records() if allowed(row) and self._visible_record(row, role, as_of)]
 
         def read(system, transport, allowed):
             if self._active is None:
@@ -793,19 +891,29 @@ class Engine:
             # Persist only the authorized projection of a bulk response.
             self._observation_index += 1
             return _journal.invoke(
-                self._database, self._trace_event(), f"observation:{self._observation_index}",
+                self._database,
+                self._trace_event(),
+                f"observation:{self._observation_index}",
                 {"tier": "observation", "method": "records", "system": system, "as_of": as_of},
-                lambda: visible(transport, allowed), self.monotonic, replay=True,
+                lambda: visible(transport, allowed),
+                self.monotonic,
+                replay=True,
             )
 
         rows = []
         if base_visible or selected.difference(added_systems):
-            rows.extend(read(None, self._native, lambda row: row.get("system") not in added_systems
-                             and (base_visible or row.get("system") in selected)))
+            rows.extend(
+                read(
+                    None,
+                    self._native,
+                    lambda row: (
+                        row.get("system") not in added_systems and (base_visible or row.get("system") in selected)
+                    ),
+                )
+            )
         for system in added_systems:
             if system in selected:
-                rows.extend(read(system, self._transport(system),
-                                 lambda row: row.get("system", system) == system))
+                rows.extend(read(system, self._transport(system), lambda row: row.get("system", system) == system))
         return deepcopy(rows)
 
     def observe_world(self, role, *, as_of):
@@ -813,8 +921,7 @@ class Engine:
         self._check_observation(role, as_of)
         if self._world_process is None:
             return []
-        rows = [row for row in self._checkpoint.get("world_samples", ())
-                if row["at"] <= as_of]
+        rows = [row for row in self._checkpoint.get("world_samples", ()) if row["at"] <= as_of]
         return self._world_process.observe(deepcopy(rows), self._checkpoint["config"], role, as_of)
 
     def _check_observation(self, role, as_of):
@@ -827,8 +934,13 @@ class Engine:
                 raise ValueError("An active event cannot observe future records")
 
     def _trace_event(self):
-        return {**self.event, "id": self._active_id, "sequence": self._active, "role": self._active_role,
-                "completed_at": self.now}
+        return {
+            **self.event,
+            "id": self._active_id,
+            "sequence": self._active,
+            "role": self._active_role,
+            "completed_at": self.now,
+        }
 
     def call_provider(self, tier, prompt, tools):
         if self._active is None or tier not in {"jev", "model"}:
@@ -841,20 +953,34 @@ class Engine:
             return self.providers.call(tier, prompt, deepcopy(tools))
 
         return _journal.invoke(
-            self._database, self._trace_event(), f"provider:{self._provider_index}",
+            self._database,
+            self._trace_event(),
+            f"provider:{self._provider_index}",
             {"tier": tier, "prompt": prompt, "tools": deepcopy(tools)},
-            request if self.providers is not None else None, self.monotonic,
-            replay=True, retry_timeout=True, replay_failure=True,
+            request if self.providers is not None else None,
+            self.monotonic,
+            replay=True,
+            retry_timeout=True,
+            replay_failure=True,
         )
 
     def _api(self, transport, operation, method, key, *args):
         system = operation["system"]
         retry_id = operation["retry_id"]
         return _journal.invoke(
-            self._database, self._trace_event(), f"{retry_id}:{method}",
-            {"tier": "api", "system": system, "operation": retry_id,
-             "method": method, "key": key, "arguments": [system, key, *deepcopy(args)]},
-            lambda: getattr(transport, method)(system, key, *args), self.monotonic,
+            self._database,
+            self._trace_event(),
+            f"{retry_id}:{method}",
+            {
+                "tier": "api",
+                "system": system,
+                "operation": retry_id,
+                "method": method,
+                "key": key,
+                "arguments": [system, key, *deepcopy(args)],
+            },
+            lambda: getattr(transport, method)(system, key, *args),
+            self.monotonic,
         )
 
     def _inspection(self):
@@ -870,8 +996,7 @@ class Engine:
         return _journal.metrics(self._inspection(), DAY)
 
     def viewer(self, include_private=False):
-        return _journal.viewer(self._inspection(),
-                               private_truth=self.private_truth() if include_private else None)
+        return _journal.viewer(self._inspection(), private_truth=self.private_truth() if include_private else None)
 
     def _decision_key(self, event_id):
         if self._active is None:
@@ -884,8 +1009,7 @@ class Engine:
         """Return the committed decision for this active event, if any."""
         key = self._decision_key(event_id)
         with closing(sqlite3.connect(self._database)) as db:
-            row = db.execute("SELECT data FROM decisions WHERE operation = ? AND event_id = ?",
-                             key).fetchone()
+            row = db.execute("SELECT data FROM decisions WHERE operation = ? AND event_id = ?", key).fetchone()
         return json.loads(row[0]) if row is not None else None
 
     def save_consumer_decision(self, event_id, decision):
@@ -897,8 +1021,10 @@ class Engine:
             raise ValueError("Decision must include its complete input")
         key = self._decision_key(event_id)
         with closing(sqlite3.connect(self._database)) as db, db:
-            if self._write_index or db.execute("SELECT 1 FROM writes WHERE id GLOB ? LIMIT 1",
-                                               (f"write-{self._active}-*",)).fetchone():
+            if (
+                self._write_index
+                or db.execute("SELECT 1 FROM writes WHERE id GLOB ? LIMIT 1", (f"write-{self._active}-*",)).fetchone()
+            ):
                 raise RuntimeError("Commit the consumer decision before native writes")
             encoded = _json(decision)
             db.execute("INSERT INTO decisions VALUES (?, ?, ?)", (*key, encoded))
@@ -909,9 +1035,10 @@ class Engine:
         self._decision_key(event_id)
         prefix = f"write-{self._active}-"
         with closing(sqlite3.connect(self._database)) as db:
-            operations = [json.loads(data) for data, in db.execute(
-                "SELECT data FROM writes WHERE id GLOB ?", (prefix + "*",))]
-        operations.sort(key=lambda op: int(op["retry_id"][len(prefix):]))
+            operations = [
+                json.loads(data) for (data,) in db.execute("SELECT data FROM writes WHERE id GLOB ?", (prefix + "*",))
+            ]
+        operations.sort(key=lambda op: int(op["retry_id"][len(prefix) :]))
         if any(op["retry_id"] != f"{prefix}{index}" for index, op in enumerate(operations, 1)):
             raise RuntimeError("Incomplete native write prefix")
         return operations
@@ -928,15 +1055,18 @@ class Engine:
             if grade is None:
                 return (), {}, checkpoint, cutoff
             terminal = {
-                entry["id"] for data, in db.execute(
-                    "SELECT entry FROM history WHERE id <= ? ORDER BY id", (checkpoint["history_end"],))
-                if (entry := json.loads(data))["phase"] in ("complete", "superseded")
-                and entry["at"] <= cutoff
+                entry["id"]
+                for (data,) in db.execute(
+                    "SELECT entry FROM history WHERE id <= ? ORDER BY id", (checkpoint["history_end"],)
+                )
+                if (entry := json.loads(data))["phase"] in ("complete", "superseded") and entry["at"] <= cutoff
             }
             records = [
-                operation["record"] for data, in db.execute("SELECT data FROM writes ORDER BY rowid")
+                operation["record"]
+                for (data,) in db.execute("SELECT data FROM writes ORDER BY rowid")
                 if (operation := json.loads(data))["status"] == "confirmed"
-                and operation.get("event", {}).get("id") in terminal and operation["record"]["at"] <= cutoff
+                and operation.get("event", {}).get("id") in terminal
+                and operation["record"]["at"] <= cutoff
             ]
         questions, answers = grade(records, f"business minute {cutoff}")
         return questions, answers, checkpoint, cutoff
@@ -965,8 +1095,7 @@ class Engine:
     def export(self):
         """Export the native records confirmed by this engine, in write order."""
         with closing(sqlite3.connect(self._database)) as db:
-            operations = (json.loads(data) for data, in db.execute(
-                "SELECT data FROM writes ORDER BY rowid"))
+            operations = (json.loads(data) for (data,) in db.execute("SELECT data FROM writes ORDER BY rowid"))
             records = []
             for operation in operations:
                 if operation["status"] == "confirmed":
@@ -979,16 +1108,16 @@ class Engine:
         prefix = f"write-{self._active}-"
         with closing(sqlite3.connect(self._database)) as db:
             rows = db.execute("SELECT data FROM writes WHERE id GLOB ?", (prefix + "*",))
-            operations = [json.loads(data) for data, in rows]
-        if len(operations) != self._write_index or any(
-            operation["status"] != "confirmed" for operation in operations
-        ):
+            operations = [json.loads(data) for (data,) in rows]
+        if len(operations) != self._write_index or any(operation["status"] != "confirmed" for operation in operations):
             raise RuntimeError("Handler must replay and confirm all of its writes")
 
     def _save_operation(self, operation):
         with closing(sqlite3.connect(self._database)) as db, db:
-            db.execute("INSERT INTO writes VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
-                       (operation["retry_id"], _json(operation)))
+            db.execute(
+                "INSERT INTO writes VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
+                (operation["retry_id"], _json(operation)),
+            )
 
     def _notify(self, stage, operation):
         if self._boundary is not None:
@@ -1013,8 +1142,7 @@ class Engine:
         role = self._active_role
         if role in self._added["roles"] or system in self._added["systems"]:
             scopes = self._scopes(role)
-            if (f"write:{system}" not in scopes
-                    and (":" in system or f"write:{system}:{kind}" not in scopes)):
+            if f"write:{system}" not in scopes and (":" in system or f"write:{system}:{kind}" not in scopes):
                 raise PermissionError(f"Role {role!r} cannot write {system}/{kind}")
         transport = self._transport(system)
         self._write_index += 1
@@ -1025,10 +1153,14 @@ class Engine:
             row = db.execute("SELECT data FROM writes WHERE id = ?", (retry_id,)).fetchone()
         if row is None:
             operation = {
-                "retry_id": retry_id, "system": system, "action": document,
+                "retry_id": retry_id,
+                "system": system,
+                "action": document,
                 "event": {**self._trace_event(), "completed_at": self._completion_at},
                 "source_version": sha256(encoded.encode()).hexdigest(),
-                "evidence": document, "target_id": None, "status": "pending",
+                "evidence": document,
+                "target_id": None,
+                "status": "pending",
                 "next_attempt": self.now,
             }
             if native_id is not None:
@@ -1038,8 +1170,11 @@ class Engine:
             target = native_id
         else:
             operation = json.loads(row[0])
-            if (operation["system"] != system or operation.get("read_target") != native_id
-                    or _json(operation["action"]) != encoded):
+            if (
+                operation["system"] != system
+                or operation.get("read_target") != native_id
+                or _json(operation["action"]) != encoded
+            ):
                 raise RuntimeError(f"Handler replay changed write {retry_id}")
             if operation["status"] == "confirmed":
                 self._active_readbacks.add(retry_id)

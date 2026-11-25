@@ -1,15 +1,17 @@
 """Demand opt-in, legacy compatibility and the packing consumer's calendar."""
-from hashlib import sha256
+
 import json
+from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
-from enterpriseengine import Engine
-from engine import world
 from components import weekly_demand
+from engine import world
+from enterpriseengine import Engine
+
 from docs.examples.demand_packing import PackingDesk, run_packing
 
 
@@ -31,28 +33,30 @@ class WorldDesk:
 
 
 def engine(directory, desk, seed=42, start=0):
-    return Engine(directory, desk, seed=seed, native=None, providers=None,
-                  monotonic=monotonic, start=start)
+    return Engine(directory, desk, seed=seed, native=None, providers=None, monotonic=monotonic, start=start)
 
 
 def legacy_results(directory, seed, config):
     start = 17
     desk = WorldDesk(config)
-    if config.get('world_demand'):
+    if config.get("world_demand"):
         desk.world_process = weekly_demand.WeeklyDemand()
     run = engine(directory, desk, seed, start)
     for week in (0, 3, 7):
         eta = start + week * world.WEEK + 1
-        run.schedule(f"shipment:{week}", "dispatch", eta - 1,
-                     payload={"key": str(week), "eta": eta})
+        run.schedule(f"shipment:{week}", "dispatch", eta - 1, payload={"key": str(week), "eta": eta})
     run.run(until=start + 4 * world.WEEK)
     run = engine(directory, desk, seed, start)
     run.run(until=start + 16 * world.WEEK)
     truth = run.private_truth()
     for row in truth["world"]:
         row.pop("process", None)
-    return [truth, {key: value for key, value in run.state.items() if not key.startswith("_")},
-            run.history(), run.export()]
+    return [
+        truth,
+        {key: value for key, value in run.state.items() if not key.startswith("_")},
+        run.history(),
+        run.export(),
+    ]
 
 
 class DemandFactor(TestCase):
@@ -77,34 +81,38 @@ class DemandFactor(TestCase):
 
     def test_durations_shared_onset_and_separate_noise(self):
         cases = (
-            (None, .044, "normal", 0, 20),
-            (("normal", 0), .029, "promo_spike", 0, 26),
-            (("normal", 0), .044, "seasonal_lift", 0, 26),
-            (("normal", 0), .049, "structural_decline", 0, 14),
-            (("normal", 0), .051, "normal", 1, 20),
-            (("promo_spike", 2), .99, "promo_spike", 3, 26),
-            (("promo_spike", 3), .01, "normal", 0, 20),
-            (("seasonal_lift", 0), .84, "seasonal_lift", 1, 30),
-            (("seasonal_lift", 0), .86, "normal", 0, 20),
-            (("seasonal_lift", 6), .01, "seasonal_lift", 7, 30),
-            (("seasonal_lift", 7), .01, "normal", 0, 20),
-            (("structural_decline", 17), .96, "structural_decline", 18, 14),
-            (("structural_decline", 17), .98, "normal", 0, 20),
+            (None, 0.044, "normal", 0, 20),
+            (("normal", 0), 0.029, "promo_spike", 0, 26),
+            (("normal", 0), 0.044, "seasonal_lift", 0, 26),
+            (("normal", 0), 0.049, "structural_decline", 0, 14),
+            (("normal", 0), 0.051, "normal", 1, 20),
+            (("promo_spike", 2), 0.99, "promo_spike", 3, 26),
+            (("promo_spike", 3), 0.01, "normal", 0, 20),
+            (("seasonal_lift", 0), 0.84, "seasonal_lift", 1, 30),
+            (("seasonal_lift", 0), 0.86, "normal", 0, 20),
+            (("seasonal_lift", 6), 0.01, "seasonal_lift", 7, 30),
+            (("seasonal_lift", 7), 0.01, "normal", 0, 20),
+            (("structural_decline", 17), 0.96, "structural_decline", 18, 14),
+            (("structural_decline", 17), 0.98, "normal", 0, 20),
         )
         for prior, coin, regime, age, mean in cases:
             with self.subTest(prior=prior, coin=coin):
                 previous = dict(zip(("regime", "age"), prior)) if prior else None
                 with patch("components.weekly_demand.stream") as stream:
-                    rngs = {key: Mock() for key in (
-                        "demand-v1-regime", "demand-v1-realized", "demand-v1-forecast",
-                    )}
+                    rngs = {
+                        key: Mock()
+                        for key in (
+                            "demand-v1-regime",
+                            "demand-v1-realized",
+                            "demand-v1-forecast",
+                        )
+                    }
                     stream.side_effect = lambda seed, key, at: rngs[key]
                     rngs["demand-v1-regime"].random.return_value = coin
                     rngs["demand-v1-realized"].gauss.return_value = -3.4
                     rngs["demand-v1-forecast"].gauss.return_value = 20.8
                     sample = weekly_demand.demand_v1(previous, 42, 17)
-                    self.assertEqual(sample, dict(regime=regime, age=age, mean=mean,
-                                                  pos_units=0, demand_forecast=21))
+                    self.assertEqual(sample, dict(regime=regime, age=age, mean=mean, pos_units=0, demand_forecast=21))
                     rngs["demand-v1-realized"].gauss.assert_called_once_with(mean, 4)
                     rngs["demand-v1-forecast"].gauss.assert_called_once_with(mean, 6)
                     for call in stream.call_args_list:
@@ -114,7 +122,8 @@ class DemandFactor(TestCase):
         with TemporaryDirectory() as root:
             for world_enabled, option in (
                 (False, {"version": 1, "roles": ["planner"]}),
-                (True, None), (True, {"version": True, "roles": ["planner"]}),
+                (True, None),
+                (True, {"version": True, "roles": ["planner"]}),
                 (True, {"version": 2, "roles": ["planner"]}),
                 (True, {"version": 1, "roles": []}),
                 (True, {"version": 1, "roles": ["planner", "planner"]}),
@@ -128,15 +137,17 @@ class DemandFactor(TestCase):
                     desk.world_process = weekly_demand.WeeklyDemand()
                     engine(root, desk)
             run = engine(root, PackingDesk())
-            for event_id, kind in (("world:week:0", "noop"), ("world:week:1", "noop"),
-                                   ("packing:plan:0", world.TICK)):
+            for event_id, kind in (("world:week:0", "noop"), ("world:week:1", "noop"), ("packing:plan:0", world.TICK)):
                 with self.subTest(event_id=event_id, kind=kind):
                     with self.assertRaisesRegex(ValueError, "Reserved world event"):
                         run.schedule(event_id, kind, 0, payload={})
                     with self.assertRaisesRegex(ValueError, "Reserved world event"):
-                        run.extend("extension", events=[
-                            dict(id=event_id, kind=kind, at=0, payload={}),
-                        ])
+                        run.extend(
+                            "extension",
+                            events=[
+                                dict(id=event_id, kind=kind, at=0, payload={}),
+                            ],
+                        )
             run.extend("extension", events=[dict(id="demand:0", kind="noop", at=0, payload={})])
             run.run(until=0)
             self.assertEqual(len(run.observe_world("planner", as_of=0)), 1)
@@ -151,8 +162,10 @@ class DemandFactor(TestCase):
             self.assertEqual(first.state.get("packed", []), [])
             self.assertFalse(first.has_event("packing:work:0"))
             self.assertIsNone(first.observe_world("planner", as_of=0)[0]["pos_units"])
-            for config, seed in ((PackingDesk.config, 43),
-                                 ({"world": True, "world_demand": {"version": 1, "roles": ["packer"]}}, 42)):
+            for config, seed in (
+                (PackingDesk.config, 43),
+                ({"world": True, "world_demand": {"version": 1, "roles": ["packer"]}}, 42),
+            ):
                 desk = PackingDesk()
                 desk.config = config
                 with self.assertRaisesRegex(ValueError, "original seed and configuration"):
@@ -165,11 +178,19 @@ class DemandFactor(TestCase):
             self.assertEqual(len(readings), 11)
             self.assertTrue(any(row["pos_units"] != row["demand_forecast"] for row in readings[:-1]))
             self.assertGreater(len({row["pos_units"] for row in readings[:-1]}), 1)
-            self.assertEqual(resumed.state["packed"], [
-                {"sales_week": row["at"], "units": row["pos_units"], "started_at": row["at"] + world.WEEK,
-                 "completed_at": row["at"] + world.WEEK + row["pos_units"]}
-                for row in readings[:-1] if row["pos_units"]
-            ])
+            self.assertEqual(
+                resumed.state["packed"],
+                [
+                    {
+                        "sales_week": row["at"],
+                        "units": row["pos_units"],
+                        "started_at": row["at"] + world.WEEK,
+                        "completed_at": row["at"] + world.WEEK + row["pos_units"],
+                    }
+                    for row in readings[:-1]
+                    if row["pos_units"]
+                ],
+            )
 
     def test_observation_privacy_and_no_uncommitted_sample(self):
         class Probe(WorldDesk):

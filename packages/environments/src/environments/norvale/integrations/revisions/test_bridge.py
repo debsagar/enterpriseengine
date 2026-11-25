@@ -1,17 +1,16 @@
 """Offline regression for publication recovery, destination readback and dispatch."""
 
-from copy import deepcopy
-from pathlib import Path
 import tempfile
 import unittest
+from copy import deepcopy
+from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
 
-from environments.norvale.integrations.plm import Blocked, PLM
+from environments.norvale.integrations.plm import PLM, Blocked
 
 from . import Bridge, RevisionMismatch, project
 from .receivers import ERP_KEY, ERP_SITE, ODOO_KEY, ODOO_SITE, ERPNext, Odoo
-
 
 EARLY = "2027-01-04"
 LATER = "2027-02-01"
@@ -20,44 +19,60 @@ PRODUCT = "NV-BRIDGE-SHAMPOO"
 
 def components(pack_qty):
     return [
-        {"source_id": "NV-BRIDGE-BULK", "kind": "formulation", "quantity": "250",
-         "unit": "g", "specification": "Prepared base"},
-        {"source_id": "NV-BRIDGE-BOTTLE", "kind": "packaging", "quantity": str(pack_qty),
-         "unit": "ea", "specification": "Bottle and closure"},
+        {
+            "source_id": "NV-BRIDGE-BULK",
+            "kind": "formulation",
+            "quantity": "250",
+            "unit": "g",
+            "specification": "Prepared base",
+        },
+        {
+            "source_id": "NV-BRIDGE-BOTTLE",
+            "kind": "packaging",
+            "quantity": str(pack_qty),
+            "unit": "ea",
+            "specification": "Bottle and closure",
+        },
     ]
 
 
 def mapping(company, company_id, output_id, bulk_id, bottle_id, kg_id, unit_id, center_id):
     def entries(bulk, bottle, kg, unit):
         return {
-            "NV-BRIDGE-BULK": {"source_unit": "g", "kind": "formulation",
-                               "item": bulk, "unit": kg, "factor": "0.001"},
-            "NV-BRIDGE-BOTTLE": {"source_unit": "ea", "kind": "packaging",
-                                 "item": bottle, "unit": unit, "factor": "1"},
+            "NV-BRIDGE-BULK": {"source_unit": "g", "kind": "formulation", "item": bulk, "unit": kg, "factor": "0.001"},
+            "NV-BRIDGE-BOTTLE": {"source_unit": "ea", "kind": "packaging", "item": bottle, "unit": unit, "factor": "1"},
         }
 
-    return {PRODUCT: {
-        "erp": {"output": {"item": PRODUCT, "unit": "Nos", "qty": "1"},
+    return {
+        PRODUCT: {
+            "erp": {
+                "output": {"item": PRODUCT, "unit": "Nos", "qty": "1"},
                 "components": entries("NV-BRIDGE-BULK", "NV-BRIDGE-BOTTLE", "Kg", "Nos"),
-                "settings": {"company": company}},
-        "mes": {"output": {"item": output_id, "unit": unit_id, "qty": "1"},
+                "settings": {"company": company},
+            },
+            "mes": {
+                "output": {"item": output_id, "unit": unit_id, "qty": "1"},
                 "components": entries(bulk_id, bottle_id, kg_id, unit_id),
-                "settings": {"company_id": company_id, "operation": {
-                    "name": "Fill", "workcenter_id": center_id, "minutes": "1"}}},
-    }}
+                "settings": {
+                    "company_id": company_id,
+                    "operation": {"name": "Fill", "workcenter_id": center_id, "minutes": "1"},
+                },
+            },
+        }
+    }
 
 
 class BulkProjectionTests(unittest.TestCase):
     def test_formulation_only_requires_an_approved_intermediate_definition(self):
-        targets = mapping('Norvale', 1, 2, 3, 4, 5, 6, 7)
-        targets[PRODUCT]['erp']['output'] = dict(item=PRODUCT, unit='Kg', qty='0.75')
-        publication = {'definition': {'name': PRODUCT, 'lines': components(1)[:1]}}
+        targets = mapping("Norvale", 1, 2, 3, 4, 5, 6, 7)
+        targets[PRODUCT]["erp"]["output"] = dict(item=PRODUCT, unit="Kg", qty="0.75")
+        publication = {"definition": {"name": PRODUCT, "lines": components(1)[:1]}}
         with self.assertRaises(RevisionMismatch):
-            project(publication, targets, 'erp')
-        publication['definition']['material_kind'] = 'intermediate'
-        plan = project(publication, targets, 'erp')
-        self.assertEqual(plan['output']['qty'], '0.75')
-        self.assertEqual(len(plan['lines']), 1)
+            project(publication, targets, "erp")
+        publication["definition"]["material_kind"] = "intermediate"
+        plan = project(publication, targets, "erp")
+        self.assertEqual(plan["output"]["qty"], "0.75")
+        self.assertEqual(len(plan["lines"]), 1)
 
 
 class SourceFixture:
@@ -65,15 +80,22 @@ class SourceFixture:
         self.receipts = {}
 
     def publication(self, pk):
-        return {"native_id": pk, "source_version": str(pk) * 64, "approval": {"on": EARLY},
-                "definition": {"name": PRODUCT, "lines": components(pk)}}
+        return {
+            "native_id": pk,
+            "source_version": str(pk) * 64,
+            "approval": {"on": EARLY},
+            "definition": {"name": PRODUCT, "lines": components(pk)},
+        }
 
     def publish_to(self, pk, system, *, on, ensure_target, read_target):
         old = self.receipts.get((pk, system))
         native = old["native_id"] if old else ensure_target(self.publication(pk), "fixture-key")
         observed = read_target(native)
-        assert observed == {"native_id": native, "plm_native_id": pk,
-                            "plm_source_version": self.publication(pk)["source_version"]}
+        assert observed == {
+            "native_id": native,
+            "plm_native_id": pk,
+            "plm_source_version": self.publication(pk)["source_version"],
+        }
         self.receipts[pk, system] = old or {**observed, "on": on}
         return self.receipts[pk, system]
 
@@ -81,10 +103,13 @@ class SourceFixture:
         pk = 2 if on >= LATER else 1
         if not all((pk, system) in self.receipts for system in ("erp", "mes")):
             raise RevisionMismatch("PLM acknowledgements missing")
-        return {"native_id": pk, "source_version": str(pk) * 64,
-                "released_on": on, "work_id": work,
-                "receiver_ids": {system: self.receipts[pk, system]["native_id"]
-                                 for system in ("erp", "mes")}}
+        return {
+            "native_id": pk,
+            "source_version": str(pk) * 64,
+            "released_on": on,
+            "work_id": work,
+            "receiver_ids": {system: self.receipts[pk, system]["native_id"] for system in ("erp", "mes")},
+        }
 
     def resolve_pin(self, pin, *, work_id, on):
         assert work_id == pin["work_id"] and on >= pin["released_on"]
@@ -133,8 +158,12 @@ class FrappeFixture:
         if doctype == "UOM":
             return {"name": name, "enabled": 1, "must_be_whole_number": name == "Nos"}
         if doctype == "Item":
-            return {"name": name, "stock_uom": "Kg" if name.endswith("BULK") else "Nos",
-                    "is_stock_item": 1, "disabled": 0}
+            return {
+                "name": name,
+                "stock_uom": "Kg" if name.endswith("BULK") else "Nos",
+                "is_stock_item": 1,
+                "disabled": 0,
+            }
         assert doctype == "BOM"
         return deepcopy(self.boms[name])
 
@@ -196,12 +225,24 @@ class MesFixture:
                 "mrp.routing.workcenter": self.ops.get(pk),
                 "mrp.workcenter": {"company_id": 1, "active": True},
                 "uom.uom": {"active": True, "rounding": 0.01 if pk == 4 else 1},
-                "product.product": {"product_tmpl_id": pk + 8, "uom_id": 4 if pk == 2 else 5,
-                                    "company_id": 1, "active": True, "tracking": "lot",
-                                    "is_storable": True},
+                "product.product": {
+                    "product_tmpl_id": pk + 8,
+                    "uom_id": 4 if pk == 2 else 5,
+                    "company_id": 1,
+                    "active": True,
+                    "tracking": "lot",
+                    "is_storable": True,
+                },
             }[model]
-            rows.append({"id": pk, **{key: [row[key], ""] if key.endswith("_id") and row[key] else row[key]
-                                     for key in kwargs["fields"]}})
+            rows.append(
+                {
+                    "id": pk,
+                    **{
+                        key: [row[key], ""] if key.endswith("_id") and row[key] else row[key]
+                        for key in kwargs["fields"]
+                    },
+                }
+            )
         return rows
 
     def acknowledge(self, pk):
@@ -209,8 +250,7 @@ class MesFixture:
 
     def dispatch(self, work_id, product_id, bom_id, revision, quantity, hold_location_id):
         assert product_id == 1 and revision == self.acknowledge(bom_id)["revision"]
-        return {"origin": work_id, "bom_id": bom_id, "quantity": quantity,
-                "hold_location_id": hold_location_id}
+        return {"origin": work_id, "bom_id": bom_id, "quantity": quantity, "hold_location_id": hold_location_id}
 
 
 class BridgeTest(unittest.TestCase):
@@ -223,8 +263,15 @@ class BridgeTest(unittest.TestCase):
         self.bridge = self.reopen()
 
     def reopen(self, *, scoped=False, erp=None, mes=None, path=None):
-        return Bridge(self.source, ERPNext(erp or self.erp), Odoo(mes or self.mes), source="fixture",
-                      mapping=self.mapping, checkpoint=path or self.path, scoped_receipts=scoped)
+        return Bridge(
+            self.source,
+            ERPNext(erp or self.erp),
+            Odoo(mes or self.mes),
+            source="fixture",
+            mapping=self.mapping,
+            checkpoint=path or self.path,
+            scoped_receipts=scoped,
+        )
 
     def test_scoped_replay_and_both_receiver_collisions(self):
         alternate_erp, alternate_mes = FrappeFixture(), MesFixture()
@@ -249,9 +296,9 @@ class BridgeTest(unittest.TestCase):
             self.reopen().installed(stripped, self.source.publication(1))
         with self.assertRaises(Blocked):
             self.reopen(path=self.path.with_name("stripped.sqlite")).release(
-                1, "WO-A", on=EARLY, installed=True, pinned=stripped)
-        self.assertEqual(markers, {system: row["receipt"]["receiver_marker"]
-                                   for system, row in result.items()})
+                1, "WO-A", on=EARLY, installed=True, pinned=stripped
+            )
+        self.assertEqual(markers, {system: row["receipt"]["receiver_marker"] for system, row in result.items()})
         self.assertEqual(self.reopen().dispatch("WO-A", on=LATER, quantity=1, hold_location_id=7)["bom_id"], 1)
         alternate_mes.boms = deepcopy(self.mes.boms)
         alternate_mes.lines = deepcopy(self.mes.lines)
@@ -303,8 +350,10 @@ class BridgeTest(unittest.TestCase):
         bridge = self.reopen(scoped=True)
         receipts = bridge.publish(1, on=EARLY)
         self.assertEqual(receipts["erp"]["receipt"], legacy)
-        self.assertEqual(bridge.release(1, "WO-MIXED", on=EARLY)["pin"]["receiver_markers"],
-                         {"mes": receipts["mes"]["receiver_marker"]})
+        self.assertEqual(
+            bridge.release(1, "WO-MIXED", on=EARLY)["pin"]["receiver_markers"],
+            {"mes": receipts["mes"]["receiver_marker"]},
+        )
 
     def test_response_loss_then_reconcile(self):
         self.erp.drop_create_response = True
@@ -357,13 +406,13 @@ class BridgeTest(unittest.TestCase):
 
     def test_erp_pin_recovers_before_first_bridge_checkpoint(self):
         first = self.bridge.publish(1, on=EARLY)
-        pin = self.bridge.plm.pin(1, 'WO-A', on=EARLY)
+        pin = self.bridge.plm.pin(1, "WO-A", on=EARLY)
         self.bridge.publish(2, on=LATER)
         with self.assertRaises(RevisionMismatch):
-            self.reopen().release(2, 'WO-A', on=EARLY, pinned=pin)
-        self.assertEqual(self.reopen().release(1,'WO-A',on=EARLY,pinned=pin)['pin'],pin)
-        actual = self.reopen().dispatch('WO-A',on=LATER,quantity='10',hold_location_id=7)
-        self.assertEqual(actual['bom_id'],first['mes']['bom_id'])
+            self.reopen().release(2, "WO-A", on=EARLY, pinned=pin)
+        self.assertEqual(self.reopen().release(1, "WO-A", on=EARLY, pinned=pin)["pin"], pin)
+        actual = self.reopen().dispatch("WO-A", on=LATER, quantity="10", hold_location_id=7)
+        self.assertEqual(actual["bom_id"], first["mes"]["bom_id"])
 
     def test_changed_destination_quantity_blocks_ack_and_dispatch(self):
         first = self.bridge.publish(1, on=EARLY)

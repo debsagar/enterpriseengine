@@ -1,18 +1,19 @@
 import unittest
+
 from environments.norvale.native.work_revision import pin_work_revision
 
 
 class Revisions(unittest.TestCase):
     def setUp(self):
         self.pins = {}
-        self.rev = dict(id="plm-14", version="v2", product="lotion", approved=True,
-                        effective_at=40, superseded_at=80)
-        self.acks = {s: dict(id=s+"-19", source_id="plm-14", version="v2",
-                             product="lotion", accepted_at=46) for s in ("erp", "mes")}
+        self.rev = dict(id="plm-14", version="v2", product="lotion", approved=True, effective_at=40, superseded_at=80)
+        self.acks = {
+            s: dict(id=s + "-19", source_id="plm-14", version="v2", product="lotion", accepted_at=46)
+            for s in ("erp", "mes")
+        }
 
     def pin(self, minute=50):
-        return pin_work_revision(self.pins, ("erp-east", "WO-8"), "lotion", minute,
-                                 self.rev, self.acks)
+        return pin_work_revision(self.pins, ("erp-east", "WO-8"), "lotion", minute, self.rev, self.acks)
 
     def test_pending_never_creates_pin(self):
         for minute in (39, 45, 80):

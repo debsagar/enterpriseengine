@@ -5,20 +5,20 @@ from datetime import datetime
 
 def confirmed_current(observations):
     """Check the last collected inspection against other versions from the same site and ID."""
-    if not observations or observations[-1].get('source_absent'):
+    if not observations or observations[-1].get("source_absent"):
         return None
     current = observations[-1]
-    disappeared = any(doc.get('source_absent') for doc in observations[:-1])
+    disappeared = any(doc.get("source_absent") for doc in observations[:-1])
     if disappeared:
-        last_absent = max(i for i, doc in enumerate(observations) if doc.get('source_absent'))
-        earlier = [doc for doc in observations[:last_absent] if not doc.get('source_absent')]
+        last_absent = max(i for i, doc in enumerate(observations) if doc.get("source_absent"))
+        earlier = [doc for doc in observations[:last_absent] if not doc.get("source_absent")]
         if not earlier or current in earlier:
             return None
     for previous in observations[:-1]:
-        if previous == current or previous.get('source_absent'):
+        if previous == current or previous.get("source_absent"):
             continue
         try:
-            if datetime.fromisoformat(previous['modified']) >= datetime.fromisoformat(current['modified']):
+            if datetime.fromisoformat(previous["modified"]) >= datetime.fromisoformat(current["modified"]):
                 return None
         except (KeyError, ValueError, TypeError):
             return None
@@ -27,8 +27,18 @@ def confirmed_current(observations):
 
 ENTITY = "Norvale QMS Disposition"
 REFERENCE = "Quality Inspection"
-FIELDS = ("inspection", "inspection_version", "disposition", "item_code", "batch_no",
-          "output_batch", "spec_revision", "lot_quantity", "lot_uom", "approver")
+FIELDS = (
+    "inspection",
+    "inspection_version",
+    "disposition",
+    "item_code",
+    "batch_no",
+    "output_batch",
+    "spec_revision",
+    "lot_quantity",
+    "lot_uom",
+    "approver",
+)
 EVENT = "After Save (Submitted Document)"
 
 # Frappe runs this after the inspection UPDATE and before the request commits.
@@ -57,26 +67,54 @@ if doc.workflow_state == "Released" or (doc.workflow_state == "Revoked" and prio
 
 def install(frappe, reader_role):
     if not frappe.db.exists("DocType", ENTITY):
-        frappe.get_doc({
-            "doctype": "DocType", "name": ENTITY, "module": "Quality Management",
-            "custom": 1, "allow_rename": 0,
-            "fields": [
-                {"fieldname": field, "label": field.replace("_", " ").title(),
-                 "fieldtype": "Float" if field == "lot_quantity" else "Data", "reqd": 1}
-                for field in FIELDS
-            ],
-            "permissions": [{"role": reader_role, "read": 1}],
-        }).insert()
+        frappe.get_doc(
+            {
+                "doctype": "DocType",
+                "name": ENTITY,
+                "module": "Quality Management",
+                "custom": 1,
+                "allow_rename": 0,
+                "fields": [
+                    {
+                        "fieldname": field,
+                        "label": field.replace("_", " ").title(),
+                        "fieldtype": "Float" if field == "lot_quantity" else "Data",
+                        "reqd": 1,
+                    }
+                    for field in FIELDS
+                ],
+                "permissions": [{"role": reader_role, "read": 1}],
+            }
+        ).insert()
 
     for title, entity, event, body in (
         ("Norvale Record Disposition History", REFERENCE, EVENT, RECORD),
-        ("Norvale Preserve Disposition History", ENTITY, "Before Save",
-         'if doc.get_doc_before_save(): frappe.throw("Disposition history is append-only")'),
-        ("Norvale Retain Disposition History", ENTITY, "Before Delete",
-         'frappe.throw("Disposition history is append-only")'),
+        (
+            "Norvale Preserve Disposition History",
+            ENTITY,
+            "Before Save",
+            'if doc.get_doc_before_save(): frappe.throw("Disposition history is append-only")',
+        ),
+        (
+            "Norvale Retain Disposition History",
+            ENTITY,
+            "Before Delete",
+            'frappe.throw("Disposition history is append-only")',
+        ),
     ):
-        script = (frappe.get_doc("Server Script", title) if frappe.db.exists("Server Script", title)
-                  else frappe.new_doc("Server Script"))
-        script.update(dict(name=title, script_type="DocType Event", reference_doctype=entity,
-                           doctype_event=event, disabled=0, script=body))
+        script = (
+            frappe.get_doc("Server Script", title)
+            if frappe.db.exists("Server Script", title)
+            else frappe.new_doc("Server Script")
+        )
+        script.update(
+            dict(
+                name=title,
+                script_type="DocType Event",
+                reference_doctype=entity,
+                doctype_event=event,
+                disabled=0,
+                script=body,
+            )
+        )
         script.save()

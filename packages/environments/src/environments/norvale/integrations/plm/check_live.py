@@ -1,11 +1,12 @@
 """Verify the PLM adapter against a fresh or restarted isolated InvenTree instance."""
+
 import json
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 from urllib.error import HTTPError
 
-from environments.norvale.integrations.plm import Blocked, PLM
+from environments.norvale.integrations.plm import PLM, Blocked
 
 
 def denied(call, exception=Blocked, *, status=None):
@@ -29,10 +30,20 @@ def client(role):
 
 def lines(package):
     return [
-        {"source_id": "RAW-BASE", "unit": "kg", "kind": "formulation",
-         "quantity": "0.25", "specification": "Base blend, homogenize before filling"},
-        {"source_id": package, "unit": "ea", "kind": "packaging",
-         "quantity": "1", "specification": "250 mL bottle, closure and label per drawing"},
+        {
+            "source_id": "RAW-BASE",
+            "unit": "kg",
+            "kind": "formulation",
+            "quantity": "0.25",
+            "specification": "Base blend, homogenize before filling",
+        },
+        {
+            "source_id": package,
+            "unit": "ea",
+            "kind": "packaging",
+            "quantity": "1",
+            "specification": "250 mL bottle, closure and label per drawing",
+        },
     ]
 
 
@@ -43,9 +54,14 @@ def receipt(plm, pk, system, on):
         ref = f"inbox-{system}-{retry_id}"
         fields = {"name": ref, "IPN": ref, "assembly": False}
         target = plm._ensure_part(fields)
-        plm._set_once(target, "imported_revision", {
-            "plm_native_id": pk, "plm_source_version": publication["source_version"],
-        })
+        plm._set_once(
+            target,
+            "imported_revision",
+            {
+                "plm_native_id": pk,
+                "plm_source_version": publication["source_version"],
+            },
+        )
         return str(target)
 
     return plm.publish_to(pk, system, on=on, ensure_target=ensure, read_target=receiver_read(plm))
@@ -99,8 +115,11 @@ def create(plm, product):
     reader = client("reader")
     assert reader.request(f"/api/part/{a}/")["pk"] == a
     denied(lambda: reader.request(f"/api/part/{a}/", "PATCH", {"locked": False}), HTTPError, status=403)
-    denied(lambda: reader.request(f"/api/metadata/part/{a}/", "PATCH",
-                                  {"metadata": {"norvale_approval": None}}), HTTPError, status=403)
+    denied(
+        lambda: reader.request(f"/api/metadata/part/{a}/", "PATCH", {"metadata": {"norvale_approval": None}}),
+        HTTPError,
+        status=403,
+    )
     denied(lambda: reader.approve(a, on=d1, effective=d1, evidence="ECN-001"))
     row = first["definition"]["lines"][0]["native_id"]
     denied(lambda: plm.request(f"/api/bom/{row}/", "PATCH", {"quantity": 2}), HTTPError, status=400)
@@ -111,8 +130,7 @@ def create(plm, product):
     assert plm.pin(a, "WO-BEFORE", on="2027-01-31")["native_id"] == a
     denied(lambda: plm.pin(a, "WO-AFTER", on=d2))
     assert plm.resolve_pin(pin, work_id="WO-EARLY", on=d2) == first
-    denied(lambda: plm.acknowledge(b, "mes", mes_a["native_id"], on=d2,
-                                 read_target=receiver_read(plm)))
+    denied(lambda: plm.acknowledge(b, "mes", mes_a["native_id"], on=d2, read_target=receiver_read(plm)))
     receipt(plm, b, "erp", d2)
     denied(lambda: plm.pin(a, "WO-AFTER", on=d2))
     receipt(plm, b, "mes", d2)
@@ -150,5 +168,7 @@ if __name__ == "__main__":
         reopened(plm, state)
     else:
         raise ValueError("Use create or restart")
-    print(f"{mode}: {len(state['export'])} revisions, old Part {state['old_pin']['native_id']}, "
-          f"new Part {state['new_pin']['native_id']}")
+    print(
+        f"{mode}: {len(state['export'])} revisions, old Part {state['old_pin']['native_id']}, "
+        f"new Part {state['new_pin']['native_id']}"
+    )

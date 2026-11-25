@@ -2,6 +2,7 @@
 
 The servers decide what this identity may see. Times on messages come from the shared fake clock.
 """
+
 import base64
 import email
 import imaplib
@@ -23,8 +24,20 @@ class Comms:
         self.user = ident["chat"]
 
     # ---------------- mail ----------------
-    def send_mail(self, to, subject, text, when, cc=None, in_reply_to=None, calendar=None, method="REQUEST",
-                  *, message_id=None, on_status=None):
+    def send_mail(
+        self,
+        to,
+        subject,
+        text,
+        when,
+        cc=None,
+        in_reply_to=None,
+        calendar=None,
+        method="REQUEST",
+        *,
+        message_id=None,
+        on_status=None,
+    ):
         m = EmailMessage()
         m["From"], m["To"], m["Subject"] = self.addr, ", ".join(to), subject
         if cc:
@@ -34,16 +47,21 @@ class Comms:
             m["In-Reply-To"] = m["References"] = in_reply_to
         m.set_content(text)
         if calendar:
-            m.add_attachment(calendar.encode(), maintype="text", subtype="calendar", filename="invite.ics",
-                             params={"method": method})
+            m.add_attachment(
+                calendar.encode(), maintype="text", subtype="calendar", filename="invite.ics", params={"method": method}
+            )
         with smtplib.SMTP(self.eps["mail"]["host"], self.eps["mail"]["smtp"], timeout=30) as s:
             s.login(self.addr, self.sec["password"])
             if on_status:
                 on_status("uncertain")
             try:
                 s.send_message(m)
-            except (smtplib.SMTPSenderRefused, smtplib.SMTPRecipientsRefused,
-                    smtplib.SMTPDataError, smtplib.SMTPNotSupportedError) as exc:
+            except (
+                smtplib.SMTPSenderRefused,
+                smtplib.SMTPRecipientsRefused,
+                smtplib.SMTPDataError,
+                smtplib.SMTPNotSupportedError,
+            ) as exc:
                 if on_status and (not isinstance(exc, smtplib.SMTPDataError) or 400 <= exc.smtp_code < 600):
                     on_status("rejected")
                 raise
@@ -74,11 +92,21 @@ class Comms:
             ids = self._checked_imap(box.uid("search", None, *criteria))
             out = []
             for uid in ids[0].split()[-limit:]:
-                data = self._checked_imap(box.uid(
-                    "fetch", uid, "(FLAGS BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)])"))
+                data = self._checked_imap(
+                    box.uid("fetch", uid, "(FLAGS BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)])")
+                )
                 hdr = email.message_from_bytes(data[0][1], policy=default_policy)
-                out.append({"uid": uid.decode(), "from": str(hdr["From"]), "to": str(hdr["To"]), "subject": str(hdr["Subject"]),
-                            "date": str(hdr["Date"]), "seen": b"\\Seen" in data[0][0], "message_id": str(hdr["Message-ID"])})
+                out.append(
+                    {
+                        "uid": uid.decode(),
+                        "from": str(hdr["From"]),
+                        "to": str(hdr["To"]),
+                        "subject": str(hdr["Subject"]),
+                        "date": str(hdr["Date"]),
+                        "seen": b"\\Seen" in data[0][0],
+                        "message_id": str(hdr["Message-ID"]),
+                    }
+                )
             return out
 
     def find_subject(self, subject):
@@ -99,9 +127,18 @@ class Comms:
                 attachments.append({"type": "calendar invitation", "ics": part.get_content()[:1500]})
             elif part.get_filename():
                 attachments.append({"type": part.get_content_type(), "name": part.get_filename()})
-        return {"uid": str(uid), "from": str(msg["From"]), "to": str(msg["To"]), "cc": str(msg["Cc"] or ""),
-                "subject": str(msg["Subject"]), "date": str(msg["Date"]), "message_id": str(msg["Message-ID"]),
-                "body": body[:body_limit], "attachments": attachments, "content_type": msg.get_content_type()}
+        return {
+            "uid": str(uid),
+            "from": str(msg["From"]),
+            "to": str(msg["To"]),
+            "cc": str(msg["Cc"] or ""),
+            "subject": str(msg["Subject"]),
+            "date": str(msg["Date"]),
+            "message_id": str(msg["Message-ID"]),
+            "body": body[:body_limit],
+            "attachments": attachments,
+            "content_type": msg.get_content_type(),
+        }
 
     def raw_mailbox(self):
         """Controller export: every message in the inbox as raw RFC 822 bytes (not an agent tool)."""
@@ -113,8 +150,12 @@ class Comms:
     # ---------------- calendar ----------------
     def _cal(self, method, path, body=None, headers=None):
         auth = "Basic " + base64.b64encode(f"{self.user}:{self.sec['password']}".encode()).decode()
-        req = urllib.request.Request(self.eps["calendar"] + path, data=body.encode() if body else None, method=method,
-                                     headers={"Authorization": auth, **(headers or {})})
+        req = urllib.request.Request(
+            self.eps["calendar"] + path,
+            data=body.encode() if body else None,
+            method=method,
+            headers={"Authorization": auth, **(headers or {})},
+        )
         with urllib.request.urlopen(req, timeout=20) as r:
             return r.status, r.read().decode(errors="replace")
 
@@ -138,9 +179,12 @@ class Comms:
 
     # ---------------- chat ----------------
     def _mx(self, method, path, body=None):
-        req = urllib.request.Request(self.eps["chat"] + path, data=None if body is None else json.dumps(body).encode(),
-                                     method=method, headers={"Authorization": "Bearer " + self.sec["chat_token"],
-                                                             "Content-Type": "application/json"})
+        req = urllib.request.Request(
+            self.eps["chat"] + path,
+            data=None if body is None else json.dumps(body).encode(),
+            method=method,
+            headers={"Authorization": "Bearer " + self.sec["chat_token"], "Content-Type": "application/json"},
+        )
         with urllib.request.urlopen(req, timeout=20) as r:
             return json.load(r)
 
@@ -157,8 +201,11 @@ class Comms:
         return self._mx("POST", f"/_matrix/client/v3/join/{urllib.parse.quote(room_id)}", {})
 
     def send_chat(self, room_id, text):
-        return self._mx("PUT", f"/_matrix/client/v3/rooms/{urllib.parse.quote(room_id)}/send/m.room.message/{uuid.uuid4().hex}",
-                        {"msgtype": "m.text", "body": text})["event_id"]
+        return self._mx(
+            "PUT",
+            f"/_matrix/client/v3/rooms/{urllib.parse.quote(room_id)}/send/m.room.message/{uuid.uuid4().hex}",
+            {"msgtype": "m.text", "body": text},
+        )["event_id"]
 
     def sync(self, since=None):
         q = "?timeout=0" + (f"&since={urllib.parse.quote(since)}" if since else "")
@@ -166,5 +213,8 @@ class Comms:
 
     def room_messages(self, room_id, limit=30):
         r = self._mx("GET", f"/_matrix/client/v3/rooms/{urllib.parse.quote(room_id)}/messages?dir=b&limit={limit}")
-        return [{"sender": e["sender"], "time_ms": e["origin_server_ts"], "text": e["content"].get("body", "")}
-                for e in reversed(r.get("chunk", [])) if e.get("type") == "m.room.message"]
+        return [
+            {"sender": e["sender"], "time_ms": e["origin_server_ts"], "text": e["content"].get("body", "")}
+            for e in reversed(r.get("chunk", []))
+            if e.get("type") == "m.room.message"
+        ]

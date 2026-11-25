@@ -1,12 +1,13 @@
 """Owner-hosted, opt-in interview exercise on the existing company mail service."""
+
 import hashlib
 import hmac
 import json
-import secrets
 import re
+import secrets
 from datetime import date, timedelta
-from pathlib import Path
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 
 VERSION = 1
 EXPERTS = {"MAINT_LEAD": "equipment availability", "QA_MGR": "quality review availability"}
@@ -25,6 +26,7 @@ class ExpertInbox:
     The controller owns the role-bound mail clients, private seed, clock and grader.
     Each case represents one planning exercise for one planner mailbox.
     """
+
     def __init__(self, case, opened, seed, clients, now, directory):
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,48}", case) or len(seed) < 16:
             raise ValueError("Provide a case ID and at least 16 private seed bytes")
@@ -34,15 +36,24 @@ class ExpertInbox:
         self.prefix = f"[expert-inbox/v{VERSION}/{case}/{opened}]"
 
     def question(self):
-        return {"version": VERSION, "case": self.case, "opened": self.opened.isoformat(),
-                "question": "What is the earliest date on which both equipment and quality review "
-                            "are available? Cite the two expert replies, or report unknown.",
-                "contacts": dict(EXPERTS)}
+        return {
+            "version": VERSION,
+            "case": self.case,
+            "opened": self.opened.isoformat(),
+            "question": "What is the earliest date on which both equipment and quality review "
+            "are available? Cite the two expert replies, or report unknown.",
+            "contacts": dict(EXPERTS),
+        }
 
     def _read(self, sender, recipient, subject):
         client = self.clients[recipient]
-        rows = [m for m in client.find_subject(subject) if m["subject"].lstrip(" \t") == subject
-                and m["from"] == self.clients[sender].addr and m["to"] == client.addr]
+        rows = [
+            m
+            for m in client.find_subject(subject)
+            if m["subject"].lstrip(" \t") == subject
+            and m["from"] == self.clients[sender].addr
+            and m["to"] == client.addr
+        ]
         if len(rows) > 1:
             raise ValueError("Ambiguous mail evidence")
         if not rows:
@@ -63,8 +74,9 @@ class ExpertInbox:
                 claim.touch(exist_ok=False)
             except FileExistsError:
                 return None
-            self.clients[sender].send_mail([self.clients[recipient].addr], subject, body,
-                                           self.now(), in_reply_to=in_reply_to)
+            self.clients[sender].send_mail(
+                [self.clients[recipient].addr], subject, body, self.now(), in_reply_to=in_reply_to
+            )
             found = self._read(sender, recipient, subject)
         if found and found["body"].rstrip("\r\n") != body:
             raise ValueError("Changed mail evidence")
@@ -76,8 +88,13 @@ class ExpertInbox:
             if send:
                 raise ValueError("Case has not opened")
             return None
-        return self._mail("PLANNER", expert, f"{self.prefix} request {expert}",
-                          f"What is the earliest available date for {topic} on case {self.case}?", send)
+        return self._mail(
+            "PLANNER",
+            expert,
+            f"{self.prefix} request {expert}",
+            f"What is the earliest available date for {topic} on case {self.case}?",
+            send,
+        )
 
     def ask(self, expert):
         sent = self._request(expert, send=True)
@@ -88,9 +105,14 @@ class ExpertInbox:
         if request is None:
             return None
         day = briefing(self.seed, self.case, expert, self.opened)
-        return self._mail(expert, "PLANNER", f"{self.prefix} reply {expert}",
-                          f"{EXPERTS[expert]} for {self.case}: {day}.", send,
-                          in_reply_to=request["message_id"])
+        return self._mail(
+            expert,
+            "PLANNER",
+            f"{self.prefix} reply {expert}",
+            f"{EXPERTS[expert]} for {self.case}: {day}.",
+            send,
+            in_reply_to=request["message_id"],
+        )
 
     def respond(self, expert):
         """Called by the host for this expert only, at its scheduled business time."""
@@ -98,9 +120,11 @@ class ExpertInbox:
         return msg["message_id"] if msg else None
 
     def inbox(self):
-        return [{"expert": expert, "message_id": m["message_id"], "body": m["body"]}
-                for expert in EXPERTS
-                if (m := self._read(expert, "PLANNER", f"{self.prefix} reply {expert}"))]
+        return [
+            {"expert": expert, "message_id": m["message_id"], "body": m["body"]}
+            for expert in EXPERTS
+            if (m := self._read(expert, "PLANNER", f"{self.prefix} reply {expert}"))
+        ]
 
     def grade(self, answer, citations):
         """Only the owner calls this. Unavailable evidence warrants an unknown answer."""
@@ -128,21 +152,29 @@ def open_case(run, case, *, create=False):
     clock = Clock(env)
     endpoints = json.loads((env / "endpoints.json").read_text())
     accounts = json.loads((env / "secrets.json").read_text())
-    clients = {r["role_id"]: Comms({"mail": r["email"].replace(".example", ".test"),
-                                    "chat": r["role_id"].lower()}, accounts[r["role_id"]], endpoints)
-               for r in ROLES if r["role_id"] in {*EXPERTS, "PLANNER"}}
+    clients = {
+        r["role_id"]: Comms(
+            {"mail": r["email"].replace(".example", ".test"), "chat": r["role_id"].lower()},
+            accounts[r["role_id"]],
+            endpoints,
+        )
+        for r in ROLES
+        if r["role_id"] in {*EXPERTS, "PLANNER"}
+    }
     directory = Path(run) / "private" / "expert-inbox-v1" / case
     state = directory / "scenario.json"
     if create:
         directory.mkdir(mode=0o700, parents=True, exist_ok=False)
         with state.open("x") as stream:
-            json.dump({"version": VERSION, "opened": clock.now().date().isoformat(),
-                       "seed": secrets.token_hex(32)}, stream)
+            json.dump(
+                {"version": VERSION, "opened": clock.now().date().isoformat(), "seed": secrets.token_hex(32)}, stream
+            )
     saved = json.loads(state.read_text())
     if saved["version"] != VERSION:
         raise ValueError("Unsupported interview version")
-    return ExpertInbox(case, date.fromisoformat(saved["opened"]), bytes.fromhex(saved["seed"]),
-                       clients, clock.now, directory)
+    return ExpertInbox(
+        case, date.fromisoformat(saved["opened"]), bytes.fromhex(saved["seed"]), clients, clock.now, directory
+    )
 
 
 def answer_pending(run):

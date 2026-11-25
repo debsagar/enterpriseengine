@@ -1,17 +1,16 @@
 """Reproduce the pinned AutoTwin XES profiles from a local checkout."""
 
 import argparse
+import gzip
+import json
 from collections import Counter
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
-import gzip
 from hashlib import sha256
 from itertools import islice
-import json
 from pathlib import Path
 from statistics import median
 from xml.etree import ElementTree as ET
-
 
 MANIFEST = Path(__file__).resolve().parents[2] / "contracts/validation/autotwin-v1.json"
 MICROSECOND = timedelta(microseconds=1)
@@ -19,8 +18,7 @@ EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
 def attributes(element):
-    return {child.get("key"): child.get("value") for child in element
-            if child.get("key") is not None}
+    return {child.get("key"): child.get("value") for child in element if child.get("key") is not None}
 
 
 def traces(path):
@@ -32,16 +30,15 @@ def traces(path):
             raise ValueError("Expected an XES log")
         for phase, element in elements:
             if phase == "end" and element.tag.rsplit("}", 1)[-1] == "trace":
-                yield attributes(element)["concept:name"], [
-                    attributes(child) for child in element
-                    if child.tag.rsplit("}", 1)[-1] == "event"
-                ]
+                yield (
+                    attributes(element)["concept:name"],
+                    [attributes(child) for child in element if child.tag.rsplit("}", 1)[-1] == "event"],
+                )
                 root.remove(element)
 
 
 def instant(value):
-    timestamp = datetime.fromisoformat(value.removesuffix("Z") + "+00:00"
-                                       if value.endswith("Z") else value)
+    timestamp = datetime.fromisoformat(value.removesuffix("Z") + "+00:00" if value.endswith("Z") else value)
     if timestamp.utcoffset() is None:
         raise ValueError("Expected an explicit timestamp offset")
     return (timestamp - EPOCH) // MICROSECOND
@@ -50,8 +47,7 @@ def instant(value):
 def seconds_summary(values):
     if not values:
         return None
-    return {"min": min(values) / 1e6, "median": median(values) / 1e6,
-            "max": max(values) / 1e6}
+    return {"min": min(values) / 1e6, "median": median(values) / 1e6, "max": max(values) / 1e6}
 
 
 def profile(path):
@@ -98,9 +94,10 @@ def profile(path):
         "lifecycle": dict(lifecycle),
         "variants": len(variants),
         "most_frequent_variant": [
-            {"activity": activity, "lifecycle": transition}
-            for activity, transition in variants.most_common(1)[0][0]
-        ] if variants else [],
+            {"activity": activity, "lifecycle": transition} for activity, transition in variants.most_common(1)[0][0]
+        ]
+        if variants
+        else [],
         "most_frequent_variant_cases": max(variants.values(), default=0),
         "equal_time_events_after_first": dict(ties),
         "adjacent_source_time_decreases": dict(inversions),
@@ -134,10 +131,10 @@ def verify_fixture(source, fixture):
     event_keys = {"concept:name", "lifecycle:transition", "start_timestamp", "time:timestamp"}
     with closing(traces(source)) as source_traces:
         expected = [
-            (f"example-{index}", [
-                {key: value for key, value in event.items() if key in event_keys}
-                for event in events
-            ])
+            (
+                f"example-{index}",
+                [{key: value for key, value in event.items() if key in event_keys} for event in events],
+            )
             for index, (_, events) in enumerate(islice(source_traces, 2), start=1)
         ]
     if len(expected) != 2 or list(traces(path)) != expected:
@@ -146,8 +143,7 @@ def verify_fixture(source, fixture):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--autotwin-root", type=Path, required=True,
-                        help="AutoTwin checkout containing data/")
+    parser.add_argument("--autotwin-root", type=Path, required=True, help="AutoTwin checkout containing data/")
     args = parser.parse_args(argv)
     root = args.autotwin_root / "data"
     try:

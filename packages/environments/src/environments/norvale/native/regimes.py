@@ -1,9 +1,11 @@
 """Seeded exogenous episodes; never reads equipment wear or agent actions."""
+
 import random
+
 
 def factors(seed, day):
     result = {}
-    for index, kind in enumerate(('demand', 'supply', 'cost')):
+    for index, kind in enumerate(("demand", "supply", "cost")):
         rng = random.Random(seed + index * 100003)
         onset = rng.randint(5, 15)
         value = 1.0

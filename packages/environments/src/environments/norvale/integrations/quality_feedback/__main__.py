@@ -1,13 +1,23 @@
 """Process shipment feedback against a running company's native records."""
+
 import argparse
 import fcntl
 import json
 from pathlib import Path
 
 from components.qms import ACTION, CASE, QMS
+
 from .complaint import close_action, contain, corrective_action, investigate
 from .returns import authorize, receive
-from .scope import authority, feedback_site, legacy_case, shipment, shipped_batch, verify_dispatch_version, verify_inspection
+from .scope import (
+    authority,
+    feedback_site,
+    legacy_case,
+    shipment,
+    shipped_batch,
+    verify_dispatch_version,
+    verify_inspection,
+)
 
 
 def process(engine, args, cfg):
@@ -30,8 +40,9 @@ def process(engine, args, cfg):
         case = client.get(CASE, case_id)
         if case["name"] != case_id:
             raise ValueError("Native complaint identity differs from the request")
-        note, row = shipment(engine, case["custom_delivery_note"], case["custom_delivery_row"],
-                             case=case, source=erp_source)
+        note, row = shipment(
+            engine, case["custom_delivery_note"], case["custom_delivery_row"], case=case, source=erp_source
+        )
 
     batch = shipped_batch(engine.api["WAREHOUSE"], note, row)
     if command in ("report", "receive-return") and args.batch != batch:
@@ -43,10 +54,13 @@ def process(engine, args, cfg):
     verify_dispatch_version(engine, reader, note, row, scope, entry, release)
     if command == "receive-return":
         case = reader.get(CASE, args.complaint)
-        if (case["name"] != args.complaint or case.get("custom_delivery_source") != erp_source
-                or case.get("custom_delivery_note") != note["name"]
-                or case.get("custom_delivery_row") != row["name"]
-                or case.get("custom_delivery_customer") != note["customer"]):
+        if (
+            case["name"] != args.complaint
+            or case.get("custom_delivery_source") != erp_source
+            or case.get("custom_delivery_note") != note["name"]
+            or case.get("custom_delivery_row") != row["name"]
+            or case.get("custom_delivery_customer") != note["customer"]
+        ):
             raise ValueError("Observed receipt differs from the authorized shipment scope")
     if case is not None:
         legacy = legacy_case(case, scope)
@@ -57,25 +71,40 @@ def process(engine, args, cfg):
 
     if command == "report":
         analyst = QMS(**site["lab"]["analyst"])
-        case = investigate(analyst, source=erp_source, note=note, row=row, scope=scope,
-                           complaint=args.description, procedure=site["lab"]["procedure"],
-                           operation=args.operation)
+        case = investigate(
+            analyst,
+            source=erp_source,
+            note=note,
+            row=row,
+            scope=scope,
+            complaint=args.description,
+            procedure=site["lab"]["procedure"],
+            operation=args.operation,
+        )
         action = corrective_action(analyst, case["name"], "capa:" + case["name"], args.description)
-        outcome = {"complaint":case["name"], "action":action["name"], "delivery":args.delivery}
+        outcome = {"complaint": case["name"], "action": action["name"], "delivery": args.delivery}
     elif command == "contain":
         revoked = contain(client, case, release, scope)
-        outcome = {"complaint":args.complaint, "inspection":revoked["name"], "disposition":revoked["workflow_state"]}
+        outcome = {"complaint": args.complaint, "inspection": revoked["name"], "disposition": revoked["workflow_state"]}
         engine.company_erp.sync(engine.company_erp.state["lots"][batch])
         case_key = args.complaint if source == primary else json.dumps([source, args.complaint])
-        for role, instruction in (("PLANNER", "Review outstanding allocations and due dates"),
-                                  ("SALES", "Contact the customer to assess the shipped units")):
+        for role, instruction in (
+            ("PLANNER", "Review outstanding allocations and due dates"),
+            ("SALES", "Contact the customer to assess the shipped units"),
+        ):
             # Keep the historical task payload stable for ordinary lots on retry.
-            task = engine.write("containment:" + case_key + ":" + role, "ToDo", {
-                "reference_type":"Delivery Note", "reference_name":note["name"],
-                "allocated_to":role.lower() + "@norvale.test",
-                "description":f"{instruction}. QMS case {args.complaint}, batch {batch}, "
-                              f"revoked release {args.release}."
-            }, role)
+            task = engine.write(
+                "containment:" + case_key + ":" + role,
+                "ToDo",
+                {
+                    "reference_type": "Delivery Note",
+                    "reference_name": note["name"],
+                    "allocated_to": role.lower() + "@norvale.test",
+                    "description": f"{instruction}. QMS case {args.complaint}, batch {batch}, "
+                    f"revoked release {args.release}.",
+                },
+                role,
+            )
             if task["reference_name"] != note["name"]:
                 raise ValueError("Containment task lost its native delivery reference")
             outcome[role.lower() + "_task"] = task["name"]
@@ -84,9 +113,10 @@ def process(engine, args, cfg):
     elif command == "receive-return":
         outcome = receive(engine, args, case, note, row, release, scope, erp_source)
     else:
-        action = close_action(client, args.action, args.inspection, args.assessment,
-                              scope=scope, bind_case=case if legacy else None)
-        outcome = {"action":action["name"], "status":action["status"], "inspection":args.inspection}
+        action = close_action(
+            client, args.action, args.inspection, args.assessment, scope=scope, bind_case=case if legacy else None
+        )
+        outcome = {"action": action["name"], "status": action["status"], "inspection": args.inspection}
     outcome["qms_source"] = source
     engine.log("customer_feedback", operation=command, **outcome)
     return outcome
@@ -97,7 +127,7 @@ def main(argv=None):
     parser.add_argument("--run", type=Path, required=True)
     commands = parser.add_subparsers(dest="command", required=True)
     report = commands.add_parser("report")
-    for key in ("operation","delivery","line","batch","description"):
+    for key in ("operation", "delivery", "line", "batch", "description"):
         report.add_argument("--" + key, required=True)
     hold = commands.add_parser("contain")
     hold.add_argument("--complaint", required=True)
@@ -109,7 +139,7 @@ def main(argv=None):
     for key in ("complaint", "delivery", "line", "batch", "quantity", "observation", "observed-on"):
         receipt.add_argument("--" + key, required=True)
     close = commands.add_parser("close")
-    for key in ("action","inspection","assessment"):
+    for key in ("action", "inspection", "assessment"):
         close.add_argument("--" + key, required=True)
     for command in (report, hold, withdrawal, receipt, close):
         command.add_argument("--qms-source", help="Native QMS source of the case or action")
@@ -118,6 +148,7 @@ def main(argv=None):
     if not config.is_file():
         parser.error("Expected an existing company run with configured software connections")
     from environments.norvale.native.company import Engine
+
     with (args.run / "execution.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         result = process(Engine(args.run), args, json.loads(config.read_text()))

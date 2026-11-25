@@ -23,7 +23,7 @@ def open_checkpoint():
 
 
 def main():
-    stage, = argv[1:]
+    (stage,) = argv[1:]
     run = open_checkpoint()
     prior_state = {"reviews": [["A", 10, 15]]}
     prior_history = [edge("A", "start", 10), edge("A", "complete", 15), edge("B", "start", 15)]
@@ -38,7 +38,9 @@ def main():
         run.run(until=30)
         expected_state = {"reviews": [["A", 10, 15], ["B", 15, 20], ["C", 25, 30]]}
         expected_history = prior_history + [
-            edge("B", "complete", 20), edge("C", "start", 25), edge("C", "complete", 30),
+            edge("B", "complete", 20),
+            edge("C", "start", 25),
+            edge("C", "complete", 30),
         ]
         run = open_checkpoint()
         run.run(until=40)

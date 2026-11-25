@@ -1,4 +1,5 @@
 """Opt-in event runner over the integrated engine and company consumers."""
+
 import argparse
 import importlib
 import json
@@ -7,11 +8,11 @@ from tempfile import TemporaryDirectory
 from time import monotonic
 from uuid import uuid4
 
-from environments.consumers.norvale import may_order
-from engine import Engine
 from components.erp_client import ErpError
-from environments.norvale.paths import CHECKOUT
+from engine import Engine
 
+from environments.consumers.norvale import may_order
+from environments.norvale.paths import CHECKOUT
 
 CONSUMERS = ("norvale", "managed_services")
 
@@ -46,8 +47,11 @@ def execute(directory, plan_path, until, transport_factory=None, *, extension_pa
     else:
         if directory.exists():
             raise ValueError("A new incremental run requires a path that does not exist")
-        identity = {"namespace": uuid4().hex, "plan": json.loads(plan_path.read_text()),
-                    "transport": "injected" if transport_factory else "erpnext-sales"}
+        identity = {
+            "namespace": uuid4().hex,
+            "plan": json.loads(plan_path.read_text()),
+            "transport": "injected" if transport_factory else "erpnext-sales",
+        }
     mode = "injected" if transport_factory else "erpnext-sales"
     if identity["transport"] != mode:
         raise ValueError("Resume requires the original transport mode")
@@ -55,10 +59,12 @@ def execute(directory, plan_path, until, transport_factory=None, *, extension_pa
     validate(plan)
     if transport_factory is None:
         from environments.norvale.native.incremental_erp import sales_transport
+
         transport_factory = sales_transport
     native = transport_factory(identity["namespace"], plan)
     if mode == "erpnext-sales":
         from environments.norvale.native.system_transport import SystemTransport
+
         transport = SystemTransport()
         transport.bind("erp", "erp", native)
         native = transport
@@ -69,8 +75,10 @@ def execute(directory, plan_path, until, transport_factory=None, *, extension_pa
 
     def open_connection(name, spec):
         from environments.norvale.native.software_connections import connection
-        _, adapter = connection(identity["namespace"], name, {"connection": spec["connection"]},
-                                expected=spec["target_hash"])
+
+        _, adapter = connection(
+            identity["namespace"], name, {"connection": spec["connection"]}, expected=spec["target_hash"]
+        )
         adapter.role = adapter.role or spec.get("order_role")
         adapter.catalog_roles = lambda: engine.catalog["roles"]
         route = SystemTransport()
@@ -78,9 +86,16 @@ def execute(directory, plan_path, until, transport_factory=None, *, extension_pa
         return route
 
     def open_engine(path):
-        return Engine(path, consumer, seed=plan["seed"], native=native,
-                      providers=None, monotonic=monotonic, standalone_extensions=False,
-                      adapters={"host-connection": open_connection} if mode == "erpnext-sales" else {})
+        return Engine(
+            path,
+            consumer,
+            seed=plan["seed"],
+            native=native,
+            providers=None,
+            monotonic=monotonic,
+            standalone_extensions=False,
+            adapters={"host-connection": open_connection} if mode == "erpnext-sales" else {},
+        )
 
     if plan_path is not None:
         directory.parent.mkdir(parents=True, exist_ok=True)
@@ -101,9 +116,12 @@ def execute(directory, plan_path, until, transport_factory=None, *, extension_pa
         from environments.norvale.native.software_connections import connection, sales_binding, validate_sales_roles
     if extension_path is not None:
         extension = json.loads(extension_path.read_text())
-        if (not isinstance(extension, dict) or not isinstance(extension.get("id"), str)
-                or not extension["id"].strip()
-                or set(extension) - {"id", "systems", "roles", "products", "events"}):
+        if (
+            not isinstance(extension, dict)
+            or not isinstance(extension.get("id"), str)
+            or not extension["id"].strip()
+            or set(extension) - {"id", "systems", "roles", "products", "events"}
+        ):
             raise ValueError("An extension requires an ID and named additions")
         addition_plan = {**plan, "events": extension.get("events", [])}
         validate(addition_plan)
@@ -139,23 +157,26 @@ def execute(directory, plan_path, until, transport_factory=None, *, extension_pa
 
 
 def validate(plan):
-    if (not isinstance(plan, dict)
-            or set(plan) - {"consumer", "seed", "config", "events", "erp"}
-            or plan.get("consumer") not in CONSUMERS
-            or type(plan.get("seed")) is not int
-            or not isinstance(plan.get("config"), dict)
-            or "_incremental_identity" in plan["config"]
-            or not isinstance(plan.get("events"), list)):
+    if (
+        not isinstance(plan, dict)
+        or set(plan) - {"consumer", "seed", "config", "events", "erp"}
+        or plan.get("consumer") not in CONSUMERS
+        or type(plan.get("seed")) is not int
+        or not isinstance(plan.get("config"), dict)
+        or "_incremental_identity" in plan["config"]
+        or not isinstance(plan.get("events"), list)
+    ):
         raise ValueError("Plan requires consumer, integer seed, config object and events array")
     ids = set()
     for event in plan["events"]:
-        if (not isinstance(event, dict)
-                or set(event) - {"id", "kind", "at", "payload", "duration", "priority", "role"}
-                or any(not isinstance(event.get(key), str) or not event[key].strip()
-                       for key in ("id", "kind"))
-                or not isinstance(event.get("payload"), dict)
-                or type(event.get("at")) is not int
-                or (event.get("role") is not None and not isinstance(event["role"], str))
-                or event["id"] in ids):
+        if (
+            not isinstance(event, dict)
+            or set(event) - {"id", "kind", "at", "payload", "duration", "priority", "role"}
+            or any(not isinstance(event.get(key), str) or not event[key].strip() for key in ("id", "kind"))
+            or not isinstance(event.get("payload"), dict)
+            or type(event.get("at")) is not int
+            or (event.get("role") is not None and not isinstance(event["role"], str))
+            or event["id"] in ids
+        ):
             raise ValueError("Events require unique ids, kind, integer at and object payload")
         ids.add(event["id"])

@@ -2,8 +2,8 @@
 
 import json
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 from xmlrpc.client import Fault
 
 from . import Mes
@@ -14,8 +14,9 @@ def must_fail(action, expected):
     try:
         action()
     except Fault as error:
-        if not any(fragment in error.faultString for fragment in
-                   ((expected,) if isinstance(expected, str) else expected)):
+        if not any(
+            fragment in error.faultString for fragment in ((expected,) if isinstance(expected, str) else expected)
+        ):
             raise
     else:
         raise AssertionError(f"Expected {expected}")
@@ -45,9 +46,12 @@ def run(phase, fixture_path, checkpoint_path):
     actual_b = input_lots((bulk_b, 1), (bottle, 2))
 
     def quants(lot, location):
-        return planner.call("stock.quant", "search_read",
-                            [["lot_id", "=", lot], ["location_id", "=", location]],
-                            fields=["quantity", "reserved_quantity"])
+        return planner.call(
+            "stock.quant",
+            "search_read",
+            [["lot_id", "=", lot], ["location_id", "=", location]],
+            fields=["quantity", "reserved_quantity"],
+        )
 
     def total(lot, location, field="quantity"):
         return sum(row[field] for row in quants(lot, location))
@@ -56,22 +60,30 @@ def run(phase, fixture_path, checkpoint_path):
     stock = fixture["stock"]
 
     def stage(client, staging_lot, production, quantity=2):
-        return client.call("stock.lot", "norvale_stage_input", [staging_lot],
-                           staging_ref, stock, quantity, production)
+        return client.call("stock.lot", "norvale_stage_input", [staging_lot], staging_ref, stock, quantity, production)
 
     def scan_staging_receipt(production, lot):
         from environments.norvale.integrations.company_run.lake import scan
         from environments.norvale.integrations.lake.adapter import Lake
 
-        reader = dict(url=url, db="norvale_mes", login="analytics",
-                      password=os.environ["MES_ANALYTICS_PASSWORD"], source_id=deployment)
-        cfg = dict(reader=reader, instance=fixture["analytics_instance"],
-                   reader_company=fixture["analytics_company"], product=product,
-                   company=fixture["analytics_company"])
+        reader = dict(
+            url=url,
+            db="norvale_mes",
+            login="analytics",
+            password=os.environ["MES_ANALYTICS_PASSWORD"],
+            source_id=deployment,
+        )
+        cfg = dict(
+            reader=reader,
+            instance=fixture["analytics_instance"],
+            reader_company=fixture["analytics_company"],
+            product=product,
+            company=fixture["analytics_company"],
+        )
         archive = checkpoint.with_name("analytics")
         scan("mes", cfg, archive)
         lake = Lake(archive / "delta", {"audit": ["stock.move"]})
-        stored, = lake.read("audit", "stock.move")
+        (stored,) = lake.read("audit", "stock.move")
         receipt = json.loads(stored["payload"])
         assert stored["source"] == deployment and receipt["receipt"] == staging_ref
         assert (receipt["production_id"], receipt["lot_id"], receipt["quantity"]) == (production, lot, 2)
@@ -85,23 +97,28 @@ def run(phase, fixture_path, checkpoint_path):
         observer = Mes(url, "norvale_mes", "observer", password, deployment)
         rev_a = planner.acknowledge(bom_a)["revision"]
         rev_b = planner.acknowledge(bom_b)["revision"]
-        must_fail(lambda: planner.dispatch("ERP-WO-A", product, bom_a, rev_b, 8, hold),
-                  ("acknowledged revision differs", "Conflicting work dispatch replay"))
+        must_fail(
+            lambda: planner.dispatch("ERP-WO-A", product, bom_a, rev_b, 8, hold),
+            ("acknowledged revision differs", "Conflicting work dispatch replay"),
+        )
         a = planner.dispatch("ERP-WO-A", product, bom_a, rev_a, 8, hold)["id"]
         assert planner.dispatch("ERP-WO-A", product, bom_a, rev_a, 8, hold)["id"] == a
-        must_fail(lambda: planner.dispatch("ERP-WO-A", product, bom_a, rev_a, 7, hold),
-                  "Conflicting work dispatch replay")
+        must_fail(
+            lambda: planner.dispatch("ERP-WO-A", product, bom_a, rev_a, 7, hold), "Conflicting work dispatch replay"
+        )
         b = planner.dispatch("ERP-WO-B", product, bom_b, rev_b, 2, hold)["id"]
         must_fail(lambda: observer.read(MO, a), "not allowed to access")
         must_fail(lambda: observer.start(a, all_a, released), "Manufacturing authority required")
         must_fail(lambda: operator.fault(center_a, "GITEA-27"), "Manufacturing authority required")
         must_fail(lambda: operator.complete(a, out_a, 3, actual_a, released), "requires running work")
         must_fail(lambda: operator.start(a, all_a, [bulk_b, bottle]), "held or lacks release")
-        must_fail(lambda: operator.start(a, input_lots((bulk_a, 6), (bottle, 8)), released),
-                  "Insufficient available quantity")
+        must_fail(
+            lambda: operator.start(a, input_lots((bulk_a, 6), (bottle, 8)), released), "Insufficient available quantity"
+        )
 
-        line = planner.call("mrp.bom.line", "search", [["bom_id", "=", bom_a],
-                                                       ["product_id.tracking", "=", "lot"]], limit=1)[0]
+        line = planner.call(
+            "mrp.bom.line", "search", [["bom_id", "=", bom_a], ["product_id.tracking", "=", "lot"]], limit=1
+        )[0]
         old = planner.call("mrp.bom.line", "read", [line], fields=["product_qty"])[0]["product_qty"]
         planner.call("mrp.bom.line", "write", [line], {"product_qty": old * 2})
         must_fail(lambda: operator.start(a, all_a, released), "Pinned revision")
@@ -125,56 +142,78 @@ def run(phase, fixture_path, checkpoint_path):
         operator.start(a, all_a, released)
         assert total(bulk_a, fixture["stock"], "reserved_quantity") == 3
         assert total(bulk_b, fixture["stock"], "reserved_quantity") == 1
-        must_fail(lambda: operator.complete(a, out_a, 3, actual_a, [bulk_b, bottle]),
-                  "held or lacks release")
+        must_fail(lambda: operator.complete(a, out_a, 3, actual_a, [bulk_b, bottle]), "held or lacks release")
         assert total(out_a, hold) == 0
 
         # The native transaction commits. The controller saves intent only
         # and discards the response, then exits before fetching the report.
         bottle_lot = planner.read("stock.lot", bottle)
-        staging_lot = planner.call("stock.lot", "create", {
-            "name": "BOTTLE-STAGING-PROOF", "product_id": bottle_lot["product_id"][0],
-            "company_id": bottle_lot["company_id"][0],
-        })
+        staging_lot = planner.call(
+            "stock.lot",
+            "create",
+            {
+                "name": "BOTTLE-STAGING-PROOF",
+                "product_id": bottle_lot["product_id"][0],
+                "company_id": bottle_lot["company_id"][0],
+            },
+        )
         assert total(staging_lot, stock) == 0
         must_fail(lambda: stage(operator, staging_lot, a), "Inventory manager required")
         if "analytics_instance" in fixture:
             analytics = Mes(url, "norvale_mes", "analytics", os.environ["MES_ANALYTICS_PASSWORD"], deployment)
             must_fail(lambda: stage(analytics, staging_lot, a), "Inventory manager required")
-            must_fail(lambda: analytics.call("stock.lot", "write", [staging_lot], {"name": "unauthorized"}),
-                      "not allowed to modify")
+            must_fail(
+                lambda: analytics.call("stock.lot", "write", [staging_lot], {"name": "unauthorized"}),
+                "not allowed to modify",
+            )
             assert planner.read("stock.lot", staging_lot)["name"] == "BOTTLE-STAGING-PROOF"
-        checkpoint.write_text(json.dumps({"a": a, "b": b, "revision": rev_a, "fault": fault["native_id"],
-                                          "staging_lot": staging_lot}))
+        checkpoint.write_text(
+            json.dumps({"a": a, "b": b, "revision": rev_a, "fault": fault["native_id"], "staging_lot": staging_lot})
+        )
         stage(planner, staging_lot, a)  # Discard the committed staging reply as well.
         operator.call(MO, "norvale_complete", [a], out_a, 3, actual_a, released)
         if "analytics_instance" in fixture:
             receipt = scan_staging_receipt(a, staging_lot)
             checkpoint.with_name("staging-observed.json").write_text(json.dumps(receipt, indent=2) + "\n")
-        print("before restart: native denial, stale revision, held/exhausted lot, equipment isolation, "
-              "actual reservations and committed partial completion with discarded response")
+        print(
+            "before restart: native denial, stale revision, held/exhausted lot, equipment isolation, "
+            "actual reservations and committed partial completion with discarded response"
+        )
     elif phase == "after":
         saved = json.loads(checkpoint.read_text())
         a, b, rev_a = saved["a"], saved["b"], saved["revision"]
         staging_lot = saved["staging_lot"]
+
         def receipt():
-            move, = planner.call("stock.move", "search_read",
-                                 [["norvale_staging_receipt", "=", staging_ref]],
-                                 fields=["state", "move_line_ids", "norvale_staging_order_id"])
-            line_id, = move["move_line_ids"]
+            (move,) = planner.call(
+                "stock.move",
+                "search_read",
+                [["norvale_staging_receipt", "=", staging_ref]],
+                fields=["state", "move_line_ids", "norvale_staging_order_id"],
+            )
+            (line_id,) = move["move_line_ids"]
             line = planner.read("stock.move.line", line_id)
             assert move["state"] == "done" and move["norvale_staging_order_id"][0] == a
             assert line["lot_id"][0] == staging_lot and line["quantity"] == 2
             assert line["location_dest_id"][0] == stock and total(staging_lot, stock) == 2
-            return dict(source=deployment, move=move["id"], line=line_id, lot=staging_lot,
-                        production=a, location=stock, quantity=line["quantity"])
+            return dict(
+                source=deployment,
+                move=move["id"],
+                line=line_id,
+                lot=staging_lot,
+                production=a,
+                location=stock,
+                quantity=line["quantity"],
+            )
+
         recovered = receipt()
         assert stage(planner, staging_lot, a) == recovered["line"]
         must_fail(lambda: stage(planner, staging_lot, a, 3), "Conflicting native staging receipt")
         must_fail(lambda: stage(planner, staging_lot, b), "Conflicting native staging receipt")
-        must_fail(lambda: planner.call("stock.lot", "norvale_stage_input", [staging_lot],
-                                       staging_ref + "-late", stock, 2, a),
-                  "New staging requires an active manufacturing order")
+        must_fail(
+            lambda: planner.call("stock.lot", "norvale_stage_input", [staging_lot], staging_ref + "-late", stock, 2, a),
+            "New staging requires an active manufacturing order",
+        )
         assert receipt() == recovered
         if "analytics_instance" in fixture:
             archived = scan_staging_receipt(a, staging_lot)
@@ -183,12 +222,16 @@ def run(phase, fixture_path, checkpoint_path):
         checkpoint.with_name("staging-recovery.json").write_text(json.dumps(recovered, indent=2) + "\n")
         report = operator.complete(a, out_a, 3, actual_a, [])
         assert operator.completion(a) == report
-        must_fail(lambda: operator.complete(a, out_a, 3, input_lots((bulk_a, 2), (bottle, 4)), released),
-                  "Native completion or replay differs")
+        must_fail(
+            lambda: operator.complete(a, out_a, 3, input_lots((bulk_a, 2), (bottle, 4)), released),
+            "Native completion or replay differs",
+        )
         assert report["revision"] == rev_a and report["erp_work_ref"] == "ERP-WO-A"
         assert report["output"]["quantity"] == 3
         assert {row["lot_name"]: row["quantity"] for row in report["inputs"]} == {
-            "BULK-104": 1.5, "BULK-105": 0.25, "BOTTLE-663": 4.0,
+            "BULK-104": 1.5,
+            "BULK-105": 0.25,
+            "BOTTLE-663": 4.0,
         }
         assert {row["uom_name"] for row in report["inputs"]} == {"kg", "Units"}
         assert total(out_a, hold) == 3 and not total(out_a, fixture["stock"])
@@ -221,8 +264,10 @@ def run(phase, fixture_path, checkpoint_path):
         assert operator.export(["other-run"])["work"] == []
         export_path = checkpoint.with_name("mes-export.json")
         export_path.write_text(json.dumps(export, indent=2) + "\n")
-        print(f"after restart: 3 completed MOs, 10 units in hold, preserved genealogy, "
-              f"stable ERP posting reference {report['completion_ref']}, native export {export_path}")
+        print(
+            f"after restart: 3 completed MOs, 10 units in hold, preserved genealogy, "
+            f"stable ERP posting reference {report['completion_ref']}, native export {export_path}"
+        )
     elif phase == "interrupt":
         revision = planner.acknowledge(bom_a)["revision"]
         first = planner.dispatch("ERP-WO-Interrupted", product, bom_a, revision, 1, hold)["id"]
@@ -233,17 +278,26 @@ def run(phase, fixture_path, checkpoint_path):
         marker = planner.fault(center_a, "GITEA-Interrupted")
         assert not operator.availability(center_a)["available"]
         assert operator.availability(center_b)["available"]
-        must_fail(lambda: operator.complete(first, out_a, 1, allocated, released),
-                  "requires running work and operable equipment")
+        must_fail(
+            lambda: operator.complete(first, out_a, 1, allocated, released),
+            "requires running work and operable equipment",
+        )
         planner.restart(center_a, marker["native_id"], "RESTART-Interrupted")
         assert operator.availability(center_a)["working_state"] == "normal"
         assert not operator.availability(center_a)["available"]
         # A fresh native lot ensures the disposition check is exercised before posting.
-        lot = planner.call("stock.lot", "create", {
-            "name": "SHAMPOO-INTERRUPTED", "product_id": product,
-        })
-        must_fail(lambda: operator.complete(first, lot, 1, allocated, released),
-                  "Interrupted work requires a separate batch disposition")
+        lot = planner.call(
+            "stock.lot",
+            "create",
+            {
+                "name": "SHAMPOO-INTERRUPTED",
+                "product_id": product,
+            },
+        )
+        must_fail(
+            lambda: operator.complete(first, lot, 1, allocated, released),
+            "Interrupted work requires a separate batch disposition",
+        )
         assert total(lot, hold) == 0 and operator.read(MO, first)["state"] == "progress"
         print("interruption: occupied equipment denied new work, verified restart left batch pending")
     else:

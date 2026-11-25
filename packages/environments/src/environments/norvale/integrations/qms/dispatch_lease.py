@@ -166,50 +166,105 @@ def install():
 
     states = "active\narmed\nsubmitted\naborted\ndenied\nwithdrawn"
     if not frappe.db.exists("DocType", LEASE):
-        frappe.get_doc({
-            "doctype": "DocType", "name": LEASE, "module": "Quality Management", "custom": 1,
-            "track_changes": 1, "allow_rename": 0,
-            "fields": [
-                {"fieldname": "request_json", "label": "Pinned Request", "fieldtype": "Long Text", "reqd": 1},
-                {"fieldname": "commit_json", "label": "ERP Commit Readback", "fieldtype": "Long Text", "read_only": 1},
-                {"fieldname": "lease_state", "label": "Lease State", "fieldtype": "Select",
-                 "options": states, "reqd": 1},
-            ],
-            "permissions": [{"role": "System Manager", "read": 1}],
-        }).insert()
+        frappe.get_doc(
+            {
+                "doctype": "DocType",
+                "name": LEASE,
+                "module": "Quality Management",
+                "custom": 1,
+                "track_changes": 1,
+                "allow_rename": 0,
+                "fields": [
+                    {"fieldname": "request_json", "label": "Pinned Request", "fieldtype": "Long Text", "reqd": 1},
+                    {
+                        "fieldname": "commit_json",
+                        "label": "ERP Commit Readback",
+                        "fieldtype": "Long Text",
+                        "read_only": 1,
+                    },
+                    {
+                        "fieldname": "lease_state",
+                        "label": "Lease State",
+                        "fieldtype": "Select",
+                        "options": states,
+                        "reqd": 1,
+                    },
+                ],
+                "permissions": [{"role": "System Manager", "read": 1}],
+            }
+        ).insert()
     else:
         lease = frappe.get_doc("DocType", LEASE)
         state = next(field for field in lease.fields if field.fieldname == "lease_state")
         changed = state.options != states
         state.options = states
         if not any(field.fieldname == "commit_json" for field in lease.fields):
-            lease.append("fields", {"fieldname": "commit_json", "label": "ERP Commit Readback",
-                                    "fieldtype": "Long Text", "read_only": 1})
+            lease.append(
+                "fields",
+                {"fieldname": "commit_json", "label": "ERP Commit Readback", "fieldtype": "Long Text", "read_only": 1},
+            )
             changed = True
         if changed:
             lease.save()
-    create_custom_fields({"Batch": [{"fieldname": "custom_dispatch_lease", "label": "Dispatch Lease",
-                                     "fieldtype": "Data", "read_only": 1, "no_copy": 1, "hidden": 1}]})
+    create_custom_fields(
+        {
+            "Batch": [
+                {
+                    "fieldname": "custom_dispatch_lease",
+                    "label": "Dispatch Lease",
+                    "fieldtype": "Data",
+                    "read_only": 1,
+                    "no_copy": 1,
+                    "hidden": 1,
+                }
+            ]
+        }
+    )
     frappe.db.add_index("Quality Inspection", ["batch_no", "creation"], "norvale_dispatch_scope")
 
     def script(name, body, **fields):
-        doc = (frappe.get_doc("Server Script", name) if frappe.db.exists("Server Script", name)
-               else frappe.new_doc("Server Script"))
+        doc = (
+            frappe.get_doc("Server Script", name)
+            if frappe.db.exists("Server Script", name)
+            else frappe.new_doc("Server Script")
+        )
         doc.update(dict(name=name, disabled=0, script=body, **fields))
         doc.save()
 
     script("Norvale Dispatch Lease API", ENDPOINT, script_type="API", api_method=API, allow_guest=0)
-    for event in ("Before Validate", "Before Save (Submitted Document)", "Before Cancel",
-                  "Before Delete", "Before Rename"):
-        script("Norvale Dispatch Inspection " + event, GUARD,
-               script_type="DocType Event", reference_doctype="Quality Inspection", doctype_event=event)
+    for event in (
+        "Before Validate",
+        "Before Save (Submitted Document)",
+        "Before Cancel",
+        "Before Delete",
+        "Before Rename",
+    ):
+        script(
+            "Norvale Dispatch Inspection " + event,
+            GUARD,
+            script_type="DocType Event",
+            reference_doctype="Quality Inspection",
+            doctype_event=event,
+        )
     for event in ("Before Delete", "Before Rename"):
-        script("Norvale Dispatch Batch " + event, """
+        script(
+            "Norvale Dispatch Batch " + event,
+            """
 if frappe.db.get_value("Batch", doc.name, "custom_dispatch_lease", for_update=True):
     frappe.throw("Batch has an active dispatch lease")
-""", script_type="DocType Event", reference_doctype="Batch", doctype_event=event)
-    script("Norvale Dispatch Batch Before Save", """
+""",
+            script_type="DocType Event",
+            reference_doctype="Batch",
+            doctype_event=event,
+        )
+    script(
+        "Norvale Dispatch Batch Before Save",
+        """
 saved = frappe.db.get_value("Batch", doc.name, "custom_dispatch_lease", for_update=True)
 if (doc.custom_dispatch_lease or "") != (saved or ""):
     frappe.throw("Dispatch lease pointer can only be changed by the dispatch API")
-""", script_type="DocType Event", reference_doctype="Batch", doctype_event="Before Save")
+""",
+        script_type="DocType Event",
+        reference_doctype="Batch",
+        doctype_event="Before Save",
+    )

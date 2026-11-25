@@ -1,10 +1,11 @@
 """Offline protocol check: the public tools see evidence only after expert replies."""
-from datetime import datetime, timezone, timedelta
+
+from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from environments.norvale.agents.expert_inbox import ExpertInbox, EXPERTS
+from environments.norvale.agents.expert_inbox import EXPERTS, ExpertInbox
 
 
 class Mail:
@@ -15,15 +16,24 @@ class Mail:
     def send_mail(self, to, subject, body, when, in_reply_to=None):
         recipient = self.mailboxes[to[0]]
         uid = str(len(recipient.rows) + 1)
-        recipient.rows.append({"from": self.addr, "to": to[0], "subject": subject, "body": body,
-                               "date": format_datetime(when), "uid": uid,
-                               "message_id": f"<{uid}@{to[0]}>", "in_reply_to": in_reply_to})
+        recipient.rows.append(
+            {
+                "from": self.addr,
+                "to": to[0],
+                "subject": subject,
+                "body": body,
+                "date": format_datetime(when),
+                "uid": uid,
+                "message_id": f"<{uid}@{to[0]}>",
+                "in_reply_to": in_reply_to,
+            }
+        )
 
     def find_subject(self, subject):
         return [{**r, "subject": " " + r["subject"]} for r in self.rows if r["subject"] == subject]
 
     def read_mail(self, uid):
-        return self.rows[int(uid)-1]
+        return self.rows[int(uid) - 1]
 
 
 def check():
@@ -34,8 +44,10 @@ def check():
         clients[role] = mailboxes[addr] = Mail(addr, mailboxes)
     when = datetime(2027, 2, 1, tzinfo=timezone.utc)
     with TemporaryDirectory() as directory:
+
         def reopen():
             return ExpertInbox("Filler-1", when.date(), b"test fixture key", clients, lambda: now, directory)
+
         now = when
         e = reopen()
         assert set(e.question()) == {"version", "case", "opened", "question", "contacts"}

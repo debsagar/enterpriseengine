@@ -1,4 +1,5 @@
 """Minimal Frappe REST client: one identity (API token or Administrator session) per instance."""
+
 import http.cookiejar
 import json
 import urllib.error
@@ -32,13 +33,18 @@ class SameOriginRedirect(urllib.request.HTTPRedirectHandler):
 class ErpClient:
     def __init__(self, base, site, token=None):
         self.base, self.site, self.token = base, site, token
-        self.opener = urllib.request.build_opener(SameOriginRedirect(), urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        self.opener = urllib.request.build_opener(
+            SameOriginRedirect(), urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+        )
 
     def request(self, method, path, body=None, timeout=300, *, response_key=None):
         data = None if body is None else json.dumps(body).encode()
-        req = urllib.request.Request(self.base + path, data=data, method=method,
-                                     headers={"Content-Type": "application/json", "Accept": "application/json",
-                                              "X-Frappe-Site-Name": self.site})
+        req = urllib.request.Request(
+            self.base + path,
+            data=data,
+            method=method,
+            headers={"Content-Type": "application/json", "Accept": "application/json", "X-Frappe-Site-Name": self.site},
+        )
         if self.token:
             req.add_header("Authorization", "token " + self.token)
         try:
@@ -66,8 +72,9 @@ class ErpClient:
         return self.request("GET", f"/api/resource/{q(doctype)}?" + urllib.parse.urlencode(params))
 
     def metadata(self, doctype):
-        docs = self.request("POST", "/api/method/frappe.desk.form.load.getdoctype",
-                            {"doctype": doctype}, response_key="docs")
+        docs = self.request(
+            "POST", "/api/method/frappe.desk.form.load.getdoctype", {"doctype": doctype}, response_key="docs"
+        )
         return next(doc for doc in docs if doc["name"] == doctype)
 
     def create(self, doctype, doc):

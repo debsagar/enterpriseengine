@@ -3,6 +3,7 @@
 Transition laws adapted from the local STOCKTAKE reproducibility release.
 See docs/WORLD-PROCESSES.md for source hashes and adaptation details.
 """
+
 from copy import deepcopy
 from hashlib import sha256
 from random import Random
@@ -35,11 +36,14 @@ def validate(config):
     fixture = config.get("world_fixture", {})
     if "world" in config and type(config["world"]) is not bool:
         raise ValueError("world must be a boolean")
-    if (not isinstance(fixture, dict) or set(fixture) - {"initial_disruption", "transit_delay_minutes"}
-            or ("world_fixture" in config and not config.get("world"))
-            or fixture.get("initial_disruption", "calm") not in tuple(INITIAL)
-            or type(fixture.get("transit_delay_minutes", 0)) is not int
-            or fixture.get("transit_delay_minutes", 0) < 0):
+    if (
+        not isinstance(fixture, dict)
+        or set(fixture) - {"initial_disruption", "transit_delay_minutes"}
+        or ("world_fixture" in config and not config.get("world"))
+        or fixture.get("initial_disruption", "calm") not in tuple(INITIAL)
+        or type(fixture.get("transit_delay_minutes", 0)) is not int
+        or fixture.get("transit_delay_minutes", 0) < 0
+    ):
         raise ValueError("Invalid world fixture")
 
 
@@ -51,29 +55,32 @@ def stream(seed, factor, at):
 def disruption(previous, rng, initial):
     if not previous:
         state, dtype = INITIAL[initial]
-        return dict(event_state=state, event_age=0, disruption_type=dtype,
-                    local_congestion=False)
+        return dict(event_state=state, event_age=0, disruption_type=dtype, local_congestion=False)
     state, age, dtype = (previous[k] for k in ("event_state", "event_age", "disruption_type"))
     next_state, next_type = state, dtype
     if state == "calm":
-        if rng.random() < .08:
+        if rng.random() < 0.08:
             next_state = "watch"
     elif state == "watch":
         coin = rng.random()
-        if coin < .50:
-            next_state, next_type = "disruption", "short" if rng.random() < .70 else "long"
-        elif coin < .70:
+        if coin < 0.50:
+            next_state, next_type = "disruption", "short" if rng.random() < 0.70 else "long"
+        elif coin < 0.70:
             next_state = "false_alarm"
-        elif coin < .85:
+        elif coin < 0.85:
             next_state = "calm"
     elif state == "disruption":
-        ends = (age + 1 >= 2 or rng.random() > .50) if dtype == "short" else rng.random() > .92
+        ends = (age + 1 >= 2 or rng.random() > 0.50) if dtype == "short" else rng.random() > 0.92
         if ends:
             next_state, next_type = "recovery", None
-    elif state == "false_alarm" or age + 1 >= 3 or rng.random() > .50:
+    elif state == "false_alarm" or age + 1 >= 3 or rng.random() > 0.50:
         next_state = "calm"
-    return dict(event_state=next_state, event_age=age + 1 if next_state == state else 0,
-                disruption_type=next_type, local_congestion=rng.random() < .08)
+    return dict(
+        event_state=next_state,
+        event_age=age + 1 if next_state == state else 0,
+        disruption_type=next_type,
+        local_congestion=rng.random() < 0.08,
+    )
 
 
 def reliability(previous, rng):
@@ -84,14 +91,14 @@ def reliability(previous, rng):
     next_state = state
     if previous:
         if state == "reliable":
-            next_state = "wobbling" if rng.random() < .10 else state
+            next_state = "wobbling" if rng.random() < 0.10 else state
         elif state == "wobbling":
             coin = rng.random()
-            next_state = "degraded" if coin < .45 else "reliable" if coin < .80 else state
+            next_state = "degraded" if coin < 0.45 else "reliable" if coin < 0.80 else state
         elif state == "degraded":
-            if rng.random() < .06:
+            if rng.random() < 0.06:
                 next_state = "defunct"
-            elif age + 1 >= 4 or rng.random() > .70:
+            elif age + 1 >= 4 or rng.random() > 0.70:
                 next_state = "reliable"
         age = age + 1 if next_state == state else 0
     return dict(state=next_state, age=age)
@@ -100,8 +107,7 @@ def reliability(previous, rng):
 def truth(state, config, cutoff):
     rows = [row for row in state.get("_world", []) if row["at"] <= cutoff]
     envelope = {"world": deepcopy(rows)}
-    deliveries = {key: row for key, row in state.get("_world_deliveries", {}).items()
-                  if row["checked_at"] <= cutoff}
+    deliveries = {key: row for key, row in state.get("_world_deliveries", {}).items() if row["checked_at"] <= cutoff}
     if deliveries:
         envelope["deliveries"] = deepcopy(deliveries)
     if "private_marker" in config:
@@ -113,8 +119,11 @@ def tick(engine):
     rows = engine.state.setdefault("_world", [])
     prior = rows[-1] if rows else {}
     at = engine.now
-    lane = disruption(prior.get("disruption"), stream(engine.seed, "disruption", at),
-                      engine.config.get("world_fixture", {}).get("initial_disruption", "calm"))
+    lane = disruption(
+        prior.get("disruption"),
+        stream(engine.seed, "disruption", at),
+        engine.config.get("world_fixture", {}).get("initial_disruption", "calm"),
+    )
     supplier = reliability(prior.get("supplier_reliability"), stream(engine.seed, "supplier", at))
     rows.append(dict(at=at, disruption=lane, supplier_reliability=supplier))
     if engine._world_process is not None:
@@ -145,8 +154,7 @@ def dispatch(engine, key, eta, fields, *, earliest=None):
         raise ValueError("Delivery checkpoint must be at or after dispatch")
     event = f"world:transit:{key}"
     if not engine.has_event(event):
-        engine._schedule(event, CHECK, at, priority=-90,
-                        payload={"key": key, "previous_eta": eta, "fields": fields})
+        engine._schedule(event, CHECK, at, priority=-90, payload={"key": key, "previous_eta": eta, "fields": fields})
 
 
 def complete_transit(engine, payload):
@@ -163,10 +171,11 @@ def complete_transit(engine, payload):
         engine._consumer.delivery_notice(engine, payload["fields"], eta)
     actual = engine.now + delay
     engine.state.setdefault("_world_deliveries", {})[payload["key"]] = {
-        "checked_at": engine.now, "previous_eta": eta, "actual_arrival_at": actual,
+        "checked_at": engine.now,
+        "previous_eta": eta,
+        "actual_arrival_at": actual,
     }
-    engine._schedule(f"world:arrival:{payload['key']}", ARRIVAL, actual,
-                     priority=-89, payload=payload["fields"])
+    engine._schedule(f"world:arrival:{payload['key']}", ARRIVAL, actual, priority=-89, payload=payload["fields"])
 
 
 def handle(engine, kind, payload):
@@ -174,7 +183,8 @@ def handle(engine, kind, payload):
         # Reserved names are checked against their canonical shape. A second
         # tick at the same minute would change the latent trajectory.
         if engine.event["id"] != f"world:week:{engine.now}" or (
-                engine.state.get("_world") and engine.state["_world"][-1]["at"] + WEEK != engine.now):
+            engine.state.get("_world") and engine.state["_world"][-1]["at"] + WEEK != engine.now
+        ):
             raise ValueError("Unexpected world tick")
         tick(engine)
     elif kind == CHECK:

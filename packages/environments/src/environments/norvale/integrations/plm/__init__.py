@@ -1,10 +1,11 @@
 """InvenTree PLM adapter for the Norvale controller."""
+
 import base64
-from datetime import date
-from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 import re
+from datetime import date
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
@@ -44,8 +45,7 @@ def quantity(value):
         amount = Decimal(str(value))
     except InvalidOperation as error:
         raise ValueError("Invalid BOM quantity") from error
-    if (not amount.is_finite() or amount <= 0 or not -5 <= amount.adjusted() < 10
-            or amount != round(amount, 5)):
+    if not amount.is_finite() or amount <= 0 or not -5 <= amount.adjusted() < 10 or amount != round(amount, 5):
         raise ValueError("BOM quantity must fit InvenTree's positive decimal (15, 5)")
     return format(amount, ".5f").rstrip("0").rstrip(".")
 
@@ -97,8 +97,7 @@ class PLM:
 
     def _actor(self, expected):
         guarded = self.decision_actor is not None and expected != self.publisher
-        user = (self.request("/api/user/me/", require_guard=True) if guarded
-                else self.request("/api/user/me/"))
+        user = self.request("/api/user/me/", require_guard=True) if guarded else self.request("/api/user/me/")
         if user["username"] != expected:
             raise Blocked("PLM publication requires the configured native identity")
         return user["username"]
@@ -136,20 +135,28 @@ class PLM:
     def _bom(self, pk):
         rows = []
         for row in self._list("/api/bom/", part=pk, substitutes="true", sub_part_detail="true"):
-            if (row["part"] != pk or any(row[key] for key in
-                ("optional", "consumable", "inherited", "allow_variants", "substitutes"))
-                or Decimal(str(row["attrition"])) or Decimal(str(row["setup_quantity"]))
-                or row["rounding_multiple"] is not None):
+            if (
+                row["part"] != pk
+                or any(row[key] for key in ("optional", "consumable", "inherited", "allow_variants", "substitutes"))
+                or Decimal(str(row["attrition"]))
+                or Decimal(str(row["setup_quantity"]))
+                or row["rounding_multiple"] is not None
+            ):
                 raise Blocked(f"Unsupported BOM modifiers on row {row['pk']}")
             component = row["sub_part_detail"]
             if not component or component["pk"] != row["sub_part"]:
                 raise Blocked(f"Missing native component for BOM row {row['pk']}")
-            rows.append({
-                "native_id": row["pk"], "component_id": component["pk"],
-                "source_id": component["IPN"], "unit": component["units"],
-                "kind": row["reference"], "quantity": quantity(row["quantity"]),
-                "specification": row["note"],
-            })
+            rows.append(
+                {
+                    "native_id": row["pk"],
+                    "component_id": component["pk"],
+                    "source_id": component["IPN"],
+                    "unit": component["units"],
+                    "kind": row["reference"],
+                    "quantity": quantity(row["quantity"]),
+                    "specification": row["note"],
+                }
+            )
         return sorted(rows, key=lambda row: row["native_id"])
 
     def draft(self, product, revision, lines, *, base_id=None, material_kind="finished", proposal=None):
@@ -163,27 +170,40 @@ class PLM:
             if kind not in ("formulation", "packaging") or source in wanted:
                 raise ValueError("Each BOM input must have a distinct source ID and a valid kind")
             wanted[source] = {
-                "source_id": source, "kind": kind, "unit": required(row["unit"], 20),
+                "source_id": source,
+                "kind": kind,
+                "unit": required(row["unit"], 20),
                 "quantity": quantity(row["quantity"]),
                 "specification": required(row["specification"], 500),
             }
         if not valid_material_lines(material_kind, wanted.values()):
-            raise ValueError("Finished definitions require formulation and packaging; intermediate requires formulation")
+            raise ValueError(
+                "Finished definitions require formulation and packaging; intermediate requires formulation"
+            )
         if base_id is not None:
             base = self._part(base_id)
-            if (base["name"] != product or base["revision_of"] is not None
-                    or not base["IPN"].startswith("NV-PLM-")):
+            if base["name"] != product or base["revision_of"] is not None or not base["IPN"].startswith("NV-PLM-"):
                 raise Blocked("Revision base must be the original Part for this product")
         ipn = "NV-PLM-" + digest([product, revision])
         if base_id is None:
             for part in self._list("/api/part/", name_regex=f"^{re.escape(product)}$"):
-                if (part["name"] == product and part["revision_of"] is None
-                        and part["IPN"].startswith("NV-PLM-") and part["IPN"] != ipn):
+                if (
+                    part["name"] == product
+                    and part["revision_of"] is None
+                    and part["IPN"].startswith("NV-PLM-")
+                    and part["IPN"] != ipn
+                ):
                     raise Blocked("Supply the original Part ID for another revision")
-        pk = self._ensure_part({
-            "IPN": ipn, "name": product, "revision": revision, "revision_of": base_id,
-            "description": "Norvale manufacturing definition", "assembly": True,
-        })
+        pk = self._ensure_part(
+            {
+                "IPN": ipn,
+                "name": product,
+                "revision": revision,
+                "revision_of": base_id,
+                "description": "Norvale manufacturing definition",
+                "assembly": True,
+            }
+        )
         self._set_once(pk, "norvale_draft_sha256", digest(wanted))
         if proposal is not None:
             self._set_once(pk, "norvale_proposal", proposal)
@@ -196,22 +216,40 @@ class PLM:
             raise Blocked("Reviewed definitions cannot be repaired by changing their BOM")
         for source in sorted(missing):
             line = wanted[source]
-            component = self._ensure_part({
-                "IPN": source, "name": source, "units": line["unit"], "assembly": False,
-            })
-            self.request("/api/bom/", "POST", {
-                "part": pk, "sub_part": component, "reference": line["kind"],
-                "quantity": line["quantity"], "note": line["specification"],
-            })
+            component = self._ensure_part(
+                {
+                    "IPN": source,
+                    "name": source,
+                    "units": line["unit"],
+                    "assembly": False,
+                }
+            )
+            self.request(
+                "/api/bom/",
+                "POST",
+                {
+                    "part": pk,
+                    "sub_part": component,
+                    "reference": line["kind"],
+                    "quantity": line["quantity"],
+                    "note": line["specification"],
+                },
+            )
         self._check_lines(self._bom(pk), wanted, complete=True)
         return pk
 
     @staticmethod
     def _check_lines(lines, wanted, *, complete):
-        actual = {line["source_id"]: {key: line[key] for key in wanted[line["source_id"]]}
-                  for line in lines if line["source_id"] in wanted}
-        if (len(actual) != len(lines) or any(wanted[key] != value for key, value in actual.items())
-                or (complete and actual != wanted)):
+        actual = {
+            line["source_id"]: {key: line[key] for key in wanted[line["source_id"]]}
+            for line in lines
+            if line["source_id"] in wanted
+        }
+        if (
+            len(actual) != len(lines)
+            or any(wanted[key] != value for key, value in actual.items())
+            or (complete and actual != wanted)
+        ):
             raise Blocked("InvenTree BOM differs from the draft intent")
 
     def definition(self, pk):
@@ -224,13 +262,17 @@ class PLM:
         material_kind = meta.get("norvale_material_kind", "finished")
         if material_kind == "intermediate":
             fields["material_kind"] = material_kind
-        if (not part["assembly"] or part["IPN"] != "NV-PLM-" + digest([part["name"], part["revision"]])
-                or not valid_material_lines(material_kind, fields["lines"])):
+        if (
+            not part["assembly"]
+            or part["IPN"] != "NV-PLM-" + digest([part["name"], part["revision"]])
+            or not valid_material_lines(material_kind, fields["lines"])
+        ):
             raise Blocked("Part is not a complete Norvale definition")
         intended = meta.get("norvale_draft_sha256")
-        observed = {line["source_id"]: {key: value for key, value in line.items()
-                                       if key not in ("native_id", "component_id")}
-                    for line in fields["lines"]}
+        observed = {
+            line["source_id"]: {key: value for key, value in line.items() if key not in ("native_id", "component_id")}
+            for line in fields["lines"]
+        }
         if len(observed) != len(fields["lines"]) or intended != digest(observed):
             raise Blocked("Native BOM does not match its recorded draft intent")
         return fields
@@ -244,8 +286,7 @@ class PLM:
 
     def review(self, pk, *, on, evidence):
         actor = self._actor(self.decision_actor or self.publisher)
-        record = {"on": day(on), "evidence": required(evidence), "actor": actor,
-                  "sha256": digest(self.definition(pk))}
+        record = {"on": day(on), "evidence": required(evidence), "actor": actor, "sha256": digest(self.definition(pk))}
         self._set_once(pk, "norvale_review", record)
         return record
 
@@ -256,18 +297,28 @@ class PLM:
         checksum = digest(definition)
         meta = self._meta(pk)
         review = meta.get("norvale_review")
-        if (not review or review["sha256"] != checksum or not review["on"] <= on <= effective
-                or (self.decision_actor and review["actor"] == actor)
-                or meta.get("norvale_rejection")):
+        if (
+            not review
+            or review["sha256"] != checksum
+            or not review["on"] <= on <= effective
+            or (self.decision_actor and review["actor"] == actor)
+            or meta.get("norvale_rejection")
+        ):
             raise Blocked("Approval requires reviewed content and ordered business dates")
-        approval = {"on": on, "effective": effective, "evidence": required(evidence),
-                    "actor": actor, "sha256": checksum}
+        approval = {
+            "on": on,
+            "effective": effective,
+            "evidence": required(evidence),
+            "actor": actor,
+            "sha256": checksum,
+        }
         proposal = definition.get("proposal")
         if proposal and not meta.get("norvale_approval"):
             base = self.pin(definition["revision_of"], "approval:" + str(pk), on=on)
-            if (proposal["on"] > review["on"] or
-                    (base["native_id"], base["source_version"]) !=
-                    (proposal["base_id"], proposal["base_version"])):
+            if proposal["on"] > review["on"] or (base["native_id"], base["source_version"]) != (
+                proposal["base_id"],
+                proposal["base_version"],
+            ):
                 raise Blocked("Proposal is stale or review predates its source evidence")
         for part in self._family(definition["revision_of"] or pk):
             prior = self._meta(part["pk"]).get("norvale_approval")
@@ -289,8 +340,13 @@ class PLM:
         checksum = digest(self.definition(pk))
         meta = self._meta(pk)
         review = meta.get("norvale_review")
-        if (not review or review["sha256"] != checksum or review["on"] > on
-                or actor == review["actor"] or meta.get("norvale_approval")):
+        if (
+            not review
+            or review["sha256"] != checksum
+            or review["on"] > on
+            or actor == review["actor"]
+            or meta.get("norvale_approval")
+        ):
             raise Blocked("Rejection requires independent review of the current undecided draft")
         record = {"on": on, "evidence": required(evidence), "actor": actor, "sha256": checksum}
         self._set_once(pk, "norvale_rejection", record)
@@ -301,14 +357,25 @@ class PLM:
         meta = self._meta(pk)
         approval = meta.get("norvale_approval")
         review = meta.get("norvale_review")
-        if (not approval or meta.get("norvale_rejection") or approval["sha256"] != digest(definition)
-                or not self._part(pk)["locked"]):
+        if (
+            not approval
+            or meta.get("norvale_rejection")
+            or approval["sha256"] != digest(definition)
+            or not self._part(pk)["locked"]
+        ):
             raise Blocked("PLM revision is unapproved or its approved content changed")
-        if "proposal" in definition and (not review or review["actor"] == approval["actor"]
-                                         or review["sha256"] != approval["sha256"]):
+        if "proposal" in definition and (
+            not review or review["actor"] == approval["actor"] or review["sha256"] != approval["sha256"]
+        ):
             raise Blocked("Change publication requires an independent review of the approved content")
-        return {"source_system": "plm", "native_id": pk, "native_ref": f"/api/part/{pk}/",
-                "source_version": approval["sha256"], "definition": definition, "approval": approval}
+        return {
+            "source_system": "plm",
+            "native_id": pk,
+            "native_ref": f"/api/part/{pk}/",
+            "source_version": approval["sha256"],
+            "definition": definition,
+            "approval": approval,
+        }
 
     def publish_to(self, pk, system, *, on, ensure_target, read_target, scoped=False):
         """Deliver an approved definition and store the verified native receipt.
@@ -344,14 +411,12 @@ class PLM:
         target_id = required(target_id)
         publication = self.publication(pk)
         on = day(on)
-        expected = {"native_id": target_id, "plm_native_id": pk,
-                    "plm_source_version": publication["source_version"]}
+        expected = {"native_id": target_id, "plm_native_id": pk, "plm_source_version": publication["source_version"]}
         key = f"norvale_ack_{system}"
         existing = self._meta(pk).get(key)
         qualified = "receiver_marker" in existing if existing is not None else scoped
         observed = read_target(target_id, scoped=True) if qualified else read_target(target_id)
-        if on < publication["approval"]["on"] or any(
-                observed.get(key) != value for key, value in expected.items()):
+        if on < publication["approval"]["on"] or any(observed.get(key) != value for key, value in expected.items()):
             raise Blocked(f"{system} readback has not confirmed the exact approved definition")
         record = {**expected, "on": on}
         if qualified:
@@ -375,8 +440,12 @@ class PLM:
         receipts = {}
         for system in self.systems:
             receipt = meta.get(f"norvale_ack_{system}")
-            if (not receipt or receipt["on"] > on or receipt["plm_native_id"] != pk
-                    or receipt["plm_source_version"] != publication["source_version"]):
+            if (
+                not receipt
+                or receipt["on"] > on
+                or receipt["plm_native_id"] != pk
+                or receipt["plm_source_version"] != publication["source_version"]
+            ):
                 raise Blocked(f"PLM revision {pk} is awaiting {system} acknowledgment")
             if "receiver_marker" in receipt and not valid_receiver_marker(system, receipt["receiver_marker"]):
                 raise Blocked(f"PLM revision {pk} has an invalid {system} receiver identity")
@@ -397,15 +466,21 @@ class PLM:
         if len(candidates) > 1 and candidates[-2][0] == candidates[-1][0]:
             raise Blocked("Multiple revisions became effective on the same date")
         chosen = self.publication(candidates[-1][1])
-        return {"work_id": required(work_id), "released_on": on, "native_id": chosen["native_id"],
-                "source_version": chosen["source_version"], **self._receiver_pin(chosen, on)}
+        return {
+            "work_id": required(work_id),
+            "released_on": on,
+            "native_id": chosen["native_id"],
+            "source_version": chosen["source_version"],
+            **self._receiver_pin(chosen, on),
+        }
 
     def _receiver_pin(self, publication, on):
         receipts = self._receipts(publication, on)
-        markers = {system: row["receiver_marker"] for system, row in receipts.items()
-                   if "receiver_marker" in row}
-        return {"receiver_ids": {system: row["native_id"] for system, row in receipts.items()},
-                **({"receiver_markers": markers} if markers else {})}
+        markers = {system: row["receiver_marker"] for system, row in receipts.items() if "receiver_marker" in row}
+        return {
+            "receiver_ids": {system: row["native_id"] for system, row in receipts.items()},
+            **({"receiver_markers": markers} if markers else {}),
+        }
 
     def resolve_pin(self, pin, *, work_id, on):
         """Read and verify the explicit native ID without reselecting current revision."""
@@ -413,8 +488,10 @@ class PLM:
         if pin["work_id"] != work_id or on < pin["released_on"]:
             raise Blocked("PLM pin belongs to different work or a later release")
         publication = self.publication(pin["native_id"])
-        if (publication["source_version"] != pin["source_version"]
-                or publication["approval"]["effective"] > pin["released_on"]):
+        if (
+            publication["source_version"] != pin["source_version"]
+            or publication["approval"]["effective"] > pin["released_on"]
+        ):
             raise Blocked("Pinned revision failed identity or effectivity verification")
         receivers = {key: pin[key] for key in ("receiver_ids", "receiver_markers") if key in pin}
         if self._receiver_pin(publication, pin["released_on"]) != receivers:
@@ -425,21 +502,28 @@ class PLM:
         """Observable, dated actions on employee-proposed revisions in one native family."""
         on = day(on)
         for part in self._family(base_id):
-            meta = self._meta(part['pk'])
-            proposal = meta.get('norvale_proposal')
-            if not proposal or day(proposal['on']) > on:
+            meta = self._meta(part["pk"])
+            proposal = meta.get("norvale_proposal")
+            if not proposal or day(proposal["on"]) > on:
                 continue
-            evidence = {k: proposal[k] for k in ('doctype', 'id', 'version', 'on', 'base_id', 'base_version')}
-            for stage in ('proposal', 'review', 'approval', 'rejection'):
-                event = meta.get('norvale_' + stage)
-                if not event or day(event['on']) > on:
+            evidence = {k: proposal[k] for k in ("doctype", "id", "version", "on", "base_id", "base_version")}
+            for stage in ("proposal", "review", "approval", "rejection"):
+                event = meta.get("norvale_" + stage)
+                if not event or day(event["on"]) > on:
                     continue
-                row = dict(name=f"{part['pk']}:{stage}", part_id=part['pk'], family_id=base_id,
-                           revision=part['revision'], stage=stage, on=event['on'], proposal=evidence)
-                if stage != 'proposal':
-                    row.update({k: event[k] for k in ('actor', 'evidence', 'sha256')})
-                if stage == 'approval':
-                    row['effective_on'] = event['effective']
+                row = dict(
+                    name=f"{part['pk']}:{stage}",
+                    part_id=part["pk"],
+                    family_id=base_id,
+                    revision=part["revision"],
+                    stage=stage,
+                    on=event["on"],
+                    proposal=evidence,
+                )
+                if stage != "proposal":
+                    row.update({k: event[k] for k in ("actor", "evidence", "sha256")})
+                if stage == "approval":
+                    row["effective_on"] = event["effective"]
                 yield row
 
     def export(self, base_id, *, on):
@@ -454,7 +538,8 @@ class PLM:
                 record = self.publication(pk)
                 record["review"] = meta["norvale_review"]
                 record["acknowledgments"] = {
-                    system: receipt for system in self.systems
+                    system: receipt
+                    for system in self.systems
                     if (receipt := meta.get(f"norvale_ack_{system}")) and receipt["on"] <= on
                 }
                 records.append(record)

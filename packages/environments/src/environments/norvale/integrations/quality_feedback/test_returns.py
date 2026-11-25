@@ -1,9 +1,9 @@
 import hashlib
 import json
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-import unittest
 
 from environments.norvale.integrations.quality_feedback.returns import receive
 from environments.norvale.native.company import Engine
@@ -12,16 +12,44 @@ from environments.norvale.native.company_erp import CompanyERP
 
 class ERP:
     def __init__(self):
-        self.notes = {"DN": dict(name="DN", doctype="Delivery Note", docstatus=1, company="Company",
-            customer="Customer", currency="EUR", conversion_rate=1, posting_date="2026-01-01",
-            custom_norvale_quality_releases=json.dumps([
-                {"batch":"LOT", "disposition":{"id":"QI", "qms_source":"qa"}}
-            ]),
-            items=[dict(name="ROW", item_code="Item", stock_qty=4, conversion_factor=1,
-                        stock_uom="Nos", warehouse="Shipping", rate=1, serial_and_batch_bundle="bundle:DN")])}
-        self.bundle = dict(name="bundle:DN", docstatus=1, item_code="Item", warehouse="Shipping",
-                           voucher_type="Delivery Note", voucher_no="DN", voucher_detail_no="ROW",
-                           type_of_transaction="Outward", entries=[dict(batch_no="LOT", qty=-4)])
+        self.notes = {
+            "DN": dict(
+                name="DN",
+                doctype="Delivery Note",
+                docstatus=1,
+                company="Company",
+                customer="Customer",
+                currency="EUR",
+                conversion_rate=1,
+                posting_date="2026-01-01",
+                custom_norvale_quality_releases=json.dumps(
+                    [{"batch": "LOT", "disposition": {"id": "QI", "qms_source": "qa"}}]
+                ),
+                items=[
+                    dict(
+                        name="ROW",
+                        item_code="Item",
+                        stock_qty=4,
+                        conversion_factor=1,
+                        stock_uom="Nos",
+                        warehouse="Shipping",
+                        rate=1,
+                        serial_and_batch_bundle="bundle:DN",
+                    )
+                ],
+            )
+        }
+        self.bundle = dict(
+            name="bundle:DN",
+            docstatus=1,
+            item_code="Item",
+            warehouse="Shipping",
+            voucher_type="Delivery Note",
+            voucher_no="DN",
+            voucher_detail_no="ROW",
+            type_of_transaction="Outward",
+            entries=[dict(batch_no="LOT", qty=-4)],
+        )
         self.lose = None
 
     def get(self, doctype, name):
@@ -33,11 +61,14 @@ class ERP:
 
     def list(self, doctype, filters, fields=None, order_by=None):
         if doctype == "Custom Field":
-            return [{"name":"unique"}]
+            return [{"name": "unique"}]
         cursor = filters.get("name", [">", ""])[1]
-        query = {k:v for k,v in filters.items() if k != "name"}
-        return [{"name":key} for key, doc in sorted(self.notes.items()) if key > cursor
-                and all(doc.get(k) == v for k,v in query.items())][:1]
+        query = {k: v for k, v in filters.items() if k != "name"}
+        return [
+            {"name": key}
+            for key, doc in sorted(self.notes.items())
+            if key > cursor and all(doc.get(k) == v for k, v in query.items())
+        ][:1]
 
     def create(self, doctype, doc):
         name = "RETURN-" + str(len(self.notes))
@@ -63,17 +94,17 @@ def checkpoint_engine(path, api):
     e = Engine.__new__(Engine)
     e.run, e.day, e.event = path, 1, "return"
     e.date = lambda: "2026-01-10"
-    e.company, e.wh = "Company", {"hold":"Quarantine"}
-    e.admin, e.api = api, {"WAREHOUSE":api}
+    e.company, e.wh = "Company", {"hold": "Quarantine"}
+    e.admin, e.api = api, {"WAREHOUSE": api}
     saved = path / "state.json"
-    e.state = json.loads(saved.read_text()) if saved.exists() else {"docs":{}}
+    e.state = json.loads(saved.read_text()) if saved.exists() else {"docs": {}}
     e.docs = e.state["docs"]
     flow = e.company_erp = CompanyERP(e, None)
-    flow.state["shipments"]["ship"] = {"target_id":"DN", "departed_day":0}
+    flow.state["shipments"]["ship"] = {"target_id": "DN", "departed_day": 0}
     # The live proof exercises ERP's stock ledger and bundle endpoints.
     flow.verify_row = lambda doc, row, batch, qty, *_: (
-        {"name":"ledger:" + doc["name"],"actual_qty":qty},
-        {"name":row.get("serial_and_batch_bundle"),"voucher_type":"Delivery Note","entries":[{"qty":qty}]},
+        {"name": "ledger:" + doc["name"], "actual_qty": qty},
+        {"name": row.get("serial_and_batch_bundle"), "voucher_type": "Delivery Note", "entries": [{"qty": qty}]},
     )
     return e
 
@@ -81,18 +112,40 @@ def checkpoint_engine(path, api):
 class ReturnReplayTest(unittest.TestCase):
     def test_partial_receipts_and_lost_replies(self):
         api = ERP()
-        case = dict(custom_delivery_note="DN", custom_delivery_source="erp", custom_delivery_customer="Customer",
-                    custom_delivery_row="ROW", custom_qms_batch="LOT")
+        case = dict(
+            custom_delivery_note="DN",
+            custom_delivery_source="erp",
+            custom_delivery_customer="Customer",
+            custom_delivery_row="ROW",
+            custom_qms_batch="LOT",
+        )
         release = dict(name="QI", workflow_state="Revoked")
         scope = dict(custom_delivery_batch="LOT", custom_qms_batch="LOT", custom_delivery_qms_source="qa")
         note = api.notes["DN"]
-        line, = note["items"]
-        receipt = dict(observation="receipt-a", quantity="1", observed_on="2026-01-09",
-                       complaint="CASE", delivery="DN", line="ROW", batch="LOT")
+        (line,) = note["items"]
+        receipt = dict(
+            observation="receipt-a",
+            quantity="1",
+            observed_on="2026-01-09",
+            complaint="CASE",
+            delivery="DN",
+            line="ROW",
+            batch="LOT",
+        )
         with TemporaryDirectory() as path:
+
             def run(**overrides):
-                return receive(checkpoint_engine(Path(path), api),
-                               SimpleNamespace(**{**receipt, **overrides}), case, note, line, release, scope, "erp")
+                return receive(
+                    checkpoint_engine(Path(path), api),
+                    SimpleNamespace(**{**receipt, **overrides}),
+                    case,
+                    note,
+                    line,
+                    release,
+                    scope,
+                    "erp",
+                )
+
             with self.assertRaisesRegex(ValueError, "native withdrawal"):
                 run()
             case.update(custom_withdrawal_release="QI", custom_withdrawal_approver="approver")
@@ -100,9 +153,14 @@ class ReturnReplayTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Withdrawal evidence"):
                 run()
             release["workflow_state"] = "Revoked"
-            for edits in (dict(quantity="NaN"),
-                          dict(quantity="0"), dict(quantity="1.5"), dict(observation=""),
-                          dict(observed_on="2026-01-11"), dict(quantity="5")):
+            for edits in (
+                dict(quantity="NaN"),
+                dict(quantity="0"),
+                dict(quantity="1.5"),
+                dict(observation=""),
+                dict(observed_on="2026-01-11"),
+                dict(quantity="5"),
+            ):
                 with self.assertRaises(ValueError):
                     run(**edits)
             self.assertEqual(len(api.notes), 1)
@@ -119,8 +177,10 @@ class ReturnReplayTest(unittest.TestCase):
             first = run()
             self.assertEqual(first, run())
             self.assertEqual(len(api.notes), 2)
-            self.assertEqual(api.notes[first["return_note"]]["custom_norvale_operation"],
-                             hashlib.sha256(b'customer-return:["erp","receipt-a"]').hexdigest())
+            self.assertEqual(
+                api.notes[first["return_note"]]["custom_norvale_operation"],
+                hashlib.sha256(b'customer-return:["erp","receipt-a"]').hexdigest(),
+            )
             with self.assertRaisesRegex(ValueError, "exceed"):
                 run(observation="receipt-b", quantity="4")
             second = run(observation="receipt-b", quantity="3")
@@ -135,17 +195,35 @@ class ReturnReplayTest(unittest.TestCase):
     def test_fractional_stock_uom_and_native_manual_return_count(self):
         api = ERP()
         api.notes["DN"]["items"][0]["stock_uom"] = "Kg"
-        api.notes["MANUAL"] = dict(name="MANUAL", return_against="DN", docstatus=1, is_return=1,
-                                 items=[dict(dn_detail="ROW", item_code="Item", stock_qty=-3.75)])
-        case = dict(custom_delivery_note="DN", custom_delivery_source="erp", custom_delivery_customer="Customer",
-                    custom_delivery_row="ROW", custom_qms_batch="LOT", custom_withdrawal_release="QI",
-                    custom_withdrawal_approver="approver")
+        api.notes["MANUAL"] = dict(
+            name="MANUAL",
+            return_against="DN",
+            docstatus=1,
+            is_return=1,
+            items=[dict(dn_detail="ROW", item_code="Item", stock_qty=-3.75)],
+        )
+        case = dict(
+            custom_delivery_note="DN",
+            custom_delivery_source="erp",
+            custom_delivery_customer="Customer",
+            custom_delivery_row="ROW",
+            custom_qms_batch="LOT",
+            custom_withdrawal_release="QI",
+            custom_withdrawal_approver="approver",
+        )
         release = dict(name="QI", workflow_state="Revoked")
         scope = dict(custom_delivery_batch="LOT", custom_qms_batch="LOT", custom_delivery_qms_source="qa")
         note = api.notes["DN"]
-        line, = note["items"]
-        receipt = SimpleNamespace(observation="receipt-kg", quantity="0.5", observed_on="2026-01-09",
-                                  complaint="CASE", delivery="DN", line="ROW", batch="LOT")
+        (line,) = note["items"]
+        receipt = SimpleNamespace(
+            observation="receipt-kg",
+            quantity="0.5",
+            observed_on="2026-01-09",
+            complaint="CASE",
+            delivery="DN",
+            line="ROW",
+            batch="LOT",
+        )
         with TemporaryDirectory() as path:
             e = checkpoint_engine(Path(path), api)
             with self.assertRaisesRegex(ValueError, "exceed"):
