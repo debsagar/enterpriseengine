@@ -6,7 +6,7 @@ from fractions import Fraction
 
 from engine import world
 
-from . import extraction, shared
+from . import extraction, shared, tank
 
 
 def may_order(role, system, permissions):
@@ -46,6 +46,8 @@ class Consumer:
         )
 
     def handle(self, engine, kind, payload):
+        if kind in tank.KINDS:
+            return tank.handle(engine, kind, payload)
         if kind == "policy_review":
             return shared.review_policy(engine, self.config, payload)
         case = payload["case"]
