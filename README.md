@@ -64,10 +64,3 @@ uv run python scripts/check_versions.py
 
 - **Offline mode (`NORVALE_OFFLINE=1`):** Disables paid LLM API calls and routes role decisions through deterministic rules (`operating.offline_decision`).
 - **Live mode:** Connects to the Docker stack (ERPNext, Gitea, QMS, mail) and live model providers.
-
----
-
-## Using with AI
-
-- **JEV + LLM routing:** A lightweight router (**JEV**) checks whether an incoming situation matches an existing policy. Routine cases run deterministically; only unfamiliar or judgment-heavy cases wake the role LLM.
-- **Decision model + small LLM for comms:** For high-throughput runs (e.g. 180-day datasets), use a fast decision model/policy to pick the action, and a small/fast LLM only to draft the resulting emails, DMs, and issue comments—reserving full LLMs for rare, ambiguous cases.
