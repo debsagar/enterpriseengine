@@ -76,7 +76,7 @@ from enterpriseengine import Engine
 class QualityDesk:
     config = {}
 
-    def apply(self, run, kind, payload):
+    def handle(self, run, kind, payload):
         if kind != "inspect":
             raise ValueError(kind)
         result = "in range" if 5.0 <= payload["ph"] <= 6.0 else "out of range"
