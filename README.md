@@ -65,9 +65,33 @@ uv run python scripts/check_versions.py
 - **Offline mode (`NORVALE_OFFLINE=1`):** Disables paid LLM API calls and routes role decisions through deterministic rules (`operating.offline_decision`).
 - **Live mode:** Connects to the Docker stack (ERPNext, Gitea, QMS, mail) and live model providers.
 
----
+## Install and use from Python
 
-## Using with AI
+```python
+from time import monotonic
 
-- **JEV + LLM routing:** A lightweight router (**JEV**) checks whether an incoming situation matches an existing policy. Routine cases run deterministically; only unfamiliar or judgment-heavy cases wake the role LLM.
-- **Decision model + small LLM for comms:** For high-throughput runs (e.g. 180-day datasets), use a fast decision model/policy to pick the action, and a small/fast LLM only to draft the resulting emails, DMs, and issue comments—reserving full LLMs for rare, ambiguous cases.
+from enterpriseengine import Engine
+
+
+class QualityDesk:
+    config = {}
+
+    def handle(self, run, kind, payload):
+        if kind != "inspect":
+            raise ValueError(kind)
+        result = "in range" if 5.0 <= payload["ph"] <= 6.0 else "out of range"
+        run.state.setdefault("inspections", {})[payload["lot"]] = [run.now, result]
+
+
+company = Engine("quality-run", QualityDesk(), seed=42, native=None, providers=None, monotonic=monotonic)
+company.extend(
+    "opening-v1",
+    roles={"analyst": {"shifts": [[540, 1020]], "staff": 1}},
+    events=[
+        {"id": "sample-A", "kind": "inspect", "at": 525, "duration": 10, "role": "analyst", "payload": {"lot": "A", "ph": 7.2}},
+        {"id": "sample-B", "kind": "inspect", "at": 525, "duration": 10, "role": "analyst", "payload": {"lot": "B", "ph": 5.5}},
+    ],
+)
+company.run(until=600)
+print(company.state["inspections"])
+```
