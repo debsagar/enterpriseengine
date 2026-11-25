@@ -4,6 +4,7 @@
 
 ### Added
 
+- Add `Engine.fork()` to branch a run at a committed minute, copying engine and registered component state.
 - Lock checkpoint and dataset compatibility to package and schema versions.
 
 ### Changed

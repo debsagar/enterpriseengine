@@ -8,6 +8,7 @@ from copy import deepcopy
 from hashlib import sha256
 from heapq import heappop, heappush
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from . import _journal, world
 from ._extension import SECTIONS, name, validate_entries, validate_event, validate_json
@@ -231,6 +232,61 @@ class Engine:
             with self._lock("engine-extension.lock"):
                 stack.enter_context(self._lock("engine.lock"))
             yield
+
+    def fork(self, branch_dir, *, snapshot_external=None):
+        """Copy the committed run and return the new directory for opening with Engine.
+
+        snapshot_external(staging_dir, minute) runs while the source is locked.
+        It must provision isolated copies of the host's systems at that boundary.
+        Files it writes under staging_dir move into branch_dir on success.
+        """
+        if self._active is not None:
+            raise RuntimeError("Fork requires a committed boundary outside an event handler")
+        if snapshot_external is None and (self._native is not None or self._adapters):
+            raise ValueError("Fork requires a snapshot hook for attached external systems")
+        branch_dir = Path(branch_dir)
+        if branch_dir.exists() or branch_dir.is_symlink():
+            raise FileExistsError(str(branch_dir))
+        with self._lock("engine-controller.lock", blocking=False), self._exclusive(), self._storage() as source:
+            checkpoint = self._load()
+            if checkpoint != self._checkpoint:
+                raise RuntimeError("Checkpoint changed; reopen the engine")
+            branch_dir.parent.mkdir(parents=True, exist_ok=True)
+            with TemporaryDirectory(prefix=".engine-fork-", dir=branch_dir.parent) as staging:
+                staging_dir = Path(staging)
+                database = staging_dir / self._database.name
+                _journal.secure_database(database, create=True)
+                with closing(sqlite3.connect(database)) as target:
+                    source.backup(target)
+                if snapshot_external is not None:
+                    snapshot_external(staging_dir, checkpoint["now"])
+                if branch_dir.exists() or branch_dir.is_symlink():
+                    raise FileExistsError(str(branch_dir))
+                staging_dir.rename(branch_dir)
+        return branch_dir
+
+    def register_component_state(self, component_id, state):
+        """Register initial JSON state under a new key in run.state."""
+        if not name(component_id):
+            raise ValueError("Component ID must be a nonblank string")
+        detached = json.loads(_json(state))
+        if self._active is not None:
+            self._register_component_state(component_id, detached)
+            return
+        with self._lock("engine-controller.lock", blocking=False), self._exclusive(), self._storage():
+            if self._load() != self._checkpoint:
+                raise RuntimeError("Checkpoint changed; reopen the engine")
+            self._register_component_state(component_id, detached)
+            try:
+                self._save()
+            except BaseException:
+                self._restore(self._load())
+                raise
+
+    def _register_component_state(self, component_id, state):
+        if component_id in self.state:
+            raise ValueError(f"State already exists for component {component_id!r}")
+        self.state[component_id] = state
 
     def _load(self):
         checkpoint = json.loads(self._db.execute("SELECT data FROM checkpoint WHERE id = 1").fetchone()[0])
