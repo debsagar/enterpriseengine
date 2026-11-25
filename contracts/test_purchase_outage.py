@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
+from environments.norvale.native import company_state
 from environments.norvale.native.company import Engine
 
 
@@ -99,7 +100,7 @@ class PurchaseOutage(TestCase):
         ):
             with self.assertRaisesRegex(TimeoutError, "task committed"):
                 engine.approvals()
-            engine.state = json.loads((run / "state.json").read_text())
+            engine.state = company_state.load(run)
             engine.docs = engine.state["docs"]
             self.assertNotIn("pending:draft:2", engine.docs)
             self.assertNotIn("review_after", engine.state["ops"]["purchases"]["draft"])
@@ -113,7 +114,7 @@ class PurchaseOutage(TestCase):
             engine.approvals()
             buyer.get.assert_called_with("ToDo", "TASK-1")
             self.assertEqual(request.call_count, before_retry)
-            state = json.loads((run / "state.json").read_text())
+            state = company_state.load(run)
             self.assertEqual(state["decisions"]["po-review:draft:2"]["mode"], "provider-unavailable")
             self.assertIn("arrival_due", state["ops"]["purchases"]["submitted"])
             self.assertNotIn("arrival_due", state["ops"]["purchases"]["draft"])

@@ -17,6 +17,7 @@ from environments.norvale.integrations.lake.adapter import Lake
 from environments.norvale.integrations.lake.boundary import Frappe, crosslinks, trace
 from environments.norvale.integrations.qms.sample_reference import ENTITY as SAMPLE_ENTITY
 from environments.norvale.integrations.qms.sample_reference import decode_registered, registered_note
+from environments.norvale.native import company_state
 from environments.norvale.native.company import DEFAULT_CONFIG, Engine, save
 from environments.norvale.native.company_erp import CompanyERP, Pending
 from environments.norvale.native.production_profiles import ADAPTER, LAB_MODEL, profile
@@ -240,6 +241,7 @@ class RegisteredLabTest(TestCase):
                 # are outside this QMS qualification.
                 company.company_erp.balance = lambda *args: 0
                 company.additions = open_catalog(run, config, state, company=company)
+                company.clock()  # registers the state with the engine
                 return company
 
             env = {key.upper(): key for key in ("reader", "secret", "analyst", "approver", "reference_writer")}
@@ -271,8 +273,11 @@ class RegisteredLabTest(TestCase):
                     batch = "batch-" + site
                     raw = "raw-" + site
                     stock_entry = "stock-" + site
-                    state["ops"]["orders"][site] = dict(item=item, production_profile="production-" + item)
-                    state["docs"]["incoming-" + site] = {"doctype": "Purchase Receipt", "name": "receipt-" + site}
+                    engine.state["ops"]["orders"][site] = dict(item=item, production_profile="production-" + item)
+                    engine.state["docs"]["incoming-" + site] = {
+                        "doctype": "Purchase Receipt",
+                        "name": "receipt-" + site,
+                    }
                     revision = dict(
                         item=item,
                         mes_source=site,
@@ -368,7 +373,7 @@ class RegisteredLabTest(TestCase):
                 self.assertEqual(east.transitions[0], ("Record", "LAB", 670))
                 self.assertEqual(east.transitions[1], ("Record", "LAB", 680))
                 self.assertEqual(east.transitions[2], ("Release Lot", "QA", 750))
-                engine = controller(json.loads((run / "state.json").read_text()))
+                engine = controller(company_state.load(run))
                 west.docs["Quality Inspection Parameter", "INDEX"] = parameter
                 engine.additions.run(until=DAY + 780)
                 self.assertIn("operating-review:batch-west", engine.company_erp.state["pending"])
@@ -498,7 +503,7 @@ class RegisteredLabTest(TestCase):
                 self.assertFalse(any(row["source"] == west_source for row in before))
 
                 unavailable.clear()
-                engine = controller(json.loads((run / "state.json").read_text()))
+                engine = controller(company_state.load(run))
                 engine.run_phase(2, "d0002:native-clock", lambda: None)
                 self.assertEqual(engine.state["lake_scans"]["errors"], [])
                 self.assertEqual(engine.state["lake_scans"]["last_success_minute"][west_source], cutoff)

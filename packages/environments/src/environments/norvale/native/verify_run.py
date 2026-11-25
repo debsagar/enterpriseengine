@@ -5,6 +5,7 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from environments.norvale.native import company_state
 from environments.norvale.native.company import ACTIVE_RUN, Engine, ErpError, observable, save
 from environments.norvale.native.systems_v2 import Tickets, export_native
 
@@ -62,9 +63,9 @@ issues = Tickets(run).records()
 for m in ops["maintenance"].values():
     if m.get("closed"):
         assert next(i for i in issues if i["number"] == m["ticket"])["state"] == "closed"
-before = (run / "state.json").read_bytes()
+before = company_state.load(run)
 e.through(e.config["days"] - 1)
-assert before == (run / "state.json").read_bytes()
+assert before == company_state.load(run)
 checks.update(
     material_conservation=True,
     job_card_labor_and_native_links=True,

@@ -8,11 +8,12 @@ from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
 
+from environments.norvale.native import company_state
 from environments.norvale.native.company import ACTIVE_RUN
 
 
 def load(run):
-    state = json.loads((run / "state.json").read_text())
+    state = company_state.load(run)
     config = json.loads((run / "config.json").read_text())
     trace = [json.loads(line) for line in (run / "trace.jsonl").read_text().splitlines() if line.strip()]
     if not state.get("completed") or not trace:
@@ -592,8 +593,8 @@ def build(run, cutoff):
             "ERP, delivered mail and ticket readbacks support scoped questions; private trace locators are provenance and must not be released as extractor input.",
         ],
         "sources": {
-            p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in (run / "state.json", run / "config.json", run / "trace.jsonl")
+            **{p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (run / "config.json", run / "trace.jsonl")},
+            "company-state": hashlib.sha256(json.dumps(company_state.load(run), sort_keys=True).encode()).hexdigest(),
         },
     }
 

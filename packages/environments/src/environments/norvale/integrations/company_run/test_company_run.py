@@ -4,6 +4,7 @@ from pathlib import Path
 
 from environments.norvale.integrations.company_run.__main__ import AcceptanceEngine
 from environments.norvale.integrations.company_run.authority import Authority
+from environments.norvale.native import company_state, offline_double
 from environments.norvale.native.company_erp import Pending
 
 
@@ -126,18 +127,18 @@ class AcceptanceTests(unittest.TestCase):
             engine.choose("po-review:1", "BUYER", {}, "")
 
     def test_scoped_purchase_input_survives_restart(self):
-        import json
 
         with tempfile.TemporaryDirectory() as temp:
             engine = object.__new__(AcceptanceEngine)
             engine.run, engine.day = Path(temp), 0
             engine.state = {"decisions": {}}
+            engine.persist = lambda: offline_double.persist_to_file(engine)
             evidence = dict(
                 supplier="A", grand_total=11, supplier_quote=dict(supplier="A", grand_total=11, valid_till="2027-01-01")
             )
             first = engine.choose("po-review:1", "SCM_MGR", evidence, "")
             self.assertEqual(first["action"], "approve")
-            engine.state = json.loads((engine.run / "state.json").read_text())
+            engine.state = company_state.load(engine.run)
             self.assertEqual(engine.choose("po-review:1", "SCM_MGR", evidence, ""), first)
             evidence["supplier_quote"]["grand_total"] = 10
             self.assertEqual(engine.choose("po-review:2", "SCM_MGR", evidence, "")["action"], "defer")

@@ -22,6 +22,7 @@ from engine.versions import artifact_versions, load_artifact
 
 from environments.norvale.environment import compose as compose_mod
 from environments.norvale.environment.stack import Stack
+from environments.norvale.native import company_state
 from environments.norvale.paths import CHECKOUT
 from environments.norvale.walkthrough import ROLES, EnterpriseSimV4
 
@@ -94,6 +95,9 @@ def provision(run=ACTIVE_RUN):
 class Engine:
     company = "Norvale Consumer Care BV"
     abbr = "NCC"
+    additions = None  # the run's engine, opened by clock()
+    _state = None
+    legacy = False
 
     def __init__(self, run=ACTIVE_RUN, *, company_authority=None):
         self.run = Path(run)
@@ -101,24 +105,23 @@ class Engine:
         self.config = json.loads(path.read_text()) if path.exists() else None
         if self.config:
             self.validate_config(self.config)
-        checkpoint = self.run / "state.json"
-        self.state = (
-            load_artifact(checkpoint, "company checkpoint", allow_unstamped=True)
-            if checkpoint.exists()
-            else {
+        # One clock, one checkpoint: the engine's SQLite file holds this state. A
+        # pre-engine state.json seeds a fresh engine once and is never written.
+        self.additions = None
+        self.state = company_state.load(
+            self.run,
+            {
                 "versions": artifact_versions(),
                 "docs": {},
                 "completed": [],
                 "physical": {},
                 "decisions": {},
                 "day": 0,
-            }
+            },
         )
-        if checkpoint.exists():
-            from environments.norvale.native.company_world import check_binding
-
-            check_binding(self.config or {}, self.state)
-        self.additions = None
+        self.legacy = not self.config  # fixed-scenario evidence: read-only
+        if self.config:
+            self.clock()
         self.company_erp = self.make_company_erp(company_authority)
         self.run = Path(run)
         self.stack = Stack(self.run)
@@ -200,14 +203,57 @@ class Engine:
         with trace.open("a") as f:
             f.write(json.dumps({"event": self.event, "day": self.day, "kind": kind, **data}, default=str) + "\n")
 
+    @property
+    def state(self):
+        # The engine may restore its checkpoint between events, so always read through it.
+        clock = self.additions
+        return (
+            clock.state[company_state.COMPONENT]
+            if clock is not None and company_state.COMPONENT in clock.state
+            else self._state
+        )
+
+    @state.setter
+    def state(self, value):
+        self._state = value
+        clock = self.additions
+        if clock is not None and company_state.COMPONENT in clock.state:
+            clock.state[company_state.COMPONENT] = value
+
+    @property
+    def docs(self):
+        return self.state.setdefault("docs", {})
+
+    @docs.setter
+    def docs(self, value):
+        if self.state is None:
+            self._state = {}
+        self.state["docs"] = value
+
+    def clock(self):
+        """The run's one engine: clock, queue and checkpoint, holding this state."""
+        if self.additions is None:
+            from environments.norvale.native.company_world import check_binding
+            from environments.norvale.native.recurring_extensions import open_catalog
+
+            self.additions = open_catalog(self.run, self.config, self.state, self.advance_clock, company=self)
+            if company_state.COMPONENT in self.additions.state:
+                check_binding(self.config, self.state)
+        if company_state.COMPONENT not in self.additions.state:
+            self.additions.register_component_state(company_state.COMPONENT, self._state)
+            self.day = self.state.get("day", 0)
+        return self.additions
+
     def persist(self):
+        if self.legacy:
+            raise RuntimeError("Fixed-scenario runs are read-only evidence")
         if (getattr(self, "config", None) or {}).get("world") and "world_binding" not in self.state:
             from environments.norvale.native.company_world import binding
 
             self.state["world_binding"] = binding(self.config)
         self.state["versions"] = artifact_versions()
         self.state["day"] = self.day
-        save(self.run / "state.json", self.state)
+        self.clock().commit_component_state(company_state.COMPONENT)
 
     def write(self, key, dt, data, role=None, submit=False, *, before_submit=None):
         api = self.api[role] if role else self.admin
@@ -2831,7 +2877,8 @@ class Engine:
                     yield day, f"d{day:04}:bank-statements", self.bank_statements
                 yield day, f"d{day:04}:{phase}", getattr(self, phase)
             if "company_timing" in self.config:
-                yield day, f"d{day:04}:native-clock", lambda day=day: self.run_additions((day + 1) * 1440 - 1)
+                # Queued native work for the day runs ahead of this marker on the one queue.
+                yield day, f"d{day:04}:native-clock", lambda: None
 
     def through(self, day):
         """Safe Run All boundary: repeating a cell cannot pass its absolute day."""
@@ -2957,13 +3004,32 @@ class Engine:
         yield 29, "monthly-review", self.report
         yield 30, "cfo-review", self.management_review
 
+    PRIORITY_BASE = 1000  # Stages run after any other work queued for the same minute.
+    ORDER = ["seed", "recurring-setup", "service", "arrivals", "inspections", "demand", "fulfillment", "production"]
+    ORDER += ["replenishment", "approvals", "bank-statements", "settlements", "management"]
+
+    def stage_slot(self, day, key):
+        """Engine minute and priority of a recurring stage; ordinary phase IDs are unchanged."""
+        from environments.norvale.native.recurring_extensions import COMPANY_OPEN, DAY
+
+        name = key.split(":", 1)[-1]
+        if name == "native-clock":
+            return (day + 1) * DAY - 1, self.PRIORITY_BASE
+        opens = COMPANY_OPEN if "company_timing" in self.config else 720
+        return day * DAY + opens, self.PRIORITY_BASE + 10 * (
+            1 + (self.ORDER.index(name) if name in self.ORDER else len(self.ORDER))
+        )
+
+    def rebind(self):
+        # A failed event rolls the engine back to its last commit; follow it.
+        self.clock()
+        self.day = self.state.get("day", 0)
+
     def step(self, expected=None, *, through_day=None):
         with (self.run / "execution.lock").open("w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            if (self.run / "state.json").exists():
-                self.state = load_artifact(self.run / "state.json", "company checkpoint", allow_unstamped=True)
-                self.docs = self.state["docs"]
-                self.day = self.state["day"]
+            if self.config:
+                self.rebind()
             completed = set(self.state["completed"])
             if expected and expected in completed:
                 return {"event": expected, "already_completed": True}
@@ -2977,25 +3043,28 @@ class Engine:
 
     def _step(self, stage):
         if stage is not None:
-            day, key, action = stage
-            self.day = day
-            self.event = key
-            start = time.monotonic()
+            if self.legacy:
+                raise RuntimeError("Fixed-scenario runs are read-only evidence")
+            day, key, _ = stage
+            at, priority = self.stage_slot(day, key)
+            clock = self.clock()
+            self.result = None
+            for attempt in range(3):
+                try:
+                    # Syncing first picks up extensions committed at an earlier boundary.
+                    clock.run(until=clock.now)
+                    if not clock.has_event(key):
+                        # Queued work already ran past this day's open (an unusual manual run_additions).
+                        clock.schedule(key, "company-stage", max(at, clock.now), payload={}, priority=priority)
+                    break
+                except RuntimeError as exc:
+                    if "Checkpoint changed" not in str(exc) or attempt == 2:
+                        raise
             try:
-                self.run_phase(day, key, action)
-            except Exception as exc:
-                self.log("failed", error=str(exc))
-                raise
-            self.state["completed"].append(key)
-            self.persist()
-            result = {
-                "event": key,
-                "day": day,
-                "seconds": round(time.monotonic() - start, 3),
-                "native_documents": len(self.docs),
-            }
-            self.log("completed", **{"result": result})
-            return result
+                clock.run(until=max(at, clock.now))
+            finally:
+                self.rebind()
+            return self.result
         if self.config:
             self.run_additions(self.config["days"] * 1440 - 1)
             if self.config.get("company_operating"):
@@ -3008,15 +3077,39 @@ class Engine:
                 reconcile(self, self.run / "env/planning-report.json")
         return None
 
-    def run_phase(self, day, key, action):
-        from environments.norvale.native.recurring_extensions import COMPANY_OPEN, DAY, MIDNIGHT
+    def run_stage(self, key):
+        """Engine event handler: one stage, committed with its completion."""
+        if key in self.state["completed"]:
+            return  # committed before the engine recorded the event
+        day, _, action = next(stage for stage in self.events() if stage[1] == key)
+        self.day = day
+        self.event = key
+        start = time.monotonic()
+        try:
+            self.run_phase(day, key, action)
+        except Exception as exc:
+            self.log("failed", error=str(exc))
+            raise
+        # The engine commits this with the event's completion, so a crash cannot split them.
+        self.state["completed"].append(key)
+        self.state["day"] = self.day
+        self.result = {
+            "event": key,
+            "day": day,
+            "seconds": round(time.monotonic() - start, 3),
+            "native_documents": len(self.docs),
+        }
+        self.log("completed", **{"result": self.result})
 
-        minute = day * DAY + (COMPANY_OPEN if "company_timing" in (self.config or {}) else 720)
+    def run_phase(self, day, key, action):
+        from environments.norvale.native.recurring_extensions import DAY, MIDNIGHT
+
+        minute = self.stage_slot(day, key)[0] if self.config else day * DAY + 720
         if self.config and key.startswith(f"d{day:04}:"):
-            self.run_additions(minute)
-            # Queued native work can checkpoint a different day and event ID.
+            # Queued native work may have checkpointed a different day and event ID.
             self.day, self.event = day, key
-        self.advance_clock(MIDNIGHT + timedelta(minutes=minute))
+        if not key.endswith(":native-clock"):
+            self.advance_clock(MIDNIGHT + timedelta(minutes=minute))
         if self.config and self.config.get("company_operating") and key.endswith(":management"):
             from environments.norvale.integrations.company_run.lake import scheduled_scan
 
@@ -3027,10 +3120,15 @@ class Engine:
             if key.endswith(":settlements") and self.state.get("company_erp", {}).get("shipments"):
                 event_id = f"finance-sales-readback:{day}"
                 if not self.additions.has_event(event_id):
+                    # Runs next on the queue, ahead of management.
                     self.additions.schedule(
-                        event_id, "company-sales-readback", self.additions.now, payload={}, role="FINANCE"
+                        event_id,
+                        "company-sales-readback",
+                        self.additions.now,
+                        payload={},
+                        priority=self.stage_slot(day, key)[1] + 1,
+                        role="FINANCE",
                     )
-                self.run_additions(self.additions.now)
             if key.endswith(":native-clock"):
                 from environments.norvale.integrations.company_run.lake import scheduled_scan
 
@@ -3049,11 +3147,7 @@ class Engine:
             self.stack.clock.advance_to(target)
 
     def run_additions(self, until):
-        from environments.norvale.native.recurring_extensions import open_catalog
-
-        if self.additions is None:
-            self.additions = open_catalog(self.run, self.config, self.state, self.advance_clock, company=self)
-        self.additions.run(until=until, advance=True)
+        self.clock().run(until=until, advance=True)
 
     def run_all(self):
         import urllib.error

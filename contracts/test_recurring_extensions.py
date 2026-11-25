@@ -20,7 +20,7 @@ from components.erp_client import ErpClient
 from engine import DAY
 from environments.norvale import generate
 from environments.norvale.integrations.company_run.timing import DEFAULT_TIMING
-from environments.norvale.native import company
+from environments.norvale.native import company, company_state
 from environments.norvale.native.recurring_extensions import open_catalog
 from test_incremental_cli import FrappeFixture
 
@@ -381,22 +381,33 @@ class RecurringExtensions(unittest.TestCase):
                 worker.start()
                 try:
                     self.assertTrue(entered.wait(10), errors)
-                    with self.assertRaises(SystemExit):
-                        submit({**command, "events": [command["events"][0], {**command["events"][0]}]})
-                    self.assertEqual(service.posts, 0)
-                    with self.assertRaises(SystemExit):
-                        submit(
-                            {
-                                **command,
-                                "roles": {**command["roles"], "visitor": command["roles"]["counter-sales"]},
-                                "events": [{**command["events"][0], "role": "visitor"}],
-                            }
-                        )
-                    submit(command)
+
+                    # The running stage holds the one engine; every submission commits at its boundary.
+                    def submissions():
+                        try:
+                            submit(command)
+                            with self.assertRaises(SystemExit):
+                                submit({**command, "events": [command["events"][0], {**command["events"][0]}]})
+                            with self.assertRaises(SystemExit):
+                                submit(
+                                    {
+                                        **command,
+                                        "roles": {**command["roles"], "visitor": command["roles"]["counter-sales"]},
+                                        "events": [{**command["events"][0], "role": "visitor"}],
+                                    }
+                                )
+                        except BaseException as exc:
+                            errors.append(exc)
+
+                    extension = Thread(target=submissions)
+                    extension.start()
+                    extension.join(0.5)
+                    self.assertTrue(extension.is_alive())
                     self.assertEqual(service.posts, 0)
                 finally:
                     release.set()
                     worker.join(10)
+                    extension.join(10)
                 self.assertFalse(worker.is_alive())
                 self.assertEqual(errors, [])
                 submit(command)
@@ -406,7 +417,7 @@ class RecurringExtensions(unittest.TestCase):
 
             self.assertEqual(projects, [company.project(run)] * 2)
             self.assertEqual((run / "config.json").read_bytes(), original_config)
-            state = json.loads((run / "state.json").read_text())
+            state = company_state.load(run)
             for section in ("docs", "physical", "decisions"):
                 self.assertEqual(state[section], prior[section])
             self.assertEqual(state["completed"], prior["completed"] + [f"d0001:{stage}" for stage in stages])
@@ -422,7 +433,8 @@ class RecurringExtensions(unittest.TestCase):
 
             catalog = open_catalog(run, config, state)
             self.assertEqual(
-                catalog.history(),
+                # Daily stages are events on the same queue; this checks the extension's own.
+                [entry for entry in catalog.history() if entry["id"] == "new-order"],
                 [
                     {"id": "new-order", "phase": "start", "at": 1440 + 780},
                     {"id": "new-order", "phase": "complete", "at": 1440 + 795},

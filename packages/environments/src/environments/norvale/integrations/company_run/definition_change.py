@@ -10,6 +10,7 @@ from pathlib import Path
 from components.erp_client import ErpClient
 
 from environments.norvale.integrations.plm import PLM, Blocked, digest, quantity, required
+from environments.norvale.native import company_state
 
 from .authority import Authority
 
@@ -128,7 +129,7 @@ def main(argv=None):
     settings = json.loads((args.run / "config.json").read_text())
     if not settings.get("company_operating"):
         parser.error("Definition changes require an ordinary company operating run")
-    state = json.loads((args.run / "state.json").read_text())
+    state = company_state.load(args.run)
     on = (date(2027, 1, 1) + timedelta(days=state["day"])).isoformat()
     item = args.item if args.action == "propose" else args.family
     if item is None:

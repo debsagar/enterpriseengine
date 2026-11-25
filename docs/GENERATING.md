@@ -56,7 +56,7 @@ uv run norvale-generate --run runs/my-run --extend additions.json
 
 The operator-only command uses the existing stack identity and writes an
 append-only SQLite catalog and queue under the run's `scheduled-additions/`
-directory. Keep it with `config.json`, `state.json` and the environment files
+directory. Keep it with `config.json` and the environment files
 when backing up the run. Existing recurring checkpoints can acquire this
 catalog in place. The command commits the entire batch together, leaves the
 regular checkpoint and configuration alone, and does not start a controller.

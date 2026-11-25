@@ -9,6 +9,7 @@ from unittest.mock import Mock
 
 from engine import DAY, Engine, world
 from environments.consumers import norvale
+from environments.norvale.native import company_state
 from environments.norvale.native.company import Engine as Company
 from environments.norvale.native.company_world import check_binding, evidence
 from environments.norvale.native.recurring_extensions import MIDNIGHT, open_catalog
@@ -172,7 +173,7 @@ class RecurringWorldProof(TestCase):
         company.mail.side_effect = interrupted
         with self.assertRaises(PowerLoss):
             company.run_additions(14 * DAY + 720)
-        company.state = json.loads((root / "state.json").read_text())
+        company.state = company_state.load(root)
         company.additions = open_catalog(root, company.config, company.state, company.advance_clock, company=company)
         company.mail.side_effect = confirmed
         company.run_additions(14 * DAY + 720)
@@ -195,7 +196,7 @@ class RecurringWorldProof(TestCase):
         company.day = 14
         company.advance_clock.assert_any_call(MIDNIGHT + timedelta(minutes=14 * DAY + 720))
 
-        saved = json.loads((root / "state.json").read_text())
+        saved = company_state.load(root)
         company.state = saved
         company.additions = open_catalog(root, company.config, saved, company.advance_clock, company=company)
         company.day = 21

@@ -22,6 +22,7 @@ from environments.norvale.integrations.company_run.demo import Demo
 from environments.norvale.integrations.company_run.maintenance import MaintenanceAuthority
 from environments.norvale.integrations.mes.client import CENTER, EVENT, MO, WO
 from environments.norvale.integrations.mes.client import Mes as MesClient
+from environments.norvale.native import company_state
 from environments.norvale.native.company import DEFAULT_CONFIG, Engine, save
 from environments.norvale.native.company_erp import CompanyERP, Pending
 from environments.norvale.native.recurring_extensions import open_catalog
@@ -213,7 +214,7 @@ class TimedCompany(unittest.TestCase):
 
             def complete(self, mo, lot, qty, rows, released, *, labor=None):
                 if operating:
-                    persisted = json.loads((run / "state.json").read_text())["company_erp"]["work"]
+                    persisted = company_state.load(run)["company_erp"]["work"]
                     (expected,) = [
                         w["scheduled_labor"]
                         for w in persisted.values()
@@ -468,7 +469,7 @@ class TimedCompany(unittest.TestCase):
                     self.assertEqual(native, {1: "progress", 2: "confirmed"})
                     self.assertFalse(Mes().availability(1)["available"])
                     recurring(["--run", str(run), "--days", "2"])
-                    pending = json.loads((run / "state.json").read_text())
+                    pending = company_state.load(run)
                     (case,) = pending["ops"]["equipment_faults"].values()
                     batch = case["interrupted"]
                     body = (
@@ -515,7 +516,7 @@ class TimedCompany(unittest.TestCase):
                         **{OP: batch["batch"] + ":interrupted"},
                     )
                     recurring(["--run", str(run), "--days", "4"])
-                    pending = json.loads((run / "state.json").read_text())
+                    pending = company_state.load(run)
                     (case,) = pending["ops"]["equipment_faults"].values()
                     clock = open_catalog(run, cfg, pending)
                     self.assertEqual(case["verification"]["actor"], "verifier")
@@ -537,7 +538,7 @@ class TimedCompany(unittest.TestCase):
                     inspection["custom_spec_revision"] = "released-spec"
                     with self.assertRaisesRegex(SystemExit, "cancelled before controller readback"):
                         recurring(["--run", str(run), "--days", "6"])
-                    pending = json.loads((run / "state.json").read_text())
+                    pending = company_state.load(run)
                     (case,) = pending["ops"]["equipment_faults"].values()
                     self.assertEqual(case["qa_evidence"]["id"], "QI-1")
                     self.assertNotIn("disposition", case)
@@ -545,7 +546,7 @@ class TimedCompany(unittest.TestCase):
                     self.assertTrue(Mes().availability(1)["available"])
                     recurring(["--run", str(run)])
                     recurring(["--run", str(run)])
-                    final = json.loads((run / "state.json").read_text())
+                    final = company_state.load(run)
                     (case,) = final["ops"]["equipment_faults"].values()
                     self.assertEqual(case["qa_as_of"], "2027-01-06")
                     self.assertEqual(case["qa_evidence"]["id"], "QI-1")
@@ -576,7 +577,7 @@ class TimedCompany(unittest.TestCase):
                     self.assertFalse(open_catalog(run, cfg, final).state["company_running"])
                     return
                 if outage:
-                    pending = json.loads((run / "state.json").read_text())
+                    pending = company_state.load(run)
                     by_center = {w["equipment"]: w for w in pending["company_erp"]["work"].values()}
                     self.assertEqual(native, {1: "progress", 2: "confirmed"})
                     self.assertIn("mes_start", by_center[1])
@@ -595,17 +596,19 @@ class TimedCompany(unittest.TestCase):
                         request=dict(key="competing-dispatch", work_order="wo-contender"),
                     )
                     pending["company_erp"]["work"]["contender"] = contender
-                    save(run / "state.json", pending)
+                    clock.state[company_state.COMPONENT] = pending
+                    clock.commit_component_state(company_state.COMPONENT)
                     job = ["mes", Mes.source_id, "3", "competing-dispatch", "contender"]
                     timing.schedule(clock, job, "start", DAY + 600, role="PRODUCTION")
                     recurring(["--run", str(run), "--days", "2"])
 
-                    pending = json.loads((run / "state.json").read_text())
+                    pending = company_state.load(run)
                     clock = open_catalog(run, cfg, pending)
                     waiting = clock.state["company_running"]["1"]["waiting"]
                     self.assertEqual(waiting, [[job, 0, None]])
                     pending["company_erp"]["work"]["contender"]["rejected_remainder"] = 1
-                    save(run / "state.json", pending)
+                    clock.state[company_state.COMPONENT] = pending
+                    clock.commit_component_state(company_state.COMPONENT)
                     recurring(["--run", str(run), "--days", "3"])
                     resumed = open_catalog(run, cfg, pending)
                     wake = "company:" + json.dumps([job, "start", 1], separators=(",", ":"))
@@ -632,7 +635,7 @@ class TimedCompany(unittest.TestCase):
                 invoke(2)
                 invoke(2)
 
-        state = json.loads((run / "state.json").read_text())
+        state = company_state.load(run)
         with patch.dict(sys.modules, {"environments.norvale.native.company": company}):
             clock = open_catalog(run, cfg, state)
         labor = {
@@ -678,7 +681,8 @@ class TimedCompany(unittest.TestCase):
             [
                 (row["phase"], row["at"])
                 for row in history
-                if json.loads(row["id"].removeprefix("company:")) == [["lab", "lot-lotion", None], "incubate", 0]
+                if row["id"].startswith("company:")
+                and json.loads(row["id"].removeprefix("company:")) == [["lab", "lot-lotion", None], "incubate", 0]
             ],
             [("start", 624), ("complete", 654)],
         )
