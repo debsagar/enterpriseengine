@@ -15,6 +15,6 @@ Read README.md → docs/HANDOFF.md → docs/ARCHITECTURE.md before changing beha
 - Notebook inspection stays read-only. Explain generated tables directly underneath their outputs. No unnecessary ZIP deliverables.
 - Run `ruff check` and `ruff format --check` before pushing.
 - Run appropriate offline checks from README.md. Report what was actually checked, not just saved historical pass results.
-- Project state lives in PROJECT-LOG.jsonl (append-only). Read relevant recent events. Keep agent PR evidence in the retained provenance record and trailers. Maintainers own updates to the shared log.
+- Project state lives in PROJECT-LOG.jsonl (append-only). Read relevant recent events. Record validation evidence in the PR. The four swarm roles are off, and the provenance and swarm checks are optional on dev. Maintainers own updates to the shared log.
 
 For code changes, completion notes should name affected A–L blocks, changed behavior, validation and remaining limits. Update architecture/docs only where the implementation or intended contract changed.

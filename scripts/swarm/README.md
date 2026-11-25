@@ -1,7 +1,9 @@
 # EnterpriseEngine maintenance runner
 
-See [MAINTAINING.md](../../MAINTAINING.md#maintenance-roles-on-dev) for
-the role commands and how to operate the queue. Each role holds its own
+**Historical documentation.** All four swarm roles are off. The provenance
+and swarm checks are optional on `dev`. [Current dev checks](../../MAINTAINING.md#checks-on-dev)
+
+Each role holds its own
 canonical host lock. Use the same state root for all roles so the merger can
 match validation comments to its local Swarm journal and the author can
 read rebase and repair decisions. Use one designated host for the merger.

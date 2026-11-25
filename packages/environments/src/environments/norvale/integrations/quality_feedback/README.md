@@ -39,7 +39,7 @@ services restarted, the QMS export was identical and the lot remained held.
 
 On existing QMS sites, the site operator installs the additive native case
 fields, approval guard and approver permission using
-`integrations/qms/provision.sh withdrawal-only QMS_RUNTIME`. Fresh QMS setup
+`bash packages/environments/src/environments/norvale/integrations/qms/provision.sh withdrawal-only QMS_RUNTIME`. Fresh QMS setup
 includes these changes. The case decision is tied to the revoked release
 pinned on the original outbound Delivery Note. Approval keeps the shipment
 and invoice in place and creates no stock posting.

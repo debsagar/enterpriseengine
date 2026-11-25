@@ -43,7 +43,7 @@ clock, authority checks and checkpoint.
 | D/I/K | `resolve_pin(pin, work_id=..., on=...)` | For retries and for work already released, verifies the recorded ID and digest. Use the returned definition and the receiver's corresponding imported record when starting or completing that work. |
 | K | `export(base_id, on=...)` | Returns JSON-ready native Part and BOM IDs, links, versions, specs, approval evidence and receipts observed by the cutoff. Feed these records into the existing export path. |
 
-For the shared `native/work_revision.py` helper, map publication
+For the shared [`work_revision.py`](../../native/work_revision.py) helper, map publication
 `native_id` to the string revision ID, `source_version` to version, and
 `definition.name` to product. Convert approval effectivity and receipt dates
 using the engine clock. The next approved effective revision supplies the
@@ -86,7 +86,7 @@ export PLM_URL=http://127.0.0.1:$PLM_PORT
 export PLM_PUBLISHER_PASSWORD=$(openssl rand -hex 24)
 export PLM_READER_PASSWORD=$(openssl rand -hex 24)
 plm_evidence=$(mktemp)
-plm_compose() { docker compose -p "$PLM_PROJECT" -f integrations/plm/compose.yaml "$@"; }
+plm_compose() { docker compose -p "$PLM_PROJECT" -f packages/environments/src/environments/norvale/integrations/plm/compose.yaml "$@"; }
 free -h
 df -h /data
 ss -ltn "sport = :$PLM_PORT"
@@ -94,7 +94,7 @@ plm_compose run --rm --no-deps plm python3 src/backend/InvenTree/manage.py migra
 plm_compose up -d
 curl -fsS --retry 60 --retry-all-errors --retry-delay 1 --max-time 5 "$PLM_URL/api/"
 plm_compose exec -T -e PLM_PUBLISHER_PASSWORD -e PLM_READER_PASSWORD plm \
-    python3 src/backend/InvenTree/manage.py shell < integrations/plm/provision.py
+    python3 src/backend/InvenTree/manage.py shell < packages/environments/src/environments/norvale/integrations/plm/provision.py
 uv run python -m environments.norvale.integrations.plm.check_live create "$plm_evidence"
 plm_compose restart plm
 curl -fsS --retry 60 --retry-all-errors --retry-delay 1 --max-time 5 "$PLM_URL/api/"
@@ -132,6 +132,6 @@ restart: 2 revisions, old Part 10, new Part 13
   recorded. A receipt for A was rejected as proof for B. After restarting the
   API and client, both pins resolved to their original native revisions and
   receipt IDs, and export matched the saved pre-restart snapshot.
-- Release offline checks passed (`scripts/check_data.py`,
-  `native/check_core.py`, `native/check_routing.py`, `native/check_retry.py`,
+- Release offline checks passed ([`scripts/check_data.py`](../../../../../../../scripts/check_data.py),
+  [`check_core.py`](../../native/check_core.py), [`check_routing.py`](../../native/check_routing.py), [`check_retry.py`](../../native/check_retry.py),
   and `norvale-generate --help`). Frozen business exports were left intact.

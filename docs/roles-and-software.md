@@ -13,7 +13,7 @@ export NORVALE_CONNECTIONS_FILE=/absolute/private/path/host-registry.json
 uv run norvale-generate --run /absolute/private/company/business --extend docs/examples/norvale-sales/extension.json
 ```
 
-The ordinary controller dispatches the event when the clock reaches it. The adapter calls Frappe's logged-user API, compares the authenticated employee with the host binding, looks up the run-scoped operation marker, and creates or reconciles a draft Sales Order. Readback checks the stored order and its owner. A matching scope on a self-declared local role cannot substitute for the commissioned employee. See the [connection validator](../packages/environments/src/environments/norvale/native/software_connections.py), [native sales adapter](../packages/environments/src/environments/norvale/native/incremental_erp.py), and [recurring entry tests](../tests/test_recurring_extensions.py).
+The ordinary controller dispatches the event when the clock reaches it. The adapter calls Frappe's logged-user API, compares the authenticated employee with the host binding, looks up the run-scoped operation marker, and creates or reconciles a draft Sales Order. Readback checks the stored order and its owner. A matching scope on a self-declared local role cannot substitute for the commissioned employee. See the [connection validator](../packages/environments/src/environments/norvale/native/software_connections.py), [native sales adapter](../packages/environments/src/environments/norvale/native/incremental_erp.py), and [recurring entry tests](../contracts/test_recurring_extensions.py).
 
 ## Who can move a manufacturing order forward?
 

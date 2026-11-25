@@ -1,6 +1,6 @@
 # Local Delta reader boundary
 
-A–L blocks D/K: this is an independent, single-writer analytics process; operational decisions continue to read their authoritative systems. Run the collector independently so an analytics retry leaves operational processing available. The dedicated QMS uses ERPNext Quality with role-controlled workflows; its live qualification and release semantics are in `integrations/qms/README.md`.
+A–L blocks D/K: this is an independent, single-writer analytics process; operational decisions continue to read their authoritative systems. Run the collector independently so an analytics retry leaves operational processing available. The dedicated QMS uses ERPNext Quality with role-controlled workflows; its live qualification and release semantics are in [the QMS guide](../qms/README.md).
 
 `boundary.py` reads Frappe v1 REST resources with a dedicated user's API key/secret in `FRAPPE_API_KEY` and `FRAPPE_API_SECRET` environment variables. Give that user only the source DocTypes and records it may read. HTTPS is required except loopback. [Frappe's official REST documentation](https://docs.frappe.io/framework/user/en/api/rest) documents list pagination and document reads; [authentication documentation](https://docs.frappe.io/framework-git/rest-api/authentication) documents token headers and user permissions. The live QMS reader collected inspections, nonconformances, quality actions and document-scoped workflow history from an isolated ERPNext 15.124.1 site.
 
@@ -9,15 +9,14 @@ Only the explicit parent/child fields in `FIELDS`, `CHILD` and `CHILD_FOR` enter
 Use an OS account dedicated to the permitted analytics audience and a private local filesystem. The root directory is forced to mode 0700, state to 0600, and the Delta files inherit access through the private parent. No untrusted user may share that account, be root, or access a privileged backup. Separate audiences need separate OS accounts and lake directories; no per-role service is supplied. A different OS account was denied access in the local check. Ensure destination and parents are trusted, and do not publish exports to a broader audience.
 
 ```
-python3 -m venv /tmp/norvale-lake-venv
-/tmp/norvale-lake-venv/bin/pip install -r integrations/lake/requirements.txt
-P=/tmp/norvale-lake-venv/bin/python
-$P integrations/lake/test_boundary.py
-$P integrations/lake/boundary.py --root /tmp/norvale-lake ingest --offline data/observable/native-records.json
+uv sync --locked --all-packages
+uv pip install --python .venv/bin/python -r packages/environments/src/environments/norvale/integrations/lake/requirements.txt
+uv run --no-sync --offline python -m unittest environments.norvale.integrations.lake.test_boundary
+uv run --no-sync python -m environments.norvale.integrations.lake.boundary --root /tmp/norvale-lake ingest --offline data/observable/native-records.json
 # Or: set FRAPPE_API_KEY and FRAPPE_API_SECRET, then use ingest --url https://isolated-frappe.example
-$P integrations/lake/boundary.py --root /tmp/norvale-lake status --max-age 86400
-$P integrations/lake/boundary.py --root /tmp/norvale-lake export --entity 'Delivery Note' > delivery-history.json
-$P integrations/lake/boundary.py --root /tmp/norvale-lake trace > links.json
+uv run --no-sync python -m environments.norvale.integrations.lake.boundary --root /tmp/norvale-lake status --max-age 86400
+uv run --no-sync python -m environments.norvale.integrations.lake.boundary --root /tmp/norvale-lake export --entity 'Delivery Note' > delivery-history.json
+uv run --no-sync python -m environments.norvale.integrations.lake.boundary --root /tmp/norvale-lake trace > links.json
 ```
 
 Each scan reads full documents, projects before storage, and appends distinct content hashes with source, ID, modified, effective and ingestion times. State atomically records the greatest observed source modified value, last success/attempt, error class, and count per entity. Status computes age and staleness from the last success; source dates may be simulated and are not used as wall-clock freshness. A failure leaves the last successful watermark and marks stale; retry the command. A writer lock serializes scans. A crash after Delta append but before checkpoint is safe to replay. Delta history retains observed changed snapshots including cancellation (`docstatus=2`); it cannot recover intermediate versions never observed. If a previously archived Frappe record disappears from a list, the collector requests its known native URL with the same reader identity. A native document-specific missing-record response appends a `source_absent` observation. Its ingestion timestamp records when absence was observed. Access denials and generic HTTP errors do not establish deletion. A record that later reappears is archived again. Full rescans capture late corrections. Each page starts after the last native name read. An insert behind that cursor becomes visible on the next scan. Filtered manufacturing and registered-family publication scans retain their own freshness and error state, even when their records overlap another scan. Publication snapshots carry the native business-effective date. A full scan is intentionally simple and has a throughput ceiling.
@@ -25,7 +24,7 @@ Each scan reads full documents, projects before storage, and appends distinct co
 Trace exports only explicit source references: work order, sales order, inspection reference, and child batch numbers. It does not infer genealogy from item/time. The supplied export lacks batch identifiers on many delivery rows, so it cannot prove a complete input-lot-to-shipment path. When a source exports a Serial and Batch Bundle, trace follows the delivery or stock line to that bundle and its native batch entries. Export retains signed quantities and warehouses. `export` contains all observed versions; `trace` uses the most recently appended distinct observation, not a historical as-of query. An observed change back to earlier content appends a new snapshot. Repeating the latest content is deduplicated. Never use either as an operational eligibility decision.
 
 For InvenTree, use a scoped API token in PLM_TOKEN and run
-`PYTHONPATH=. python3 integrations/lake/plm_reader.py --root DIR --source INSTANCE --url ORIGIN --publisher PUBLISHER --part ID --view bom`.
+`uv run --no-sync python -m environments.norvale.integrations.lake.plm_reader --root DIR --source INSTANCE --url ORIGIN --publisher PUBLISHER --part ID --view bom`.
 The BOM view only needs permission to read assemblies, component Parts and bill-of-material rows. The approved view additionally reads protected approval metadata and verifies the approved definition through the PLM adapter. Use a directory whose OS permissions match that audience. A denied approved scan marks that source/entity stale and never substitutes the lock flag for an approval.
 
 The recurring publication scan also archives employee revision actions in
@@ -79,7 +78,7 @@ To inspect a specific shipment, run
 For a released Material Transfer, use `boundary.py --root DIR genealogy --source ERP_INSTANCE --transfer STOCK_ENTRY_ID`. The result names the original QMS site, inspection and release version, the stock quantity and unit, both warehouses, and the native ledger entry and batch bundle for each side. The command exits with status 1 if a required link is missing or ambiguous. A historical trace establishes which decision authorized the transfer at the time. Current shipping eligibility requires a new QMS read.
 
 For receiver-scoped receipts, run the collectors and genealogy from the release root with
-`PYTHONPATH=.` so the lake can validate the bridge's marker formats. Qualified links
+the installed workspace so the lake can validate the bridge's marker formats. Qualified links
 show `publication_receiver_markers` after comparing the PLM acknowledgements and work
 pin with the independently collected ERP BOM and MES completion.
 The result lists outbound lot quantities and units, the incoming manufacture

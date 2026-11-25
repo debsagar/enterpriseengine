@@ -31,20 +31,20 @@ flowchart TD
 
 | Block | Responsibility | Current implementation |
 | --- | --- | --- |
-| A | Company, identities, permissions, opening stock, policies | `Engine.seed`, `recurring_setup`; `systems_v2.identities` |
+| A | Company, identities, permissions, opening stock, policies | `Engine.seed`, `recurring_setup`; [`identities`](../packages/environments/src/environments/norvale/native/systems_v2.py) |
 | B | Advance and resume one simulation clock | `recurring_events`, `step`, `_step`, `through` |
-| C | External conditions and physical consequences | `regimes.factors`; `regime`, `arrivals`, `production`, `service` |
+| C | External conditions and physical consequences | [`factors`](../packages/environments/src/environments/norvale/native/regimes.py); `regime`, `arrivals`, `production`, `service` |
 | D | Evidence the acting role can access | `observe`, `inventory`, `observed_usage`; role API clients |
 | E | Previous decisions and effective policies | `choose`, `effective_policies`; persisted case history |
-| F | Route a decision to rules, judgment or explicit pending work | `choose`; `router.route` |
+| F | Route a decision to rules, judgment or explicit pending work | `choose`; [`route`](../packages/environments/src/environments/norvale/native/router.py) |
 | G | Execute an authorized routine policy | Policy branch of `choose`; routine operational methods |
 | H | Model judgment and proposed policy | `decision`, `adopt_policy` |
 | I | Check authority and enforce operational constraints | Action-specific checks, native roles/workflows and application validations |
-| J | Perform actions and schedule physical consequences | `write`, `mapped`, `mail`; `systems_v2` Job Card and Tickets APIs |
-| K | Confirm records, preserve evidence and export | API readbacks, `log`, `persist`; `verify_run.py`, `systems_v2.export_native` |
+| J | Perform actions and schedule physical consequences | `write`, `mapped`, `mail`; [Job Card and Tickets APIs](../packages/environments/src/environments/norvale/native/systems_v2.py) |
+| K | Confirm records, preserve evidence and export | API readbacks, `log`, `persist`; [`verify_run.py`](../packages/environments/src/environments/norvale/native/verify_run.py), [`export_native`](../packages/environments/src/environments/norvale/native/systems_v2.py) |
 | L | Preserve pending work and explicit failure | Deferred/rejected decisions, API exceptions, resumable state |
 
-Methods above are in `native/company.py` unless qualified. These are not twelve separate services. The actual daily sequence is service → arrivals → inspections → demand → fulfillment → production → replenishment → approvals → settlements → management. Do not create a second clock in the notebook.
+Methods above are in [`company.py`](../packages/environments/src/environments/norvale/native/company.py) unless qualified. These are not twelve separate services. The actual daily sequence is service → arrivals → inspections → demand → fulfillment → production → replenishment → approvals → settlements → management. Do not create a second clock in the notebook.
 
 ## Three boundaries to preserve
 

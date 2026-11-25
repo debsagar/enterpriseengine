@@ -67,7 +67,7 @@ The transition laws and calibrated defaults were adapted from the local STOCKTAK
 | `modules/supplier/factor.py` | `5ee169f9f8e6fc3ae29ade4f7e9b31382e23321fae0fe97fad000ab9fad9ff3d` |
 | `modules/supplier/config.py` | `9c6ac65a057887a83a8563570d82818d45a8c9b7c73d8786be4e929b31b30458` |
 
-`engine/world.py` ports the two transition laws, including age limits, disruption-type choice, the local congestion coin and the absorbing supplier state. It uses newly written bulletin text with the source's shared first-warning pattern. The independent seed derivation and delivery calendar belong to this implementation. The port has no runtime dependency on the archive.
+[`engine/world.py`](../packages/engine/src/engine/world.py) ports the two transition laws, including age limits, disruption-type choice, the local congestion coin and the absorbing supplier state. It uses newly written bulletin text with the source's shared first-warning pattern. The independent seed derivation and delivery calendar belong to this implementation. The port has no runtime dependency on the archive.
 
 ## Offline proof
 

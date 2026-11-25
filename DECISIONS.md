@@ -3,6 +3,9 @@
 Settled by the owner. Agents do not reopen these; propose a new decision in an issue instead.
 Requirement IDs refer to [SPEC.md](SPEC.md).
 
+D3–D5 record the historical swarm setup. The four roles are off, and the
+provenance and swarm checks are optional on `dev`. [Current dev checks](MAINTAINING.md#checks-on-dev)
+
 | ID | Date | Decision |
 |---|---|---|
 | D1 | 2026-11-24 | One repo with three packages (`engine`, `components`, `environments`) plus `contracts/`; all work goes to `dev`. |
