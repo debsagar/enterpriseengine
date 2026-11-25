@@ -10,6 +10,7 @@ from components.erp_client import ErpError
 from engine import DAY, DeferCompletion, Engine
 from engine._extension import validate_event
 
+from environments.consumers import tank
 from environments.consumers.norvale import Consumer, may_order
 from environments.norvale.native import company_state
 from environments.norvale.native.company_records import SOURCES, SalesRecords
@@ -79,6 +80,8 @@ class RecurringSales(Consumer):
         self.company = company
 
     def handle(self, engine, kind, payload):
+        if kind in tank.KINDS:
+            return super().handle(engine, kind, payload)
         if kind == "company-sales-readback":
             if engine.event.get("role") != "FINANCE":
                 raise PermissionError("Sales readback requires the Finance role")
@@ -126,6 +129,7 @@ def open_catalog(run, config, state, advance_clock=None, *, company=None):
         {
             "namespace": namespace,
             **({"world": True} if config.get("world") else {}),
+            **({"tank": config["tank"]} if "tank" in config else {}),
             **({"world_fixture": config["world_fixture"]} if "world_fixture" in config else {}),
             "systems": {name: {} for name in CORE_SYSTEMS},
             "roles": {
@@ -168,6 +172,8 @@ def open_catalog(run, config, state, advance_clock=None, *, company=None):
         start=start,
         standalone_extensions=False,
     )
+    if "tank" in config:
+        tank.register(clock)
     return clock
 
 

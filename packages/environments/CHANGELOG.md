@@ -4,6 +4,7 @@
 
 ### Added
 
+- Run the TK-101 `process.tank` plant on the Norvale engine clock (`environments.consumers.tank`): its `PlantState` is registered with the engine so `Engine.fork()` copies it, and a low alarm becomes a `tank_boundary` event. Enable with a `tank` section in the run config.
 - Bind saved Norvale runs and incremental manifests to package versions.
 
 ### Changed
