@@ -9,6 +9,7 @@ from urllib.error import URLError
 from components.erp_client import ErpError
 from engine import DAY, DeferCompletion, Engine
 from engine._extension import validate_event
+from engine.versions import load_artifact
 
 from environments.consumers.norvale import Consumer, may_order
 from environments.norvale.native.company_records import SOURCES, SalesRecords
@@ -204,7 +205,7 @@ def submit(run, filename):
     if not isinstance(events, list):
         raise ValueError("events must be an array")
     state_path = run / "state.json"
-    state = json.loads(state_path.read_text()) if state_path.exists() else {"day": 0}
+    state = load_artifact(state_path, "company checkpoint") if state_path.exists() else {"day": 0}
     catalog = open_catalog(run, config, state)
     current = catalog.catalog
     products = {**current["products"], **sections["products"]}

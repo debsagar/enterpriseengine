@@ -59,7 +59,7 @@ class RecoveryTests(unittest.TestCase):
     def test_through_checks_reloaded_stage_before_crossing_day_boundary(self):
         engine = company.Engine.__new__(company.Engine)
         engine.config = {"days": 2}
-        engine.state = {"completed": [], "docs": {}, "day": 0}
+        engine.state = {"versions": company.artifact_versions(), "completed": [], "docs": {}, "day": 0}
         engine.events = lambda: iter(((0, "today", None), (1, "tomorrow", None)))
         with tempfile.TemporaryDirectory() as directory:
             engine.run = Path(directory)
@@ -376,6 +376,7 @@ class RecoveryTests(unittest.TestCase):
                     if (d, phase) != (90, "management")
                 ]
                 state = {
+                    "versions": company.artifact_versions(),
                     "docs": {},
                     "completed": completed,
                     "physical": {},

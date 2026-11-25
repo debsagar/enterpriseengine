@@ -12,6 +12,8 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
+from engine.versions import artifact_versions
+
 from environments.norvale.integrations.company_run import definition_change
 from environments.norvale.integrations.company_run.authority import Authority
 from environments.norvale.integrations.plm import PLM, Blocked
@@ -173,7 +175,7 @@ class DefinitionChangeTest(TestCase):
             db.execute("CREATE TABLE checkpoint(id INTEGER PRIMARY KEY, data TEXT)")
             db.execute(
                 "INSERT INTO checkpoint VALUES(1, ?)",
-                (json.dumps(dict(extensions={"east": {"systems": {system: spec}}})),),
+                (json.dumps(dict(versions=artifact_versions(), extensions={"east": {"systems": {system: spec}}})),),
             )
 
         stores = {

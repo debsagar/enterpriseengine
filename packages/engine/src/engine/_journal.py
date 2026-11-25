@@ -11,6 +11,8 @@ from pathlib import Path
 from stat import S_ISREG
 from statistics import median
 
+from .versions import require_versions
+
 
 class CallFailed(Exception):
     """A recorded provider failure, including failure replay."""
@@ -32,6 +34,8 @@ def snapshot(path):
         raise PermissionError("Inspection requires an owner-only checkpoint")
     with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
         db.execute("BEGIN")
+        row = db.execute("SELECT json_quote(json_extract(data, '$.versions')) FROM checkpoint WHERE id=1").fetchone()
+        require_versions({"versions": json.loads(row[0]) if row and row[0] else None}, "checkpoint")
         yield db
 
 

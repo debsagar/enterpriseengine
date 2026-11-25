@@ -1,5 +1,6 @@
 """Seeded weekly demand, installed by a consumer on the engine's world tick."""
 
+from engine.versions import artifact_versions
 from engine.world import WEEK, stream
 
 from .registry import VERSION, Registry
@@ -42,6 +43,7 @@ class WeeklyDemand:
         Registry([DESCRIPTOR]).resolve(
             {
                 "version": VERSION,
+                "versions": artifact_versions(),
                 "adapters": [],
                 "instances": [
                     {

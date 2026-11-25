@@ -4,6 +4,8 @@ from copy import deepcopy
 from datetime import date
 from math import isfinite
 
+from engine.versions import artifact_versions, require_versions
+
 VERSION = 1
 JSON_TYPES = {
     "string": str,
@@ -179,10 +181,24 @@ class Registry:
             _name(descriptor["provenance"], f"{path}.provenance")
             self._types[type_id] = (deepcopy(descriptor), path)
 
+    def company_map(self, manifest):
+        """Export public instance identities and their declared links."""
+        entries = self.resolve(manifest)
+        return {
+            "versions": artifact_versions(),
+            "instances": [
+                {key: row["instance"][key] for key in ("id", "type", "relations")} for row in entries.values()
+            ],
+        }
+
     def resolve(self, manifest):
         """Return an ordered-by-input mapping of instance IDs to declarations."""
         _json(manifest, "manifest")
-        _object(manifest, "manifest", ("version", "instances", "adapters"))
+        _object(manifest, "manifest", ("version", "versions", "instances", "adapters"))
+        try:
+            require_versions(manifest, "manifest")
+        except ValueError as exc:
+            raise RegistryError("manifest.versions", str(exc)) from exc
         _version(manifest["version"], "manifest.version")
         provided = _adapters(manifest["adapters"], "manifest.adapters")
         resolved = {}

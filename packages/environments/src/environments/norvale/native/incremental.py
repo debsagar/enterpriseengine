@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from components.erp_client import ErpError
 from engine import Engine
+from engine.versions import artifact_versions, load_artifact
 
 from environments.consumers.norvale import may_order
 from environments.norvale.paths import CHECKOUT
@@ -43,11 +44,12 @@ def execute(directory, plan_path, until, transport_factory=None, *, extension_pa
     if plan_path is None:
         if not manifest.is_file() or not (directory / "engine.sqlite3").is_file():
             raise ValueError("Resume requires an existing incremental run and checkpoint")
-        identity = json.loads(manifest.read_text())
+        identity = load_artifact(manifest, "incremental manifest")
     else:
         if directory.exists():
             raise ValueError("A new incremental run requires a path that does not exist")
         identity = {
+            "versions": artifact_versions(),
             "namespace": uuid4().hex,
             "plan": json.loads(plan_path.read_text()),
             "transport": "injected" if transport_factory else "erpnext-sales",

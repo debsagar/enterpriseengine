@@ -11,6 +11,7 @@ from time import monotonic
 
 from engine import Engine
 from engine.__main__ import main
+from engine.versions import artifact_versions
 from environments.norvale.native.production_profiles import ADAPTER, registered
 from test_engine_goals import Native
 
@@ -62,6 +63,7 @@ class Storage(unittest.TestCase):
                     ]
                 ]
                 checkpoint = {
+                    "versions": artifact_versions(),
                     "consumer": [f"consumers.{name}", "Consumer", None],
                     "seed": 41,
                     "config": {},

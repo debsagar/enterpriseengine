@@ -95,6 +95,8 @@ a closed mapping of required field names to JSON types (`string`, `integer`,
 be JSON values. All declarations of the same event name in a composition must
 have equal payload schemas. Events may cross the composition boundary.
 
+Saved artifacts carry a `versions` object from `engine.versions.artifact_versions()`. It names the schema, engine, components and environments. A null package version denotes an absent optional distribution. Loaders require matching major and minor versions and accept patch changes. Unstamped checkpoints stay frozen (R4, D2). `Registry.company_map(manifest)` exports validated instance IDs, types and relations with this stamp. JSON dataset and map readers use `engine.versions.load_artifact(path, kind)`.
+
 A manifest has `instances` and an `adapters` list for host-supplied adapters.
 Each instance supplies `id`, `type`, `config`, `state`, `parameters`,
 `policies`, and `relations`. Descriptor relations map names to target type IDs.
