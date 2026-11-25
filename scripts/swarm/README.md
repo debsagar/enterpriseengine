@@ -23,13 +23,26 @@ read rebase and repair decisions. Use one designated host for the merger.
   to typed references or manual gates. Triage redirects structured dependencies
   from duplicates to the canonical issue, keeps manual gates and defers a
   duplicate closure when it would introduce a cycle or affect a live claim.
+- One Author process reserves up to three active claims under the existing
+  host lock. The Issue role writes a **File scope** heading next to the issue's
+  downstream impact and prerequisites. List literal repository-relative
+  files or directories, one per line with a Markdown bullet. For a package
+  use its directory, such as `packages/engine`. A directory reserves its
+  descendants. An empty, missing or invalid scope is unknown and overlaps
+  everything except scopes wholly within `docs/`. The Author pins the scope
+  when claiming and keeps it reserved while the PR is in flight.
+  `run.py author --status` lists the active local claims and their pinned scopes.
 - The create-only remote ref is the Author claim. Closed issues and issues with
   other detectable open PRs are excluded across branches and bases. Link PRs
   through provenance, a closing reference, an issue URL or a GitHub issue
   cross-reference. The author recovers a lost PR-creation reply using its
   journaled nonce, expected repository and authenticated creator. It holds
   unrecognized commits and accepts rebases recorded by the merger. Up to two
-  repairs can follow integration failures.
+  repairs can follow integration failures. A Git-confirmed rebase conflict
+  returns the unmerged paths in a repairable bounce. The Author replays the
+  complete PR delta onto the latest fetched dev, resolves it in its worktree
+  and pushes a single replacement commit with the original provenance and
+  a lease on the old PR head.
 - The merger uses a lease to rebase the candidate branch. It stamps the
   commits with `Swarm-Rebase-Run`, `Swarm-Rebase-Base`,
   `Swarm-Rebase-Model` and `Swarm-Rebase-Runner` while retaining author
@@ -48,9 +61,15 @@ read rebase and repair decisions. Use one designated host for the merger.
   app fail both candidate and dev. Missing or pending required checks defer
   integration. Missing or pending dev package baselines defer repair. A shared
   job name can group unrelated failures, and PR-only infrastructure errors
-  can appear as code failures.
+  can appear as code failures. A locked offline setup failure on dev opens
+  or updates one infrastructure issue grouped by the failed setup command.
 - Keep the old root `log.jsonl` and `attempts/` for traceability. Reconcile
   any unresolved legacy claims before their issues are reopened for work.
+  Keep the same Author journal and worktree through upgrades. Older pins
+  reserve their claims with unknown scope when no scope was recorded.
+  The newer runner waits on outstanding work pinned to older code and can
+  reconcile its PR after merge. A foreign claim ref also reserves a slot
+  with unknown scope, even before its in-progress label appears.
   Retain role journals, worktrees and Git objects across restarts. If an
   Author process committed before journaling, inspect its worktree and claim.
   Check active claims before opening manual replacements. GitHub offers no
@@ -58,22 +77,31 @@ read rebase and repair decisions. Use one designated host for the merger.
 
 ## Author and reviewer routing
 
-The issue agent assigns `size:small` or `size:large`. Small issues use Sol
-medium. Large and unlabelled issues default to Astra medium, and can specify
+The issue agent assigns `size:small` or `size:large`. Small issues use Luna
+(gpt-6-luna) medium. Large and unlabelled issues default to Terra (gpt-5.6-terra) medium, and can specify
 a line such as `Reasoning effort: high`. The runner pins model and effort at
 claim time so retries retain the original commit and PR provenance.
 
-Swarm runs acceptance commands and verifies findings in a fresh validation
-pass. A separate reviewer reads the spec, decisions, issue, diff and
+Swarm validates up to three PRs concurrently, using the same slot limit as
+the Author. Each claimed PR uses an isolated checkout and records its head
+and dev base. Swarm runs acceptance commands and verifies findings in a
+fresh validation pass. A separate reviewer reads the spec, decisions, issue, diff and
 acceptance results. The CLI runs Claude Opus 5.5 at low effort, with
-restricted read-only tools. Claude attempts are bounded to 30 seconds each,
+restricted read-only tools. Claude attempts are bounded to 10 minutes each,
 with two retries after 2 and 4 seconds for quota, rate-limit, authentication
-and CLI availability failures. When Opus is unavailable, Sol authors may
-use Astra medium. Astra authors require Opus, so Swarm applies
+and CLI availability failures. When Opus is unavailable, Luna authors may
+use Terra medium. Terra authors require Opus, so Swarm applies
 `awaiting-review`, retries on each poll and clears the label when a review
-verdict is recorded. Sol is ineligible to review. Verdicts include model,
+verdict is recorded. Luna is ineligible to review. Legacy Sol-authored PRs may use Opus or Terra; legacy Astra-authored PRs require Opus. Verdicts include model,
 effort, run ID, head and fallback reason when applicable. Swarm comments and
 merger reports flag fallback reviews.
+
+On SIGTERM or SIGINT, roles stop taking new work and finish in-flight work
+before exiting. Swarm releases validation claims and removes their temporary
+checkouts. At restart it removes checkouts left by interrupted claims and
+resumes incomplete verdict publication for the current head and base.
+Author claim refs, journal entries and worktrees retain ownership and repair
+state across restarts.
 
 ## Isolation
 
@@ -86,6 +114,12 @@ can flag changes from another process. They cannot observe reads or constrain
 network access. Keep the runner on the designated host, use the shared
 `debsagar` GitHub identity and provide cached offline dependencies. Hosts with
 working Codex sandboxing can opt into `--sandbox workspace-write`.
+After setup the harness runs each required command in the snapshot with a
+ten-minute timeout and records its exit code and redacted output tail. Only
+argv-safe `uv run [--no-sync --offline] python -m unittest ...` and `uv run
+[--no-sync --offline] python scripts/<name>.py ...` commands run directly; every other issue or PR command
+uses the workspace sandbox, whose unavailable preflight is an infrastructure
+deferral rather than a verdict.
 
 ## Provenance
 
