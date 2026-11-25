@@ -74,6 +74,8 @@ from enterpriseengine import Engine
 
 
 class QualityDesk:
+    config = {}
+
     def apply(self, run, kind, payload):
         if kind != "inspect":
             raise ValueError(kind)
