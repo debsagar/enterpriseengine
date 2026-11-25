@@ -3,6 +3,7 @@
 import json
 from datetime import date, datetime, time, timedelta, timezone
 from hashlib import sha256
+from pathlib import Path
 from time import monotonic
 from urllib.error import URLError
 
@@ -81,6 +82,8 @@ class RecurringSales(Consumer):
 
     def handle(self, engine, kind, payload):
         if kind in tank.KINDS:
+            if self.company is not None:
+                return self.company.tank_event(engine, kind, payload)
             return super().handle(engine, kind, payload)
         if kind == "company-sales-readback":
             if engine.event.get("role") != "FINANCE":
@@ -123,7 +126,8 @@ def open_catalog(run, config, state, advance_clock=None, *, company=None):
     # keeps its original path-derived project ID and JSON checkpoint.
     from environments.norvale.native.company import ERP_ROLES, ROLES, EnterpriseSimV4
 
-    namespace = sha256(str(run.resolve()).encode()).hexdigest()[:32]
+    # A forked run keeps its source's namespace, so copied native IDs and retry keys still match.
+    namespace = sha256(str(Path(config.get("origin_run", run)).resolve()).encode()).hexdigest()[:32]
     base = EnterpriseSimV4(seed=config["seed"], days=30, mode="dry-run")
     consumer = RecurringSales(
         {
@@ -159,6 +163,13 @@ def open_catalog(run, config, state, advance_clock=None, *, company=None):
         0 if config.get("world") else state.get("day", 0) * DAY + (COMPANY_OPEN if "company_timing" in config else 720)
     )
     transport = SystemTransport()
+    if "tank" in config:
+        from environments.norvale.native.company_tank import TankExternals
+
+        externals = TankExternals(run / "scheduled-additions")
+        externals.bind(transport)
+        if company is not None:
+            company.tank_externals = externals
     if company is not None and config.get("company_operating"):
         SalesRecords(company).bind(transport)
     clock = Engine(
@@ -172,8 +183,8 @@ def open_catalog(run, config, state, advance_clock=None, *, company=None):
         start=start,
         standalone_extensions=False,
     )
-    if "tank" in config:
-        tank.register(clock)
+    if "tank" in config and company is None:
+        tank.register(clock)  # With a company, its setup (A) registers the plant.
     return clock
 
 
