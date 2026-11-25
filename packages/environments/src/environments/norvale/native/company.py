@@ -1513,6 +1513,8 @@ class Engine:
         return use
 
     def recurring_setup(self):
+        if "tank" in self.config:
+            self.setup_tank()
         self.configure()
         self.workflow_setup()
         self.finance_costs(True)
@@ -3140,6 +3142,31 @@ class Engine:
         from environments.norvale.integrations.company_run.timing import dispatch_event
 
         return dispatch_event(self, clock, payload)
+
+    def setup_tank(self):
+        """Setup (A): register process.tank on the company's engine."""
+        from environments.norvale.native import company_tank
+
+        company_tank.register(self, self.clock())
+
+    def tank_event(self, clock, kind, payload):
+        """Engine handler for tank_run, tank_boundary, tank_operator and tank_lot."""
+        from environments.norvale.native import company_tank
+
+        return company_tank.handle(self, clock, kind, payload)
+
+    def fork_run(self, branch_run):
+        """Fork the company's engine into branch_run, snapshotting the attached offline systems."""
+        from environments.norvale.native import company_tank
+
+        branch_run = Path(branch_run)
+        branch_run.mkdir(parents=True, exist_ok=True)
+        config = {**self.config, "origin_run": self.config.get("origin_run", str(self.run.resolve()))}
+        save(branch_run / "config.json", config)
+        return self.clock().fork(
+            branch_run / company_state.ENGINE_DIR,
+            snapshot_external=lambda staging, minute: company_tank.snapshot_external(self, staging, minute),
+        )
 
     def advance_clock(self, target):
         if self.stack.clock.now() < target:
