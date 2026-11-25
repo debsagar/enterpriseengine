@@ -20,20 +20,21 @@ def inputs(cfg, operator):
     drop = cfg["steam_drop"]["at_minute"] * SCANS
     feed = cfg["feed"]
     cut = operator["k"] if operator and operator["action"] == "pause" else n
+    ph_initial = cfg.get("Ph", 6.0)
     return PlantInputs(
         Ff=[feed * cfg["pause_feed_scale"] if k >= cut else feed for k in range(n)],
-        Tf=[25.0] * n,
-        Ta=[20.0] * n,
-        Ph=[cfg["steam_drop"]["pressure"] if k >= drop else 6.0 for k in range(n)],
-        spT=[78.0] * n,
-        spL=[2.0] * n,
-        mT=[1] * n,
-        mF=[2] * n,
-        mL=[1] * n,
-        nT=[0.0] * n,
-        nF=[0.0] * n,
-        nL=[0.0] * n,
-        nA=[0.0] * n,
+        Tf=[cfg.get("Tf", 25.0)] * n,
+        Ta=[cfg.get("Ta", 20.0)] * n,
+        Ph=[cfg["steam_drop"]["pressure"] if k >= drop else ph_initial for k in range(n)],
+        spT=[cfg.get("spT", 78.0)] * n,
+        spL=[cfg.get("spL", 2.0)] * n,
+        mT=[cfg.get("mT", 1)] * n,
+        mF=[cfg.get("mF", 2)] * n,
+        mL=[cfg.get("mL", 1)] * n,
+        nT=[cfg.get("nT", 0.0)] * n,
+        nF=[cfg.get("nF", 0.0)] * n,
+        nL=[cfg.get("nL", 0.0)] * n,
+        nA=[cfg.get("nA", 0.0)] * n,
     )
 
 

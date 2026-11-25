@@ -21,6 +21,7 @@ enterpriseengine-components = { workspace = true }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["environments*"]
 exclude = ["*.addons*", "*.odoo_addons*", "*.images", "*.scenarios"]
 
 [tool.setuptools.package-data]

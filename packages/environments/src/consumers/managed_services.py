@@ -1,1 +1,0 @@
-from environments.consumers.managed_services import Consumer
