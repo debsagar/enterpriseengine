@@ -6,6 +6,7 @@ import subprocess
 import urllib.request
 from pathlib import Path
 
+from environments.norvale.native import company_state
 from environments.norvale.native.company import ACTIVE_RUN, Stack, project, save
 
 RUN = ACTIVE_RUN
@@ -224,8 +225,7 @@ def export_native(run=RUN):
     """Privileged DB snapshot, separate mail archive and API ticket export."""
     from engine.versions import artifact_versions, load_artifact
 
-    checkpoint = Path(run) / "state.json"
-    state = load_artifact(checkpoint, "company checkpoint") if checkpoint.exists() else {}
+    state = company_state.load(run, {})
     s = stack_for(run)
     out = Path(run) / "export"
     out.mkdir(parents=True, exist_ok=True)

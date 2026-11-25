@@ -4,6 +4,7 @@
 
 ### Added
 
+- Add `Engine.commit_component_state()` to commit one registered component's state mid-handler without releasing the event's other edits.
 - Add `Engine.fork()` to branch a run at a committed minute, copying engine and registered component state.
 - Lock checkpoint and dataset compatibility to package and schema versions.
 

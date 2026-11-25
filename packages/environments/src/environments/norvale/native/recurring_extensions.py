@@ -9,9 +9,9 @@ from urllib.error import URLError
 from components.erp_client import ErpError
 from engine import DAY, DeferCompletion, Engine
 from engine._extension import validate_event
-from engine.versions import load_artifact
 
 from environments.consumers.norvale import Consumer, may_order
+from environments.norvale.native import company_state
 from environments.norvale.native.company_records import SOURCES, SalesRecords
 from environments.norvale.native.company_records import SYSTEM as SALES_READBACK
 from environments.norvale.native.incremental_erp import order_dates, validate_orders
@@ -85,6 +85,8 @@ class RecurringSales(Consumer):
             if self.company is None or not self.company.config.get("company_operating"):
                 raise RuntimeError("Sales readback requires an operating company")
             return SalesRecords(self.company).capture(engine)
+        if kind == "company-stage":
+            return self.company.run_stage(engine.event["id"])
         if kind == "company-native":
             handler = getattr(self.company, "scheduled_company_event", None)
             if handler is None:
@@ -149,7 +151,9 @@ def open_catalog(run, config, state, advance_clock=None, *, company=None):
         route.bind(name, "erp", transport)
         return route
 
-    start = 0 if config.get("world") else state["day"] * DAY + (COMPANY_OPEN if "company_timing" in config else 720)
+    start = (
+        0 if config.get("world") else state.get("day", 0) * DAY + (COMPANY_OPEN if "company_timing" in config else 720)
+    )
     transport = SystemTransport()
     if company is not None and config.get("company_operating"):
         SalesRecords(company).bind(transport)
@@ -204,8 +208,7 @@ def submit(run, filename):
     events = command.get("events", [])
     if not isinstance(events, list):
         raise ValueError("events must be an array")
-    state_path = run / "state.json"
-    state = load_artifact(state_path, "company checkpoint") if state_path.exists() else {"day": 0}
+    state = company_state.load(run, {"day": 0})
     catalog = open_catalog(run, config, state)
     current = catalog.catalog
     products = {**current["products"], **sections["products"]}

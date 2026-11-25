@@ -13,8 +13,10 @@ class SalesCapture(Goals):
         company.additions = clock
         day = 15
         minute = day * DAY + 720
+        company.run_additions(minute)
         for _ in range(2):
             company.run_phase(day, f"d{day:04}:settlements", lambda: None)
+            company.run_additions(clock.now)  # the queue runs the scheduled readback
         self.assertEqual(clock.private_truth()["answers"]["C1-paid"], 150)
         self.assertFalse(clock.private_truth(as_of=minute - 1)["answers"])
         self.assertEqual(len(clock.export()["records"]), 6)

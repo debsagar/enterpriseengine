@@ -15,6 +15,7 @@ from environments.norvale.integrations.mes.client import Mes
 from environments.norvale.integrations.plm import PLM, Blocked
 from environments.norvale.integrations.revisions import Bridge, RevisionMismatch
 from environments.norvale.integrations.revisions.receivers import ERPNext, Odoo
+from environments.norvale.native import company_state
 from environments.norvale.native.company_erp import Pending, quantity, stock_steps
 from environments.norvale.native.production_profiles import profile, quality_target, registered
 
@@ -551,7 +552,7 @@ class Authority(MaintenanceAuthority):
         raise Pending("No MES equipment deployment matches the pinned source")
 
     def work(self):
-        state = json.loads((self.run / "state.json").read_text())
+        state = company_state.load(self.run)
         return state["company_erp"]["work"].values()
 
     @handoff("PRODUCTION")
@@ -611,7 +612,7 @@ class Authority(MaintenanceAuthority):
             raise Pending("MES dispatch work center differs from pinned equipment")
         bulk = [inp for inp in request["inputs"] if inp.get("mes_lot_id")]
         if bulk:
-            lots = json.loads((self.run / "state.json").read_text())["company_erp"]["lots"]
+            lots = company_state.load(self.run)["company_erp"]["lots"]
         for inp in bulk:
             lot = lots[inp["batch"]]
             current = self.disposition(lot, as_of=request["as_of"], role="PRODUCTION")

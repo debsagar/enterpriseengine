@@ -20,7 +20,8 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from environments.norvale.native import company, router, systems_v2
+from environments.norvale.native import company, company_state, router, systems_v2
+from norvale_goals_fixture import persist_to_file
 
 
 class Response(io.BytesIO):
@@ -58,18 +59,19 @@ class RecoveryTests(unittest.TestCase):
 
     def test_through_checks_reloaded_stage_before_crossing_day_boundary(self):
         engine = company.Engine.__new__(company.Engine)
-        engine.config = {"days": 2}
+        engine.config = {"days": 2, "seed": 42}
         engine.state = {"versions": company.artifact_versions(), "completed": [], "docs": {}, "day": 0}
         engine.events = lambda: iter(((0, "today", None), (1, "tomorrow", None)))
         with tempfile.TemporaryDirectory() as directory:
             engine.run = Path(directory)
-            path = engine.run / "state.json"
-            path.write_text(json.dumps(dict(engine.state, completed=["today"])))
-            saved = path.read_bytes()
+            engine.clock()
+            engine.state["completed"] = ["today"]
+            engine.persist()
+            saved = company_state.load(engine.run)
             with patch.object(engine, "run_phase") as dispatch:
                 engine.through(0)
             dispatch.assert_not_called()
-            self.assertEqual(path.read_bytes(), saved)
+            self.assertEqual(company_state.load(engine.run), saved)
 
     def ticket_server(self, kind, timing=None, altered=None):
         with tempfile.TemporaryDirectory() as tmp:
@@ -266,7 +268,7 @@ class RecoveryTests(unittest.TestCase):
                 e = company.Engine.__new__(company.Engine)
                 e.run, e.day = run, day
                 e.eps = {"mail": {"host": "offline.invalid", "smtp": 25, "imap": 143}}
-                e.state = json.loads((run / "state.json").read_text())
+                e.state = company_state.load(run)
 
                 def settle():
                     if mode == "delayed":
@@ -277,11 +279,10 @@ class RecoveryTests(unittest.TestCase):
                 e.mail("key", "CFO", "CEO", "Review", body)
 
             def status():
-                return (
-                    json.loads((run / "state.json").read_text()).get("mail_operations", {}).get("key", {}).get("status")
-                )
+                return company_state.load(run).get("mail_operations", {}).get("key", {}).get("status")
 
             with (
+                patch.object(company.Engine, "persist", persist_to_file),
                 patch("environments.norvale.agents.comms.smtplib.SMTP", SMTP),
                 patch("environments.norvale.agents.comms.imaplib.IMAP4", IMAP),
             ):
@@ -456,7 +457,7 @@ class RecoveryTests(unittest.TestCase):
                 self.assertEqual(len(tasks), 1)
                 self.assertEqual(tasks[0]["description"], "Check costs")
                 self.assertEqual(mails, [("report:90", "CFO", "CEO", "Periodic operating review", "Please check")])
-                self.assertIn("d0090:management", json.loads((run / "state.json").read_text())["completed"])
+                self.assertIn("d0090:management", company_state.load(run)["completed"])
 
     def test_observe_excludes_future_posted_records(self):
         rows = [{"name": "today", "posting_date": "2027-01-01"}, {"name": "future", "posting_date": "2027-01-02"}]

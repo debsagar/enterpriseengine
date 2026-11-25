@@ -84,6 +84,11 @@ value and rejects an existing key. Outside a handler it commits immediately.
 Inside a handler it commits with the rest of the handler's state edits.
 Serialize component objects to JSON data before storing them and update their
 saved state in the handler so restarts and forks use the correct version.
+`run.commit_component_state(component_id)` writes that one component to the
+checkpoint immediately, inside or outside a handler. Other state, queued edges
+and history still commit with the event, so a failed handler rolls those back
+while the component keeps its partial progress and the retry resumes the same
+edge. Make the handler safe to repeat from that saved state.
 
 The host's hook receives `(staging_dir, minute)` while the source engine is
 locked. It must copy every external store the run uses, including stores

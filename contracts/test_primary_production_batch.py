@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 from environments.norvale.integrations.company_run.operating import Operating
 from environments.norvale.integrations.mes.client import EVENT, MO, WO, Mes
+from environments.norvale.native import company_state
 from environments.norvale.native.company_erp import CompanyERP
 from environments.norvale.native.production_profiles import FACTORY
 from test_production_profiles import ERP, OperatingMES, company, generate
@@ -308,7 +309,7 @@ class PrimaryProduction(TestCase):
         generate.main(["--run", str(self.run)])
 
     def state(self):
-        return json.loads((self.run / "state.json").read_text())["company_erp"]
+        return company_state.load(self.run)["company_erp"]
 
     def work(self):
         return self.state()["work"]["work"]

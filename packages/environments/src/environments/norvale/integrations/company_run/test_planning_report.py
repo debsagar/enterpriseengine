@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from environments.norvale.integrations.company_run.planning_report import FIELDS, OWNER, publish, snapshot
+from environments.norvale.native import company_state
 
 
 class PlanningReportTests(unittest.TestCase):
@@ -225,7 +226,7 @@ class PlanningReportTests(unittest.TestCase):
             cutoff = datetime(2027, 1, 1, 12, tzinfo=timezone.utc)
             e = Engine.__new__(Engine)
             e.run, e.day = root, 0
-            e.config = {"days": 1, "report_every": 1}
+            e.config = {"days": 1, "report_every": 1, "seed": 42}
             phases = [key for _, key, _ in e.events()]
             e.state = dict(day=0, docs={}, completed=phases[:-1], decisions={})
             e.docs = e.state["docs"]
@@ -243,4 +244,4 @@ class PlanningReportTests(unittest.TestCase):
             key, doctype, note, _ = planner_calls[0]
             self.assertEqual((key, doctype, note["public"]), ("planning-backlog:2027-01-01", "Note", 0))
             self.assertIn('"freshness": "STALE"', note["content"])
-            self.assertEqual(json.loads((root / "state.json").read_text())["completed"], phases)
+            self.assertEqual(company_state.load(root)["completed"], phases)

@@ -9,8 +9,10 @@ from unittest.mock import Mock, patch
 
 from environments.norvale.integrations.company_run.authority import Authority
 from environments.norvale.integrations.company_run.quality import lot_specification
+from environments.norvale.native import company_state
 from environments.norvale.native.company import Engine
 from environments.norvale.native.company_erp import CompanyERP
+from norvale_goals_fixture import persist_to_file
 
 
 class BulkFlowTests(unittest.TestCase):
@@ -24,6 +26,9 @@ class BulkFlowTests(unittest.TestCase):
                 self.exercise(Path(directory), outcome)
 
     def exercise(self, run, outcome=None):
+        patcher = patch.object(Engine, "persist", persist_to_file)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         e = object.__new__(Engine)
         e.run, e.day, e.event = run, 0, "production:0"
         e.company = "Norvale"
@@ -297,7 +302,7 @@ class BulkFlowTests(unittest.TestCase):
                 else:
                     e.state.setdefault("operating_lot_rejections", {})[bulk["batch"]] = "QA-rejection"
                 flow.inspections()
-                e.state = json.loads((run / "state.json").read_text())
+                e.state = company_state.load(run)
                 e.company_erp = flow = CompanyERP(e, authority)
                 flow.verify_row = Mock()
                 day(4)
@@ -310,7 +315,7 @@ class BulkFlowTests(unittest.TestCase):
                 return
             receive("reserve-raw", "RAW", "Kg", 1)
             flow.inspections()
-            e.state = json.loads((run / "state.json").read_text())
+            e.state = company_state.load(run)
             e.company_erp = flow = CompanyERP(e, authority)
             flow.verify_row = Mock()
             day(4)
@@ -329,7 +334,7 @@ class BulkFlowTests(unittest.TestCase):
             mes.release_intermediate.side_effect = [TimeoutError("Lost transfer acknowledgement"), None]
             e.production()
             self.assertEqual(len(dispatches), 2)
-            e.state = json.loads((run / "state.json").read_text())
+            e.state = company_state.load(run)
             e.company_erp = flow = CompanyERP(e, authority)
             flow.verify_row = Mock()
             e.production()
@@ -377,7 +382,7 @@ class BulkFlowTests(unittest.TestCase):
             )
 
             before = copy.deepcopy(documents), copy.deepcopy(balances)
-            e.state = json.loads((run / "state.json").read_text())
+            e.state = company_state.load(run)
             e.company_erp = CompanyERP(e, authority)
             e.company_erp.verify_row = Mock()
             e.production()

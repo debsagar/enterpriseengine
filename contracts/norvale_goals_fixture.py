@@ -14,6 +14,7 @@ from components.qms import INSPECTION, eligible
 from environments.norvale.integrations.company_run.authority import Authority as NativeAuthority
 from environments.norvale.integrations.company_run.operating import HIGH, LOW, Operating
 from environments.norvale.integrations.company_run.quality import lot_specification
+from environments.norvale.native import offline_double
 from environments.norvale.native.company import Engine as Company
 from environments.norvale.native.company_bank import ACCOUNT, FEED_USER, TRANSACTION
 from environments.norvale.native.company_erp import CompanyERP
@@ -381,6 +382,10 @@ class Authority(NativeAuthority):
         pass
 
 
+def persist_to_file(self):
+    offline_double.persist_to_file(self)
+
+
 class CompanyFixture(Company):
     """Offline construction of the recurring controller with injected ERP roles."""
 
@@ -397,6 +402,8 @@ class CompanyFixture(Company):
         )
         self.authority = Authority(run)
         self.reload()
+
+    persist = persist_to_file
 
     def reload(self):
         path = self.run / "state.json"

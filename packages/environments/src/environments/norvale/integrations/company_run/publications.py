@@ -7,6 +7,7 @@ from pathlib import Path
 
 from environments.norvale.integrations.lake.plm_reader import scan_publications
 from environments.norvale.integrations.plm import PLM
+from environments.norvale.native import company_state
 
 
 def families(config):
@@ -25,7 +26,7 @@ def publication_source(config, reader):
 def collect(run, lake, *, reader=None, on=None):
     config = json.loads((run / "env/company-sources.json").read_text())
     if on is None:
-        state = json.loads((run / "state.json").read_text())
+        state = company_state.load(run)
         on = (date(2027, 1, 1) + timedelta(days=state["day"])).isoformat()
     source = publication_source(config, reader)
     client = PLM(**config["plm"])

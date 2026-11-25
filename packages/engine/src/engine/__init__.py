@@ -283,6 +283,41 @@ class Engine:
                 self._restore(self._load())
                 raise
 
+    def commit_component_state(self, component_id):
+        """Write one component's in-memory state to the checkpoint now.
+
+        Other run.state, queued edges and history still commit with the event, so a
+        failed handler rolls those back and a retry resumes the same edge. Inside an
+        event this keeps the component's partial progress. Outside one it commits
+        at the boundary.
+        """
+        if component_id not in self.state:
+            raise ValueError(f"No state registered for component {component_id!r}")
+        if self._active is not None:
+            self._commit_component_state(component_id)
+            return
+        with self._lock("engine-controller.lock", blocking=False), self._exclusive(), self._storage():
+            if self._load() != self._checkpoint:
+                raise RuntimeError("Checkpoint changed; reopen the engine")
+            try:
+                self._commit_component_state(component_id)
+            except BaseException:
+                self._restore(self._load())
+                raise
+
+    def _commit_component_state(self, component_id):
+        state = {**self._checkpoint["state"], component_id: self.state[component_id]}
+        checkpoint = {
+            **self._checkpoint,
+            "versions": artifact_versions(),
+            "state": state,
+            "revision": self._checkpoint["revision"] + 1,
+        }
+        data = _json(checkpoint)
+        with self._db:
+            self._db.execute("UPDATE checkpoint SET data = ? WHERE id = 1", (data,))
+        self._checkpoint = json.loads(data)
+
     def _register_component_state(self, component_id, state):
         if component_id in self.state:
             raise ValueError(f"State already exists for component {component_id!r}")

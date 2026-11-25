@@ -7,6 +7,7 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 
 from environments.norvale import generate
+from environments.norvale.integrations.company_run.timing import DEFAULT_TIMING
 from environments.norvale.integrations.lake.adapter import Lake
 from environments.norvale.integrations.lake.boundary import DISPOSITION_ENTITY, Frappe
 from environments.norvale.native.company import Engine
@@ -38,7 +39,7 @@ class ScheduledLake(TestCase):
             def controller():
                 e = Engine.__new__(Engine)
                 e.run, e.day = run, 0
-                e.config = dict(days=1, company_operating=True, company_timing={}, report_every=7)
+                e.config = dict(days=1, seed=42, company_operating=True, company_timing=DEFAULT_TIMING, report_every=7)
                 e.state = dict(day=0, docs={}, completed=[])
                 e.docs = e.state["docs"]
                 e.log, e.advance_clock, e.run_additions = Mock(), Mock(), Mock()

@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 from environments.norvale.integrations.quality_feedback.returns import receive
+from environments.norvale.native import offline_double
 from environments.norvale.native.company import Engine
 from environments.norvale.native.company_erp import CompanyERP
 
@@ -93,6 +94,7 @@ class ERP:
 def checkpoint_engine(path, api):
     e = Engine.__new__(Engine)
     e.run, e.day, e.event = path, 1, "return"
+    e.persist = lambda: offline_double.persist_to_file(e)
     e.date = lambda: "2026-01-10"
     e.company, e.wh = "Company", {"hold": "Quarantine"}
     e.admin, e.api = api, {"WAREHOUSE": api}

@@ -18,7 +18,7 @@ from environments.norvale import generate
 from environments.norvale.integrations.company_run.authority import Authority
 from environments.norvale.integrations.company_run.maintenance_staff import ACTORS
 from environments.norvale.integrations.mes.client import CENTER, EVENT, MO, WO, Mes
-from environments.norvale.native import company
+from environments.norvale.native import company, company_state
 from environments.norvale.native.company_erp import CompanyERP, Pending
 from environments.norvale.native.production_profiles import FACTORY, registered
 from environments.norvale.native.recurring_extensions import open_catalog
@@ -787,7 +787,7 @@ class ProductionProfiles(TestCase):
             for batch, item in (("bulk-lot", "BULK"), ("pack-lot", "PACK")):
                 flow.state["lots"][batch] = dict(batch=batch, item=item, qty=20, uom="Nos", kind="opening")
             engine.persist()
-            before = (run / "state.json").read_bytes()
+            before = company_state.load(run)
             registry = run / "operator.json"
             profiles = {
                 site: dict(approved_profile(site), maintenance=maintenance_scope(site)) for site in ("east", "west")
@@ -891,7 +891,7 @@ class ProductionProfiles(TestCase):
                 with self.assertRaises(SystemExit):
                     submit({**extension, "events": [event("east", "unapproved")]})
                 self.assertEqual(registered(run), {})
-                self.assertEqual((run / "state.json").read_bytes(), before)
+                self.assertEqual(company_state.load(run), before)
                 self.assertFalse((run / "revision-pins.sqlite").exists())
                 profiles["west"]["mes"]["source_id"] = "east"
                 registry.write_text(json.dumps(profiles))
@@ -907,11 +907,11 @@ class ProductionProfiles(TestCase):
                         with self.assertRaises(SystemExit):
                             submit(extension)
                         self.assertEqual(registered(run), {})
-                        self.assertEqual((run / "state.json").read_bytes(), before)
+                        self.assertEqual(company_state.load(run), before)
                 registry.write_text(json.dumps(profiles))
                 submit(extension)
                 submit(extension)
-                self.assertEqual((run / "state.json").read_bytes(), before)
+                self.assertEqual(company_state.load(run), before)
                 self.assertEqual(set(registered(run)), set(systems))
                 self.assertNotIn(b"never-persist", (run / "scheduled-additions/engine.sqlite3").read_bytes())
 
@@ -919,7 +919,7 @@ class ProductionProfiles(TestCase):
                 erp.lose_submit = True
                 with self.assertRaises(TimeoutError):
                     engine.run_additions(1440 + 720)
-                engine.state = json.loads((run / "state.json").read_text())
+                engine.state = company_state.load(run)
                 engine.docs = engine.state["docs"]
                 self.assertEqual(engine.state["ops"]["orders"], {"old": original})
                 engine.additions = None
@@ -1010,7 +1010,7 @@ class ProductionProfiles(TestCase):
             west.online = lambda: west.state != "done" or now[0].day >= 3
 
         def before_receipt(ref, lot, location, quantity):
-            state = json.loads((run / "state.json").read_text())["company_erp"]
+            state = company_state.load(run)["company_erp"]
             (intent,) = [
                 entry
                 for ledger in state["mes_input_staging"].values()
@@ -1126,12 +1126,12 @@ class ProductionProfiles(TestCase):
                 self.assertEqual(sites["east"].calls, ["start"])
                 sites["east"].online = lambda: now[0].day >= 5
                 generate.main(["--run", str(run), "--days", "5"])
-                finished = json.loads((run / "state.json").read_text())["company_erp"]["work"][east["key"]]
+                finished = company_state.load(run)["company_erp"]["work"][east["key"]]
                 self.assertEqual(finished["mes_start"], start)
             generate.main(["--run", str(run)])
 
         self.check_staging(sites)
-        state = json.loads((run / "state.json").read_text())["company_erp"]
+        state = company_state.load(run)["company_erp"]
         self.assertEqual(
             {w["equipment"]: (w["dispatch"]["id"], w["produced"]) for w in state["work"].values()},
             {"east:4": ("1", 2), "west:4": ("1", 2)},
@@ -1156,7 +1156,7 @@ class ProductionProfiles(TestCase):
             {lot["mes_lot_id"] for lot in state["lots"].values() if lot["kind"] == "finished"},
             {"east:stock.lot:3", "west:stock.lot:3"},
         )
-        self.assertNotIn(b"operator-only", (run / "state.json").read_bytes())
+        self.assertNotIn(b"operator-only", (run / "scheduled-additions/engine.sqlite3").read_bytes())
 
     def check_staging(self, sites):
         for lot in (1, 2):
@@ -1171,7 +1171,7 @@ class ProductionProfiles(TestCase):
             generate.main(["--run", str(run)])
 
         def works():
-            state = json.loads((run / "state.json").read_text())["company_erp"]
+            state = company_state.load(run)["company_erp"]
             return {w["dispatch"]["source"]: w for w in state["work"].values()}
 
         post = CompanyERP.post_completion
@@ -1399,5 +1399,8 @@ class ProductionProfiles(TestCase):
             self.assertEqual([flow.state["work"][w["key"]] for w in unchanged], unchanged)
             self.assertEqual(flow.state["work"][interrupted["key"]]["rejected_remainder"], 1)
             self.assertFalse(
-                any(value.encode() in (engine.run / "state.json").read_bytes() for value in credentials.values())
+                any(
+                    value.encode() in (engine.run / "scheduled-additions/engine.sqlite3").read_bytes()
+                    for value in credentials.values()
+                )
             )

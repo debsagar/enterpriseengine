@@ -15,6 +15,7 @@ from environments.norvale.integrations.qms.sample_reference import (
     decode_registered,
     registered_binding,
 )
+from environments.norvale.native import company_state
 
 
 def check_mes_reader(client, cfg):
@@ -269,7 +270,7 @@ def scan_cycle(config, root, run=None, *, qms_sources=None, business_day=None, u
         elif kind != "mes" or not mes_mismatch:
             attempt(kind, cfg, primary=True)
     if business_day is None:
-        business_day = json.loads((run / "state.json").read_text())["day"]
+        business_day = company_state.load(run)["day"]
     on = (date(2027, 1, 1) + timedelta(days=business_day)).isoformat()
     try:
         from .publications import collect
