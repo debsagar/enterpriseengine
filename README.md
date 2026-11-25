@@ -68,23 +68,28 @@ uv run python scripts/check_versions.py
 ## Install and use from Python
 
 ```python
-from pathlib import Path
+from time import monotonic
+
 from enterpriseengine import Engine
 
-ROLES = {"analyst": {"staff": 1, "shifts": [[540, 1020]]}}
-EVENTS = [
-    {"id": "sample-A", "kind": "inspect", "at": 525, "duration": 10, "role": "analyst", "payload": {"lot": "A", "ph": 7.2}},
-    {"id": "sample-B", "kind": "inspect", "at": 525, "duration": 10, "role": "analyst", "payload": {"lot": "B", "ph": 5.5}},
-]
 
-def handle(run, event):
-    ph = event["payload"]["ph"]
-    run.state[event["payload"]["lot"]] = [run.now, "in range" if 6.0 <= ph <= 7.0 else "out of range"]
+class QualityDesk:
+    def apply(self, run, kind, payload):
+        if kind != "inspect":
+            raise ValueError(kind)
+        result = "in range" if 5.0 <= payload["ph"] <= 6.0 else "out of range"
+        run.state.setdefault("inspections", {})[payload["lot"]] = [run.now, result]
 
-engine = Engine(Path("my_company.sqlite"), roles=ROLES, handle=handle)
-if not engine.state:
-    for event in EVENTS:
-        engine.schedule(**event)
-engine.run_until(600)
-print(engine.state)
+
+company = Engine("quality-run", QualityDesk(), seed=42, native=None, providers=None, monotonic=monotonic)
+company.extend(
+    "opening-v1",
+    roles={"analyst": {"shifts": [[540, 1020]], "staff": 1}},
+    events=[
+        {"id": "sample-A", "kind": "inspect", "at": 525, "duration": 10, "role": "analyst", "payload": {"lot": "A", "ph": 7.2}},
+        {"id": "sample-B", "kind": "inspect", "at": 525, "duration": 10, "role": "analyst", "payload": {"lot": "B", "ph": 5.5}},
+    ],
+)
+company.run_until(600)
+print(company.state["inspections"])
 ```
