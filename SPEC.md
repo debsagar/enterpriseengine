@@ -56,27 +56,8 @@ Its data must stand up to comparison with public real-world event logs.
 
 ### Process
 - **R19 [O]** Agents develop the repo under the single `debsagar` GitHub account.
-  The owner reviews only model behaviour.
-  - **Swarm** (gpt-6.2-sol) tests, validates and files issues.
-  - **Author** alone writes code and opens PRs. `size:small` uses gpt-6.2-sol
-    at medium effort. `size:large` and unlabelled issues use gpt-6.2-astra
-    at medium effort unless the issue specifies another effort.
-  - **Reviewer** uses Claude Opus 5.5 at low effort with read-only tools.
-    The review includes this specification, the decisions, the issue, the diff
-    and acceptance output. The priority order is Opus, gpt-6.2-astra medium,
-    then gpt-6.2-sol medium, subject to eligibility. Sol-authored PRs may use
-    Opus or Astra. Astra-authored PRs require Opus. Sol never reviews and
-    self-review is forbidden. After bounded retries on Claude quota, rate-limit
-    or authentication failures, use the next eligible model. If none remains,
-    apply `awaiting-review` and retry each loop.
-  - **Merger** (gpt-6.2-sol) handles one PR at a time, skips
-    `awaiting-review`, and never merges `ml-review`. Required CI and the
-    `swarm/validate` and `review/independent` statuses must succeed at the
-    current PR head. Verdict comments bind role, model, effort, run ID,
-    fallback reason when applicable, and head SHA to the status and provenance.
-  - **Issue agent** (gpt-6.2-astra) assigns each issue exactly one size label,
-    merges duplicates and maps downstream impact.
-- **R20 [O]** One repo, `debsagar/enterpriseengine`. All work goes to `dev` through PRs carrying provenance and citing at least one requirement ID.
+  The four swarm roles are off. [Current dev checks](MAINTAINING.md#checks-on-dev)
+- **R20 [O]** One repo, `debsagar/enterpriseengine`. All work goes to `dev` through PRs that cite at least one requirement ID.
 
 ## 4. Invariants
 

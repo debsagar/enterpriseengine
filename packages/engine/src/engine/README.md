@@ -1,6 +1,6 @@
 # Durable engine runtime
 
-Install the [Python library](../README.md#install-and-use-from-python) and import `Engine` from `enterpriseengine`. The root README has a complete working company you can paste into a new file. Use the [architecture guide](../docs/ENGINE-ARCHITECTURE.md) for the event flow and the [input reference](../docs/ENGINE-INPUTS.md) for the Python and JSON contracts.
+Install the [Python library](../../../../README.md#install-and-use-from-python) and import `Engine` from `enterpriseengine`. The root README has a complete working company you can paste into a new file. Use the [architecture guide](../../../../docs/ENGINE-ARCHITECTURE.md) for the event flow and the [input reference](../../../../docs/ENGINE-INPUTS.md) for the Python and JSON contracts.
 
 Resume against the same directory and native records with the original seed,
 configuration and consumer identity. Identity includes the consumer class's
@@ -238,11 +238,11 @@ object or the CLI when another thread owns the controller.
 Run from the repository root.
 
 ```sh
-python3 -m unittest discover -s tests -p test_engine_extension.py -v
-python3 -m unittest discover -s tests -p test_engine_resume_shifts.py -v
-python3 -m unittest discover -s tests -p test_engine_goals.py -k Milestone0
-python3 -m unittest discover -s tests -p test_engine_goals.py -k Milestone1
-PYTHONPATH=. python3 tests/test_engine_resume_shifts.py --benchmark 100 500 1000 2000
+uv run --no-sync --offline python -m unittest discover -s contracts -p test_engine_extension.py -v
+uv run --no-sync --offline python -m unittest discover -s packages/engine/tests -p test_engine_resume_shifts.py -v
+uv run --no-sync --offline python -m unittest discover -s contracts -p test_engine_goals.py -k Milestone0
+uv run --no-sync --offline python -m unittest discover -s contracts -p test_engine_goals.py -k Milestone1
+uv run --no-sync --offline python packages/engine/tests/test_engine_resume_shifts.py --benchmark 100 500 1000 2000
 ```
 
 The existing Milestone 1 shift case fits inside one shift after rolling to its
@@ -268,7 +268,7 @@ The offline benchmark preloads no-op events in one handler and times
 dispatch of their start and completion edges. It excludes native operations,
 provider calls and consumer-state growth. Run it with:
 ```sh
-TMPDIR=/data/your-scratch PYTHONPATH=. python3 tests/test_engine_resume_shifts.py --benchmark 1000 10000
+TMPDIR=/data/your-scratch uv run --no-sync --offline python packages/engine/tests/test_engine_resume_shifts.py --benchmark 1000 10000
 ```
 
 Software registration checks proposed instance names against an index over

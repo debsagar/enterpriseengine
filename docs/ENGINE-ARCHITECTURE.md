@@ -17,7 +17,7 @@ A business simulation needs three kinds of state. The **controller checkpoint** 
 | Append-only catalog validation | [Extension validation](../packages/engine/src/engine/_extension.py) |
 | Attempts, provider responses, readbacks, metrics and viewer | [Journal](../packages/engine/src/engine/_journal.py) |
 | Seeded external processes and role-visible notices | [World](../packages/engine/src/engine/world.py) |
-| Company-specific behavior and grading | [Consumers](../consumers) |
+| Company-specific behavior and grading | [Consumers](../packages/environments/src/environments/consumers) |
 | Native manufacturing authority and scheduled collection | [Company integrations](../packages/environments/src/environments/norvale/integrations/company_run) |
 
 ## What can be replayed?

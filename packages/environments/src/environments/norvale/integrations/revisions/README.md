@@ -6,9 +6,9 @@ The PLM fingerprint covers the locked definition and carries source identity. Ea
 
 ## Installation
 
-Apply the release-relative patch from the release root with `git apply /path/to/revisions.patch`. Overlay the PLM and MES builders' `integrations/plm` and `integrations/mes` packages first. The bridge uses `PLM.publish_to`, `PLM.pin`, `PLM.resolve_pin`, the MES client and `norvale.loader.erp_client.ErpClient`.
+The bridge ships with the workspace alongside the [PLM](../plm) and [MES](../mes) adapters. It uses `PLM.publish_to`, `PLM.pin`, `PLM.resolve_pin`, the MES client and `components.erp_client.ErpClient`.
 
-- Install `integrations/revisions/odoo_addons/norvale_revision_receiver` on Odoo 18 alongside `norvale_mes`. The addon gives imported native BOMs a database-unique import key. The Odoo account needs local manufacturing manager access for BOM creation and dispatch.
+- Install [`norvale_revision_receiver`](odoo_addons/norvale_revision_receiver) on Odoo 18 alongside `norvale_mes`. The addon gives imported native BOMs a database-unique import key. The Odoo account needs local manufacturing manager access for BOM creation and dispatch.
 - Run the one-time `provision-erp` command with a customization account on ERPNext 15. It installs a unique, non-copyable BOM custom field. The runtime ERPNext credential needs read access to Company, Item and UOM records and read, create and submit access to BOMs.
 - Use a PLM publisher credential. Run one controller per InvenTree store, as required by the PLM adapter. Set `bridge.source` to a stable unique name for the deployment and use the same checkpoint file across runs. Back up that SQLite file with the controller state. Give each work order a stable work ID qualified by its originating system if needed.
 
@@ -17,7 +17,7 @@ The products, stock units, hold location and work center must exist before publi
 See `config.example.json` for the complete mapping structure. Credentials come from `REVISIONS_PLM_TOKEN`, `REVISIONS_ERP_TOKEN` and `REVISIONS_MES_PASSWORD`. The ERP token is `api_key:api_secret`. Use `plm.basic: true` and a `login:password` credential only for isolated PLM qualification.
 
 ```sh
-python3 -m unittest -v integrations.revisions.test_bridge
+uv run --no-sync --offline python -m unittest -v environments.norvale.integrations.revisions.test_bridge
 uv run python -m environments.norvale.integrations.revisions --config config.json provision-erp
 uv run python -m environments.norvale.integrations.revisions --config config.json publish 12 --on 2027-01-04
 uv run python -m environments.norvale.integrations.revisions --config config.json release 12 erp:WO-0001 --on 2027-01-04

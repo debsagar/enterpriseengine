@@ -1,15 +1,15 @@
 # Isolated recurring acceptance run
 
-Run from a checkout containing this directory. The preparation command copies the integrated release and its adapters into a new private directory. The ERP planner reads the native BOM identified by the company authority before allocating inputs. A run uses its own Compose projects and databases. The company clock, recurring phases, document writer, ERP posting, and execution lock come from the recurring engine. The primary revision bridge uses the authenticated planner to publish and verify ERP BOMs. It resolves the current planner credential from the run on each connection, including when reopening older runs.
+Run from the root of the EnterpriseEngine checkout. The preparation command copies the integrated release and its adapters into a new private directory. The ERP planner reads the native BOM identified by the company authority before allocating inputs. A run uses its own Compose projects and databases. The company clock, recurring phases, document writer, ERP posting, and execution lock come from the recurring engine. The primary revision bridge uses the authenticated planner to publish and verify ERP BOMs. It resolves the current planner credential from the run on each connection, including when reopening older runs.
 
 ```bash
 export NORVALE_CLOCK_LIB=/absolute/path/to/libfaketime
-python3 -m pip install -r integrations/lake/requirements.txt
+python3 -m pip install -r packages/environments/src/environments/norvale/integrations/lake/requirements.txt
 demo=/data/company-accept-$(date +%s)
-bash integrations/company_run/prepare.sh "$demo"
-bash "$demo/release/integrations/company_run/provision.sh" "$demo" >"$demo/provision.log" 2>&1
+bash packages/environments/src/environments/norvale/integrations/company_run/prepare.sh "$demo"
+bash "$demo/release/packages/environments/src/environments/norvale/integrations/company_run/provision.sh" "$demo" >"$demo/provision.log" 2>&1
 cd "$demo/release"
-bash integrations/company_run/accept.sh "$demo" >"$demo/accept.log" 2>&1
+bash packages/environments/src/environments/norvale/integrations/company_run/accept.sh "$demo" >"$demo/accept.log" 2>&1
 ```
 
 Use Python with PyArrow and the pinned Delta Lake requirements. Provisioning uses locally cached images, Docker Compose, the release fake-clock library and the integrated product adapters. Keep runtime credentials and business checkpoints in the private demo directory.
@@ -24,7 +24,7 @@ On the first invocation the injector stops the generator after observing a full 
 (
   set -eu
   umask 077
-  export NORVALE_OFFLINE=1 PYTHONPATH=".:native:integrations/lake:${PYTHONPATH:-}"
+  export NORVALE_OFFLINE=1
   business="${run:?set run to the prepared runtime}/business"
   test -f "$business/config.json"
   if [[ ! -f "$business/ordinary-release-interruption.json" ]]; then
@@ -56,7 +56,6 @@ cash postings can satisfy settlement without a bank clearance claim.
 
 
 ```bash
-export PYTHONPATH=".:native:integrations/lake"
 uv run python -m unittest environments.norvale.integrations.company_run.test_company_run
 uv run python -m environments.norvale.integrations.company_run "$demo/business" --through 2
 uv run python -m environments.norvale.integrations.company_run.lake "$demo/analytics.json" "$demo/lake"
@@ -412,7 +411,7 @@ Fresh ordinary company setup provisions a dedicated QMS sample writer, the incom
 
 For an older **private ordinary run**, opt in to commissioning new references. Stop its ordinary clock and run these commands from the updated release against that run's isolated runtime.
 
-    bash integrations/qms/provision.sh sample-writer-only /absolute/runtime/qms
+    bash packages/environments/src/environments/norvale/integrations/qms/provision.sh sample-writer-only /absolute/runtime/qms
     uv run python -m environments.norvale.integrations.company_run.configure /absolute/runtime --scoped-receipts --sample-writer
 
 The first command commissions the isolated QMS site and writes private sample-writer credentials in qms/sample-writer.json. The second binds the credentials to the operating ERP and refreshes the analytics settings. Without the binding, lots that lack a previously commissioned reference stay pending. Legacy drafts retain their original owner and mapping. They contain the ERP document and batch in remarks and lack historical ERP instance and row markers. Each use rechecks the submitted ERP row and the independently read QMS draft. Changes of ERP instance, QMS instance, or commissioned identities require separate reconciliation.

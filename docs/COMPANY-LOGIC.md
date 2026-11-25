@@ -6,7 +6,7 @@
 
 Norvale is a synthetic consumer-care manufacturer. Its existing catalogue includes shampoo and body lotion (`packages/environments/src/environments/norvale/walkthrough.py`). We need believable work to create records in real applications so an extraction harness can reconstruct relationships, decisions and history. We are extending the existing engine, not building a second company simulator.
 
-The working domain is batch manufacture followed by filling and packing. Configured runs can schedule lab turnaround, pin an approved revision, and link an intermediate bulk lot to the lots used for packing. The bulk path supports one intermediate stage. Recipes, assay limits, staffing and durations are explicit simulation inputs. [Production workflow](../tests/test_company_bulk.py)
+The working domain is batch manufacture followed by filling and packing. Configured runs can schedule lab turnaround, pin an approved revision, and link an intermediate bulk lot to the lots used for packing. The bulk path supports one intermediate stage. Recipes, assay limits, staffing and durations are explicit simulation inputs. [Production workflow](../contracts/test_company_bulk.py)
 
 ### Domain evidence and its design implications
 
@@ -156,13 +156,15 @@ Retain raw observable snapshots per source, then derive typed datasets and busin
 
 ## Map onto the current code
 
+The operating methods below live in the Norvale controller. [`company.py`](../packages/environments/src/environments/norvale/native/company.py)
+
 | A–L blocks | Existing code | Proposed change |
 | --- | --- | --- |
-| A | `Engine.seed`, `recurring_setup`, `systems_v2.identities` | Seed selected applications' users, references, revisions and opening lots |
+| A | `Engine.seed`, `recurring_setup`, [`identities`](../packages/environments/src/environments/norvale/native/systems_v2.py) | Seed selected applications' users, references, revisions and opening lots |
 | B/C | `recurring_events`, `production`, `service`, `arrivals` | Preserve one clock; separate dispatch, elapsed work and completion; equipment-specific availability |
 | D/E/F/G/H | `observe`, `choose`, policy and case state | Include scoped quality/revision/work evidence; route investigations and exceptions |
 | I/J | `production`, `inspect_release`, `fulfillment`, `write`, `mapped` | Enforce lot/revision guards; call product APIs; reconcile MES facts into ERP once |
-| K/L | Readback, `persist`, logs, `systems_v2.export_native` | Preserve pending cross-system steps, source links and failures; export new systems and ingest observable data |
+| K/L | Readback, `persist`, logs, [`export_native`](../packages/environments/src/environments/norvale/native/systems_v2.py) | Preserve pending cross-system steps, source links and failures; export new systems and ingest observable data |
 
 The frozen generator uses nominal passing readings and ERP manufacturing documents. The configured recurring company sends work to Odoo, records inspections and dispositions in a separate QMS, and posts the resulting stock movements in operational ERPNext. New runs select these paths through the ordinary generator. Configured operating runs scan the lake before management and after timed work closes for the day. An independent collector can also scan the same sources. The deployment guide gives the entry points and role setup for each application. [Recurring company deployment](../packages/environments/src/environments/norvale/integrations/company_run/README.md)
 

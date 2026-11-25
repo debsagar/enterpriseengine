@@ -7,7 +7,7 @@ This integration runs a fresh ERPNext v15.124.1 site as the quality authority. T
 From the release root, with Docker Compose, Python 3, curl, OpenSSL and flock:
 
 ```bash
-qms=integrations/qms
+qms=packages/environments/src/environments/norvale/integrations/qms
 runtime=$(mktemp -d)
 uv run python -m unittest discover -s "$qms" -p test_adapter.py
 "$qms/provision.sh" up "$runtime"
@@ -20,7 +20,7 @@ python3 "$qms/prove_dispatch.py" "$runtime" "$runtime/dispatch-proof"
 "$qms/provision.sh" stop "$runtime"
 ```
 
-`up` follows the Bench install sequence in `norvale/environment/stack.py` and uses cached images only. Set `QMS_IMAGE=nv11-erp:15.124.1` on the first invocation to select the other cached image. Use a fresh runtime directory for each independent instance. Reuse a runtime directory to restart its own instance. It holds local credentials and operational files and should stay outside the release tree. The fixture command creates a new synthetic batch and a draft Stock Entry reference each time. The proof command consumes one fresh fixture and restarts its dedicated DB, Redis and QMS containers. A failed Bench install leaves diagnostics in the private `new-site.log`. A failed fixture/proof is repeatable using a new fixture in the same site.
+`up` follows the Bench install sequence in [the Norvale stack](../../environment/stack.py) and uses cached images only. Set `QMS_IMAGE=nv11-erp:15.124.1` on the first invocation to select the other cached image. Use a fresh runtime directory for each independent instance. Reuse a runtime directory to restart its own instance. It holds local credentials and operational files and should stay outside the release tree. The fixture command creates a new synthetic batch and a draft Stock Entry reference each time. The proof command consumes one fresh fixture and restarts its dedicated DB, Redis and QMS containers. A failed Bench install leaves diagnostics in the private `new-site.log`. A failed fixture/proof is repeatable using a new fixture in the same site.
 
 ## Native records and API
 
@@ -37,7 +37,7 @@ The client uses native `/api/resource/{doctype}` list/create/read/update and `/a
 - **I** call `QMS.release(batch, revision, quantity, uom)` to read eligibility. It returns the current matching submitted release or `None`. Treat request errors as an unresolved hold. A newer inspection on the same lot, even a draft, supersedes the earlier eligibility check.
 - **J / K / L** use `QMS.create`, `QMS.update` and `QMS.transition` with the appropriate actor. Persist the operation identity and confirmed native ID in the engine queue. Resume unknown outcomes with the same operation and evidence. `QMS.export()` reads the native documents and child rows through the Reader account. Run it while writers are idle when an internally consistent snapshot is required.
 
-- **I / J / K / L** use the Warehouse controller's dedicated Dispatcher credential for the native dispatch lease. Inspection writers use their existing credentials and workflows. The lease survives DB and server restarts. See the [recurring dispatch contract](../../docs/COMPANY-ERP-CONTRACT.md#warehouse-dispatch-ordering) for the native scope mapping and operator recovery.
+- **I / J / K / L** use the Warehouse controller's dedicated Dispatcher credential for the native dispatch lease. Inspection writers use their existing credentials and workflows. The lease survives DB and server restarts. See the [recurring dispatch contract](../../../../../../../docs/COMPANY-ERP-CONTRACT.md#warehouse-dispatch-ordering) for the native scope mapping and operator recovery.
 
 On an existing dedicated QMS instance, pause controller and QMS writers, reconcile old submits, then run `provision.sh lease-only <runtime>`. This installs the dispatch DocType, fields and server scripts and writes the private Dispatcher credential to `dispatcher.json`. Restart QMS and wire that credential into the recurring authority before enabling new deliveries. Fresh `configure` also includes the Dispatcher in `users.json`.
 

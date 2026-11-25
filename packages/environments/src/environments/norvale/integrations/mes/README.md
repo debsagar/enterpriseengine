@@ -76,7 +76,7 @@ the same key. Neither this adapter nor its tests write to ERP.
 ## Isolated live verification
 
 Docker Compose, Python 3, curl and OpenSSL are required. For the standard restart
-test, install the Python packages in `integrations/lake/requirements.txt`. Choose a unique
+test, install the Python packages in [`requirements.txt`](../lake/requirements.txt). Choose a unique
 project and free loopback port. The harness uses separate project-scoped
 volumes, an unpublished PostgreSQL service, caps of 1.5 GiB and 2 CPUs across
 both containers, and generated fixture passwords. It checks resource
@@ -95,11 +95,11 @@ receipt with the native warehouse readback. Repeating the scan must leave the
 Delta version unchanged.
 
 ```sh
-MES_TEST_SOURCE=nvmes-local-your-suffix MES_PORT=18680 bash integrations/mes/verify.sh
+MES_TEST_SOURCE=nvmes-local-your-suffix MES_PORT=18680 bash packages/environments/src/environments/norvale/integrations/mes/verify.sh
 ```
 
 For an engine-operated instance, set `MES_DB_PASSWORD` and `MES_PORT` yourself,
-then use the following from `integrations/mes`. Provision the isolated shop
+then use the following from `packages/environments/src/environments/norvale/integrations/mes`. Provision the isolated shop
 via the native ORM shell or administrator before opening the application.
 `fixture.py` is an executable example of the required native models and roles.
 
@@ -138,7 +138,7 @@ output and its business-minute envelope together and returns the native
 that ID. A backorder requires its own timer and completion event. Previously
 completed work cannot acquire an envelope through replay.
 
-`integrations/lake/mes_reader.py --labor` reads these rows under native source
+[`mes_reader.py --labor`](../lake/mes_reader.py) reads these rows under native source
 permissions. The recurring lake scan also archives them as
 `mrp.workcenter.productivity` snapshots keyed by source and native ID. The
 allowlisted payload includes MO, operation, work center, user and output IDs,
