@@ -48,6 +48,7 @@ class RecurringExtensions(unittest.TestCase):
         controller = company.Engine.__new__(company.Engine)
         controller.config, controller.state = config, {"completed": []}
         state = {
+            "versions": company.artifact_versions(),
             "day": 8,
             "docs": {},
             "completed": [key for _, key, _ in controller.recurring_events() if key != "d0008:native-clock"],
@@ -261,6 +262,7 @@ class RecurringExtensions(unittest.TestCase):
                 "management",
             ]
             prior = {
+                "versions": company.artifact_versions(),
                 "day": 0,
                 "completed": ["seed", "recurring-setup", *[f"d0000:{stage}" for stage in stages]],
                 "docs": {"existing": {"doctype": "Sales Order", "name": "SO-original"}},

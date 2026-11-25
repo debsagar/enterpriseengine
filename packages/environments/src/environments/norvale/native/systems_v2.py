@@ -222,6 +222,10 @@ class Tickets:
 
 def export_native(run=RUN):
     """Privileged DB snapshot, separate mail archive and API ticket export."""
+    from engine.versions import artifact_versions, load_artifact
+
+    checkpoint = Path(run) / "state.json"
+    state = load_artifact(checkpoint, "company checkpoint") if checkpoint.exists() else {}
     s = stack_for(run)
     out = Path(run) / "export"
     out.mkdir(parents=True, exist_ok=True)
@@ -284,11 +288,10 @@ def export_native(run=RUN):
         {
             "tickets": {str(i["number"]): i["html_url"] for i in issues},
             "identity_file": "identity-crosswalk.json",
-            "simulation_started": bool(json.loads((Path(run) / "state.json").read_text()).get("completed"))
-            if (Path(run) / "state.json").exists()
-            else False,
+            "simulation_started": bool(state.get("completed")),
         },
     )
     (private / "system-crosswalk.json").chmod(0o600)
+    save(out / "manifest.json", {"versions": artifact_versions()})
     for p in out.iterdir():
         p.chmod(0o700 if p.is_dir() else 0o600)

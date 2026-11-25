@@ -235,6 +235,7 @@ class PrimaryProduction(TestCase):
             dispatch=dict(id="1", source="primary", version="fingerprint"),
         )
         state = dict(
+            versions=company.artifact_versions(),
             day=0,
             completed=["seed", "recurring-setup"],
             docs=docs,

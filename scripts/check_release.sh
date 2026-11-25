@@ -98,7 +98,7 @@ done
 
 run_installed "$upgrade" 0.2.0 check_release_checkpoint seed
 "$upgrade" -I -m pip install --no-index --upgrade "$candidate_wheel"
-run_installed "$upgrade" "$candidate_version" check_release_checkpoint resume
+run_installed "$upgrade" "$candidate_version" check_release_checkpoint refuse
 
 tests=(test_engine_resume_shifts test_engine_obligations test_obligation_cases)
 cp ../source/packages/engine/tests/test_engine_obligations.py ../source/contracts/test_obligation_cases.py .

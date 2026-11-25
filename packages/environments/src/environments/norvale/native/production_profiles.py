@@ -302,9 +302,13 @@ def registered(run, item=None):
         return {}
     with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
         (data,) = db.execute("SELECT data FROM checkpoint WHERE id=1").fetchone()
+    from engine.versions import require_versions
+
+    checkpoint = json.loads(data)
+    require_versions(checkpoint, "checkpoint")
     return {
         system: spec
-        for change in json.loads(data).get("extensions", {}).values()
+        for change in checkpoint.get("extensions", {}).values()
         for system, spec in change["systems"].items()
         if spec["adapter"] == ADAPTER and (item is None or system == "production-" + item)
     }

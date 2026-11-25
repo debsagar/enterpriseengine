@@ -11,6 +11,7 @@ from pathlib import Path
 
 from . import _journal, world
 from ._extension import SECTIONS, name, validate_entries, validate_event, validate_json
+from .versions import artifact_versions, require_versions
 
 DAY = 1440
 
@@ -131,6 +132,7 @@ class Engine:
             db.execute("CREATE TABLE IF NOT EXISTS checkpoint (id INTEGER PRIMARY KEY, data TEXT)")
             db.execute("CREATE TABLE IF NOT EXISTS writes (id TEXT PRIMARY KEY, data TEXT)")
             initial = {
+                "versions": artifact_versions(),
                 "consumer": self._consumer_identity,
                 "now": start,
                 "sequence": 0,
@@ -231,7 +233,9 @@ class Engine:
             yield
 
     def _load(self):
-        return json.loads(self._db.execute("SELECT data FROM checkpoint WHERE id = 1").fetchone()[0])
+        checkpoint = json.loads(self._db.execute("SELECT data FROM checkpoint WHERE id = 1").fetchone()[0])
+        require_versions(checkpoint, "checkpoint")
+        return checkpoint
 
     def _restore(self, checkpoint):
         if "consumer" not in checkpoint:
@@ -377,6 +381,7 @@ class Engine:
     def _save(self, *, remove=None, edge=None, history=None):
         checkpoint = {
             **self._checkpoint,
+            "versions": artifact_versions(),
             "now": self.now,
             "sequence": self._sequence,
             "state": self.state,

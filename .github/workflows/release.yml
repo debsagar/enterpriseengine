@@ -1,0 +1,29 @@
+name: Release package wheel
+on:
+  push:
+    tags: ['engine-v*', 'components-v*', 'environments-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Verify tag and build its wheel
+        run: |
+          python scripts/check_versions.py
+          package="${GITHUB_REF_NAME%%-v*}"
+          version=$(python -c 'import sys,tomllib; print(tomllib.load(open(sys.argv[1],"rb"))["project"]["version"])' "packages/$package/pyproject.toml")
+          test "$GITHUB_REF_NAME" = "$package-v$version"
+          python -m pip wheel --no-deps --wheel-dir dist "packages/$package"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.whl
+          fail_on_unmatched_files: true

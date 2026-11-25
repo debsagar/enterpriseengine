@@ -18,6 +18,7 @@ from pathlib import Path
 from smtplib import SMTPRecipientsRefused, SMTPResponseException, SMTPServerDisconnected
 
 from components.erp_client import ErpClient, ErpError
+from engine.versions import artifact_versions, load_artifact
 
 from environments.norvale.environment import compose as compose_mod
 from environments.norvale.environment.stack import Stack
@@ -101,10 +102,22 @@ class Engine:
         if self.config:
             self.validate_config(self.config)
         checkpoint = self.run / "state.json"
+        self.state = (
+            load_artifact(checkpoint, "company checkpoint", allow_unstamped=True)
+            if checkpoint.exists()
+            else {
+                "versions": artifact_versions(),
+                "docs": {},
+                "completed": [],
+                "physical": {},
+                "decisions": {},
+                "day": 0,
+            }
+        )
         if checkpoint.exists():
             from environments.norvale.native.company_world import check_binding
 
-            check_binding(self.config or {}, json.loads(checkpoint.read_text()))
+            check_binding(self.config or {}, self.state)
         self.additions = None
         self.company_erp = self.make_company_erp(company_authority)
         self.run = Path(run)
@@ -112,11 +125,6 @@ class Engine:
         self.stack.project = project(self.run)
         self.eps = self.stack.endpoints()
         self.catalog = EnterpriseSimV4(seed=self.config["seed"] if self.config else 42, days=30, mode="dry-run")
-        self.state = (
-            json.loads((self.run / "state.json").read_text())
-            if (self.run / "state.json").exists()
-            else {"docs": {}, "completed": [], "physical": {}, "decisions": {}, "day": 0}
-        )
         self.docs = self.state["docs"]
         self.api = {}
         self.event = "setup"
@@ -155,14 +163,11 @@ class Engine:
 
     def make_company_erp(self, authority):
         factory = (self.config or {}).get("company_authority")
-        checkpoint = self.run / "state.json"
-        if checkpoint.exists():
-            state = json.loads(checkpoint.read_text())
-            integrated = "company_erp" in state
-            if integrated and not factory:
-                raise ValueError("Existing company lot integration requires company_authority")
-            if "seed" in state["completed"] and factory and not integrated:
-                raise ValueError("Company lot integration requires a fresh recurring run")
+        integrated = "company_erp" in self.state
+        if integrated and not factory:
+            raise ValueError("Existing company lot integration requires company_authority")
+        if "seed" in self.state["completed"] and factory and not integrated:
+            raise ValueError("Company lot integration requires a fresh recurring run")
         if not factory:
             if authority is not None:
                 raise ValueError("Enable company_authority in a fresh recurring configuration")
@@ -200,6 +205,7 @@ class Engine:
             from environments.norvale.native.company_world import binding
 
             self.state["world_binding"] = binding(self.config)
+        self.state["versions"] = artifact_versions()
         self.state["day"] = self.day
         save(self.run / "state.json", self.state)
 
@@ -2955,7 +2961,7 @@ class Engine:
         with (self.run / "execution.lock").open("w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             if (self.run / "state.json").exists():
-                self.state = json.loads((self.run / "state.json").read_text())
+                self.state = load_artifact(self.run / "state.json", "company checkpoint", allow_unstamped=True)
                 self.docs = self.state["docs"]
                 self.day = self.state["day"]
             completed = set(self.state["completed"])
@@ -3126,6 +3132,8 @@ def initialize(path, config=None, *, company_authority=None):
         config = dict(DEFAULT_CONFIG) if config is None else config
         Engine.validate_config(config)
         save(path / "config.json", config)
+    if (path / "state.json").exists():
+        load_artifact(path / "state.json", "company checkpoint", allow_unstamped=True)
     if not (path / "env/site-created").exists():
         provision(path)
     return Engine(path, company_authority=company_authority)

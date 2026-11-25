@@ -2,6 +2,7 @@ import json
 import unittest
 
 from components.registry import Registry, RegistryError
+from engine.versions import artifact_versions
 
 
 def descriptor(type_id, **declarations):
@@ -58,7 +59,10 @@ class RegistryTests(unittest.TestCase):
             },
         )
         self.manifest = dict(
-            version=1, adapters=["records@1"], instances=[instance("source", "station@1"), self.reviewer]
+            version=1,
+            versions=artifact_versions(),
+            adapters=["records@1"],
+            instances=[instance("source", "station@1"), self.reviewer],
         )
 
     def assert_manifest_error(self, path, message):
