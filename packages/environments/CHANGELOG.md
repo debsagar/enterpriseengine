@@ -4,6 +4,7 @@
 
 ### Added
 
+- Operating runs label every `company_erp_pending` error `expected` or `bug` and stop at the end of a business day with more bug-class errors than `daily_bug_limit` (config, default 5).
 - Add point-in-time lake snapshot manifests and readers for mail, calendar, Matrix messages, and master directory records.
 - The operating company's scheduled lake collector now reads mail, calendars, Matrix rooms and the staff directory, and saves a manifest per business date under `lake/manifests/`, naming any source that failed that pass. Newly commissioned runs only.
 - Run the TK-101 `process.tank` plant on the Norvale engine clock (`environments.consumers.tank`): its `PlantState` is registered with the engine so `Engine.fork()` copies it, and a low alarm becomes a `tank_boundary` event. Enable with a `tank` section in the run config.
