@@ -14,26 +14,43 @@ KINDS = ("tank_run", "tank_boundary", "tank_operator", "tank_lot")
 SCANS = 6
 
 
+class _Step:
+    """`n` scans reading `before` up to scan `at` and `after` from it on, without storing them."""
+
+    def __init__(self, n, before, at=None, after=None):
+        self.n, self.before, self.after = n, before, after
+        self.at = n if at is None else at
+
+    def __len__(self):
+        return self.n
+
+    def __getitem__(self, k):
+        if not 0 <= k < self.n:
+            raise IndexError(k)
+        return self.before if k < self.at else self.after
+
+
 def inputs(cfg, operator):
     """Rebuild the scan timeline from config and the recorded operator action."""
     n = cfg["horizon_minutes"] * SCANS
     drop = cfg["steam_drop"]["at_minute"] * SCANS
     feed = cfg["feed"]
     cut = operator["k"] if operator and operator["action"] == "pause" else n
+    zero = _Step(n, 0.0)
     return PlantInputs(
-        Ff=[feed * cfg["pause_feed_scale"] if k >= cut else feed for k in range(n)],
-        Tf=[25.0] * n,
-        Ta=[20.0] * n,
-        Ph=[cfg["steam_drop"]["pressure"] if k >= drop else 6.0 for k in range(n)],
-        spT=[78.0] * n,
-        spL=[2.0] * n,
-        mT=[1] * n,
-        mF=[2] * n,
-        mL=[1] * n,
-        nT=[0.0] * n,
-        nF=[0.0] * n,
-        nL=[0.0] * n,
-        nA=[0.0] * n,
+        Ff=_Step(n, feed, cut, feed * cfg["pause_feed_scale"]),
+        Tf=_Step(n, 25.0),
+        Ta=_Step(n, 20.0),
+        Ph=_Step(n, 6.0, drop, cfg["steam_drop"]["pressure"]),
+        spT=_Step(n, 78.0),
+        spL=_Step(n, 2.0),
+        mT=_Step(n, 1),
+        mF=_Step(n, 2),
+        mL=_Step(n, 1),
+        nT=zero,
+        nF=zero,
+        nL=zero,
+        nA=zero,
     )
 
 

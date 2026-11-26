@@ -7,6 +7,7 @@ lot's inspection, and the CompanyERP finished-supply pool that sales orders draw
 
 import copy
 import sqlite3
+import tracemalloc
 import unittest
 from contextlib import closing
 from pathlib import Path
@@ -139,6 +140,18 @@ class Tk101WhatIf(unittest.TestCase):
                 enterprise(hold),
                 {"lots": {"L1": "released", "L2": "hold"}, "supply": {"FG": 40}, "order_shortfall": {"SO-1": 60}},
             )
+
+    def test_scan_timeline_does_not_grow_with_the_horizon(self):
+        cfg = dict(CONFIG, horizon_minutes=30 * 1440)
+        tracemalloc.start()
+        timeline = tank.inputs(cfg, {"action": "pause", "k": 100})
+        peak = tracemalloc.get_traced_memory()[1]
+        tracemalloc.stop()
+        self.assertLess(peak, 100_000)  # materialized series cost megabytes on every plant advance
+        self.assertEqual((len(timeline.Ff), timeline.Ff[99], timeline.Ff[100]), (259_200, 15.0, 4.5))
+        self.assertEqual((timeline.Ph[359], timeline.Ph[360], timeline.spT[259_199]), (6.0, -0.75, 78.0))
+        with self.assertRaises(IndexError):
+            timeline.Ph[259_200]
 
     def test_norvale_catalog_registers_the_plant_on_a_shifted_clock(self):
         with TemporaryDirectory() as directory:
