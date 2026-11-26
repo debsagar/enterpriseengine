@@ -46,3 +46,20 @@ class CreateRecoveryTest(unittest.TestCase):
             self.assertEqual(qms.create(CASE, "case-1", subject="pH")["name"], "NC-1")
         self.assertEqual(search.call_count, 2)
         mutation.assert_called_once()
+
+
+class ErrorBodyTest(unittest.TestCase):
+    def test_non_object_body_still_raises_api_error(self):
+        from io import BytesIO
+        from unittest.mock import patch
+        from urllib.error import HTTPError
+
+        from components.qms import QMS, APIError
+
+        qms = QMS("http://unused", "", "")
+        for body in (b"[]", b"null", b"<html>bad gateway</html>"):
+            reply = HTTPError("http://unused", 502, "Bad Gateway", {}, BytesIO(body))
+            with self.subTest(body=body), patch.object(qms.opener, "open", side_effect=reply):
+                with self.assertRaises(APIError) as raised:
+                    qms.request("GET", "method/ping")
+                self.assertEqual((raised.exception.status, raised.exception.detail), (502, body.decode()))
