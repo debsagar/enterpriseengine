@@ -3,6 +3,7 @@
 import json
 import os
 import urllib.request
+from urllib.parse import urlsplit
 
 from environments.norvale.native import long_run
 from environments.norvale.walkthrough import ROLES
@@ -253,6 +254,9 @@ def complete(content, log, *, model=None, before=None, after=None):
         raise RuntimeError("LLM judgment requires credentials; no approval fallback")
     key, base, default = endpoint
     model = model or default
+    target = urlsplit(base)
+    if target.scheme != "https" and target.hostname not in ("localhost", "127.0.0.1", "::1"):
+        raise RuntimeError("The model endpoint must use HTTPS so the API key is not sent in clear text")
     if before:
         before()
     payload = {
@@ -263,10 +267,9 @@ def complete(content, log, *, model=None, before=None, after=None):
     }
     log("model_request", model=model, input=content)
     request = urllib.request.Request(
-        base + "/chat/completions",
-        json.dumps(payload).encode(),
-        headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+        base + "/chat/completions", json.dumps(payload).encode(), headers={"Content-Type": "application/json"}
     )
+    request.add_unredirected_header("Authorization", "Bearer " + key)  # never forwarded on a redirect
     from environments.norvale.native.router import provider_json
 
     raw = provider_json("Model", request, lambda attempt: log("model_http_attempt", attempt=attempt))

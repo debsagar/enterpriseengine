@@ -97,6 +97,24 @@ class DecisionCases(unittest.TestCase):
         usage = {"id": CASES[0]["id"], "usage": {"cost": None}}
         self.assertNotIn("cost", score_decisions.score(CASES, [usage]))
 
+    def test_api_key_needs_https_and_is_not_forwarded_on_redirect(self):
+        sent = []
+
+        def reply(name, request, on_attempt):
+            sent.append(request)
+            return {"choices": [{"finish_reason": "stop", "message": {"content": "{}"}}]}
+
+        env = {"NORVALE_OFFLINE": "0", "OPENAI_API_KEY": "stub", "OPENROUTER_API_KEY": ""}
+        with patch.object(router, "provider_json", reply):
+            with patch.dict("os.environ", {**env, "OPENAI_BASE_URL": "http://models.example/v1"}):
+                with self.assertRaisesRegex(RuntimeError, "HTTPS"):
+                    judgment.complete({}, lambda *a, **kw: None)
+            with patch.dict("os.environ", {**env, "OPENAI_BASE_URL": "https://models.example/v1"}):
+                judgment.complete({}, lambda *a, **kw: None)
+        (request,) = sent
+        self.assertEqual(request.unredirected_hdrs["Authorization"], "Bearer stub")
+        self.assertNotIn("Authorization", request.headers)
+
     def test_run_without_credentials_stops_without_scoring(self):
         with tempfile.TemporaryDirectory() as temp, patch.dict("os.environ", {"NORVALE_OFFLINE": "1"}):
             out = Path(temp) / "none.jsonl"
