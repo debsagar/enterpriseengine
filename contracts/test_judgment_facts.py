@@ -94,7 +94,7 @@ class JudgmentFacts(unittest.TestCase):
         engine.get = lambda key, role: dict(native.get(key, dict(draft, name=key)))
         engine.observe = Mock(return_value=[])
         engine.observed_usage = Mock(return_value={})
-        engine.persist, engine.log = Mock(), Mock()
+        engine.persist, engine.log, engine.mail = Mock(), Mock(), Mock()
         engine.purchase_decision = Mock(return_value=dict(action="reject", reason="no"))
 
         def reject(method, args):
