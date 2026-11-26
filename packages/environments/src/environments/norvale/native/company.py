@@ -1361,7 +1361,7 @@ class Engine:
         def comparable(d):
             return comparable_evidence(d["input"].get("evidence", {})) == current
 
-        cached = policy and any(
+        cached = (policy and not checked["flags"]) and any(
             d.get("policy") == policy and d.get("classification") is False and comparable(d) for d in history
         )
         route_evidence = {

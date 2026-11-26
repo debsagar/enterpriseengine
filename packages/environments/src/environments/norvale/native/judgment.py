@@ -127,9 +127,15 @@ def facts(role, evidence, as_of, policies=()):
             values["role_approval_limit_headroom"] = round(limit - total, 2)
             if total > limit:
                 flag("over_role_approval_limit", f"grand_total {total}, {role} limit {limit}")
-        for p in policies:
-            if seen.get("supplier") in p.get("suppliers", []) and lines and set(lines) <= set(p.get("items", [])):
-                values["policy_approval_limit_headroom"] = round(p["approval_limit"] - total, 2)
+        scoped = [
+            p["approval_limit"]
+            for p in policies
+            if seen.get("supplier") in p.get("suppliers", []) and lines and set(lines) <= set(p.get("items", []))
+        ]
+        if scoped:
+            # Same selection as Engine.choose: the last policy that covers the total, else the last in scope.
+            covering = [limit for limit in scoped if total <= limit]
+            values["policy_approval_limit_headroom"] = round((covering or scoped)[-1] - total, 2)
         if values.get("policy_approval_limit_headroom", 0) < 0:
             flag(
                 "over_policy_approval_limit",
