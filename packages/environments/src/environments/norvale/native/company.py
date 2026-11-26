@@ -23,7 +23,7 @@ from engine.versions import artifact_versions, load_artifact
 
 from environments.norvale.environment import compose as compose_mod
 from environments.norvale.environment.stack import Stack
-from environments.norvale.native import company_state, judgment, long_run
+from environments.norvale.native import behaviour, company_state, judgment, long_run
 from environments.norvale.paths import CHECKOUT
 from environments.norvale.walkthrough import ROLES, EnterpriseSimV4
 
@@ -3247,7 +3247,8 @@ class Engine:
         }
         self.log("completed", **{"result": self.result})
         if self.config and self.config.get("company_operating"):
-            long_run.heartbeat(self)
+            today = behaviour.save(self.run, self.state.get("decisions", {}), self.date())
+            long_run.heartbeat(self, behaviour=today)
 
     def run_phase(self, day, key, action):
         from environments.norvale.native.recurring_extensions import DAY, MIDNIGHT
