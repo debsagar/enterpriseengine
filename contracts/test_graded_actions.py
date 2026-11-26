@@ -1,5 +1,6 @@
 """Graded role actions are grounded, held within authority, and executed in ERP and mail (R9, R18)."""
 
+import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -101,8 +102,14 @@ class Execution(unittest.TestCase):
             engine.persist, engine.log, engine.mail, engine.write = Mock(), Mock(), Mock(), Mock()
             engine.schedule_supplier_arrival = Mock()
             engine.api = {"SCM_MGR": Mock(), "BUYER": Mock()}
-            if step == "Reject":
-                engine.api["SCM_MGR"].call.side_effect = lambda *a, po=po: po.update(workflow_state="Rejected")
+
+            def workflow_call(method, args, po=po):
+                self.assertEqual(method, "frappe.model.workflow.apply_workflow")
+                self.assertEqual(json.loads(args["doc"])["name"], "PO-1")
+                if args["action"] == "Reject":
+                    po.update(workflow_state="Rejected")
+
+            engine.api["SCM_MGR"].call.side_effect = workflow_call
             engine.approvals()
             applied = [c.args[1]["action"] for c in engine.api["SCM_MGR"].call.call_args_list]
             self.assertEqual(applied, [step] if step else [], action)
@@ -141,7 +148,10 @@ class Execution(unittest.TestCase):
         purchase = {"unreported": ["k", saved]}
         engine.finish_purchase_decision(purchase, dict(name="PO-1", workflow_state="Rejected"))
         engine.condition_task.assert_not_called()
-        self.assertEqual(engine.report_outcome.call_args.args[3]["action"], "reject")
+        note = "ERP records this outcome from another approver; the saved decision was not applied."
+        engine.report_outcome.assert_called_once_with(
+            "k", "BUYER", "PO-1", dict(action="reject", reason=note, message=note)
+        )
         self.assertNotIn("unreported", purchase)
 
     def test_failed_mail_stays_queued_and_is_retried(self):
