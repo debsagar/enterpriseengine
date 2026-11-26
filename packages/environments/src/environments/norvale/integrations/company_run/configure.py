@@ -10,6 +10,7 @@ from environments.norvale.integrations.plm import PLM
 from environments.norvale.integrations.qms.sample_reference import ENTITY as SAMPLE_ENTITY
 from environments.norvale.integrations.revisions.receivers import ERPNext, erp_receiver_marker
 from environments.norvale.native.company import Engine, save
+from environments.norvale.walkthrough import ROLES
 
 from .authority import qms_target
 
@@ -202,6 +203,24 @@ def configure(root, *, scoped_receipts=False, sample_writer=False):
             erp_source=writer["erp_source"],
             erp_instance=writer["erp_instance"],
         )
+    if (e.config or {}).get("company_operating"):
+        directory = e.run / "env/directory.json"
+        save(
+            directory,
+            [
+                dict(
+                    id=r["role_id"],
+                    full_name=r.get("person", ""),
+                    email=r["email"].replace(".example", ".test"),
+                    role=r.get("title", ""),
+                    department=r.get("department", ""),
+                    effective_at="2027-01-01",
+                )
+                for r in ROLES
+            ],
+        )
+        for kind in ("mail", "calendar", "matrix", "master"):
+            scans[kind] = dict(source=root.name + "-" + kind, env=str(e.run / "env"), directory=str(directory))
     save(settings, scans)
     binding = e.run / "env/planning-report.json"
     if (e.config or {}).get("company_operating"):

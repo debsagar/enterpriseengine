@@ -5,7 +5,12 @@ import json
 import time
 from datetime import date, timedelta
 from pathlib import Path
+from urllib.error import HTTPError
 
+from environments.norvale.integrations.lake.calendar_reader import fetch_caldav_events
+from environments.norvale.integrations.lake.mail_reader import fetch_imap_messages
+from environments.norvale.integrations.lake.master_reader import load_master_file
+from environments.norvale.integrations.lake.matrix_reader import fetch_matrix_messages, joined_matrix_rooms
 from environments.norvale.integrations.qms.sample_reference import (
     ENTITY as SAMPLE_ENTITY,
 )
@@ -59,10 +64,74 @@ def registered_mes_scan(cfg, product, company, primary):
     return reader
 
 
+def scan_people(kind, cfg, root):
+    """Read mail, calendars, chat rooms or the staff directory as each identity sees them."""
+    from environments.norvale.integrations.lake.boundary import ingest
+
+    def identities():
+        env = Path(cfg["env"])
+        endpoints = json.loads((env / "endpoints.json").read_text())
+        secrets = json.loads((env / "secrets.json").read_text())
+        for row in load_master_file(cfg["directory"]):
+            yield endpoints, row, row["id"].lower(), secrets[row["id"]]
+
+    # ponytail: every pass re-reads full mailboxes, calendars and rooms; page by date if a long run slows.
+    def mail():
+        for eps, row, _, secret in identities():
+            server = eps["mail"]
+            yield from fetch_imap_messages(server["host"], server["imap"], row["email"], secret["password"])
+
+    def calendar():
+        for eps, _, user, secret in identities():
+            try:
+                events = fetch_caldav_events(f"{eps['calendar']}/{user}/calendar/", user, secret["password"])
+            except HTTPError as exc:
+                if exc.code != 404:  # this identity has no calendar collection yet
+                    raise
+                continue
+            # Each owner holds a separate copy of a shared invitation.
+            yield from (dict(event, name=f"{user}/{event['name']}", owner=user) for event in events)
+
+    def matrix():
+        for eps, _, _, secret in identities():
+            token = secret["chat_token"]
+            for room in joined_matrix_rooms(eps["chat"], token):
+                yield from fetch_matrix_messages(eps["chat"], token, room, limit=None)
+
+    entity, fetch = {
+        "mail": ("Mail Message", mail),
+        "calendar": ("Calendar Event", calendar),
+        "matrix": ("Matrix Message", matrix),
+        "master": ("Directory Account", lambda: load_master_file(cfg["directory"])),
+    }[kind]
+    ingest(root, entity, lambda: list(fetch()), source=cfg["source"], projection=lambda _, doc: doc)
+
+
+def write_daily_manifest(root, on, failed_sources):
+    """Save what the archive holds for business date `on`: the last version of each record dated by then.
+
+    Records without a comparable date cannot be placed on a day; the manifest names their source and entity.
+    """
+    from environments.norvale.integrations.lake.adapter import Lake
+    from environments.norvale.integrations.lake.manifest import filter_rows_at, is_dated, write_manifest
+
+    index = Lake(root / "delta", {}).index()
+    undated = {f"{row['source']}/{row['entity']}" for row in index if not is_dated(row)}
+    latest = {}
+    for row in sorted(filter_rows_at(filter(is_dated, index), on), key=lambda r: r["ingested_at"]):
+        latest[row["source"], row["entity"], row["native_id"]] = row
+    rows = {}
+    for (source, entity, _), row in latest.items():
+        rows.setdefault((source, entity), []).append(row)
+    return write_manifest(root, on, rows, failed_sources=failed_sources, undated=undated)
+
+
 def scan(source, cfg, root):
     from environments.norvale.integrations.lake.boundary import DISPOSITION_ENTITY, Frappe, ingest, project
 
-    if source in ("erp", "qms"):
+    if source in ("mail", "calendar", "matrix", "master"):
+        scan_people(source, cfg, root)
+    elif source in ("erp", "qms"):
         errors = []
         entities = cfg["entities"]
         if source == "qms":
@@ -331,6 +400,10 @@ def scan_cycle(config, root, run=None, *, qms_sources=None, business_day=None, u
                 "on": on,
             },
         )
+    try:
+        write_daily_manifest(root, on, {identity for identity, _ in errors})
+    except Exception as exc:
+        errors.append(("manifest", type(exc).__name__))
     return sources, errors
 
 

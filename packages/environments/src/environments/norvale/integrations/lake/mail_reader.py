@@ -44,11 +44,13 @@ def normalize_message(raw_bytes, *, mailbox="INBOX"):
 
 def fetch_imap_messages(host, port, user, password, *, mailbox="INBOX", limit=None):
     """Fetch raw RFC822 messages from an IMAP server (read-only)."""
-    with imaplib.IMAP4(host, port) as client:
+    with imaplib.IMAP4(host, port, timeout=15) as client:
         client.login(user, password)
         client.select(mailbox, readonly=True)
         status, data = client.search(None, "ALL")
-        if status != "OK" or not data or not data[0]:
+        if status != "OK":
+            raise RuntimeError(f"IMAP SEARCH failed: {status}")
+        if not data or not data[0]:
             return []
         uids = data[0].split()
         if limit is not None:
