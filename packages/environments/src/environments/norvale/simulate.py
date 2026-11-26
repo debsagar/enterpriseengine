@@ -9,6 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .native.long_run import PreflightError, preflight
 from .paths import CHECKOUT, PACKAGE, SOURCE_LAYOUT
 
 
@@ -89,6 +90,7 @@ def main(*, checkout=CHECKOUT):
             if not (Path(os.environ.get("NORVALE_CLOCK_LIB", "")) / "libfaketime.so.1").is_file():
                 raise ValueError("Set NORVALE_CLOCK_LIB to the directory containing libfaketime.so.1")
             subprocess.run(["docker", "compose", "version"], check=True)
+            preflight(runtime)
             runtime.mkdir(mode=0o700)
         elif not (runtime / "scenario.json").is_file():
             raise ValueError("Existing directory is not a commissioned simulation")
@@ -132,7 +134,7 @@ def main(*, checkout=CHECKOUT):
         # Archives made before the entry points still carry the root launcher.
         generator = ["generate.py"] if (release / "generate.py").is_file() else ["-m", "environments.norvale.generate"]
         subprocess.run([python, *generator, "--run", str(runtime / "business")], cwd=release, check=True)
-    except (OSError, ImportError, ValueError, subprocess.CalledProcessError) as exc:
+    except (OSError, ImportError, ValueError, PreflightError, subprocess.SubprocessError) as exc:
         p.exit(1, f"{exc}\n")
 
 

@@ -8,6 +8,7 @@ import os
 import random
 import sys
 import time
+from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import parsedate_to_datetime
@@ -22,7 +23,7 @@ from engine.versions import artifact_versions, load_artifact
 
 from environments.norvale.environment import compose as compose_mod
 from environments.norvale.environment.stack import Stack
-from environments.norvale.native import company_state
+from environments.norvale.native import company_state, long_run
 from environments.norvale.paths import CHECKOUT
 from environments.norvale.walkthrough import ROLES, EnterpriseSimV4
 
@@ -492,18 +493,12 @@ class Engine:
             "evidence": evidence,
             "instruction": "Return JSON with action, reason, message. Do not assume unseen facts. Prior decisions may be mistaken: reassess using current native evidence and explicit operating policies; do not perpetuate unsupported concerns. Action may be approve, defer, reject, investigate. Approval is not implementation. You may propose standing_policy with effective_date, review_date, nonnegative numeric approval_limit and reorder_target, nonempty exact suppliers and items lists. Only SCM_MGR/CFO may authorize it. Ground all values in observed evidence; omit if insufficient.",
         }
-        keyenv = os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENROUTER_API_KEY")
-        model_base = None
-        if os.environ.get("NORVALE_OFFLINE") == "1":
-            keyenv = None
-        if keyenv:
+        endpoint = None if os.environ.get("NORVALE_OFFLINE") == "1" else long_run.model_endpoint()
+        if endpoint:
             import urllib.request
 
-            base = model_base or os.environ.get(
-                "OPENAI_BASE_URL",
-                "https://openrouter.ai/api/v1" if os.environ.get("OPENROUTER_API_KEY") else "https://api.openai.com/v1",
-            )
-            model = os.environ.get("NORVALE_MODEL", "openai/gpt-4.1-mini" if "openrouter" in base else "gpt-4.1-mini")
+            keyenv, base, model = endpoint
+            long_run.check_spend(self.state)
             payload = {
                 "model": model,
                 "messages": [{"role": "user", "content": json.dumps(prompt)}],
@@ -520,6 +515,7 @@ class Engine:
 
             raw = provider_json("Model", req, lambda attempt: self.log("model_http_attempt", attempt=attempt))
             self.log("model_response", response=raw)
+            long_run.record_spend(self, "model", raw)
             if raw["choices"][0].get("finish_reason") != "stop":
                 raise RuntimeError("Incomplete model response; raw response retained for diagnosis")
             answer = json.loads(raw["choices"][0]["message"]["content"])
@@ -1411,6 +1407,8 @@ class Engine:
                 },
             }
             route_cases = [c for c in cases if c["as_of"] >= policy["effective_date"]]
+        if not cached:
+            long_run.check_spend(self.state)
         routed = (
             {"judgment": False, "cached": True}
             if cached
@@ -1422,6 +1420,8 @@ class Engine:
             )
         )
         self.log("jev_route", role=role, evidence=evidence, policy=policy, **routed)
+        if "response" in routed:
+            long_run.record_spend(self, "jev", routed["response"])
         if routed["judgment"]:
             return self.decision(
                 key, role, {"observations": evidence, "prior_cases": cases, "effective_policies": policies}, question
@@ -2948,6 +2948,8 @@ class Engine:
             factory = c["company_authority"]
             if not isinstance(factory, str) or len(factory.split(":")) != 2 or not all(factory.split(":")):
                 raise ValueError("company_authority must be module:factory")
+        if "stall_minutes" in c and (type(c["stall_minutes"]) is not int or c["stall_minutes"] <= 0):
+            raise ValueError("stall_minutes must be a positive integer")
         if "daily_bug_limit" in c and (type(c["daily_bug_limit"]) is not int or c["daily_bug_limit"] < 0):
             raise ValueError("daily_bug_limit must be a nonnegative integer")
         if "company_operating" in c and (
@@ -3133,6 +3135,8 @@ class Engine:
             "native_documents": len(self.docs),
         }
         self.log("completed", **{"result": self.result})
+        if self.config and self.config.get("company_operating"):
+            long_run.heartbeat(self)
 
     def run_phase(self, day, key, action):
         from environments.norvale.native.recurring_extensions import DAY, MIDNIGHT
@@ -3211,6 +3215,17 @@ class Engine:
         self.clock().run(until=until, advance=True)
 
     def run_all(self):
+        if not (getattr(self, "config", None) or {}).get("company_operating"):
+            return self._run_all()
+        try:
+            with long_run.stall_guard(self.run, self.config.get("stall_minutes", long_run.STALL_MINUTES)):
+                self._run_all()
+        except BaseException as exc:
+            with suppress(OSError):  # a full disk must not hide why the run stopped
+                long_run.heartbeat(self, stopped=f"{type(exc).__name__}: {exc}"[:300])
+            raise
+
+    def _run_all(self):
         import urllib.error
 
         attempts = 0
@@ -3357,9 +3372,11 @@ def main(argv=None):
             if not (a.run / "env/company-sources.json").is_file():
                 p.error("Configure native company sources before running the operating participants")
         e = Engine(a.run)
+        if (e.config or {}).get("company_operating") and os.environ.get("NORVALE_OFFLINE") != "1":
+            long_run.preflight(a.run)
         if a.days is not None:
             e.extend(a.days, a.demand_scale)
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, long_run.PreflightError) as exc:
         p.error(str(exc))
     e.run_all()
 
