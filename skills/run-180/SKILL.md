@@ -16,7 +16,7 @@ Each issue says what to do and when it is done. Take one that is open and not `i
 1. `git fetch origin`, then `git worktree add /data/enterprise/.worktrees/<issue>-<slug> -b fix/<issue>-<slug> origin/dev`. Never work in the main checkout.
 2. Make the smallest fix. Reuse existing code. No new frameworks.
 3. Check: `ruff check`, `ruff format --check`, the offline tests named in README.md, and a test that fails without your fix.
-4. Open a PR to `dev` with `Closes #<issue>` and say what you ran. Merge when the required checks pass (`gh pr merge --squash --delete-branch`). Add a CHANGELOG Unreleased line if package source changed.
+4. Open a PR to `dev` with `Closes #<issue>` and say what you ran. Wait for CodeRabbit (comment `@coderabbitai review` if it hasn't run) and fix its valid findings. Merge when the required checks pass and no valid CodeRabbit finding is open (`gh pr merge --squash --delete-branch`). Add a CHANGELOG Unreleased line if package source changed.
 5. Comment the result on the issue: what changed, what you ran, and what is still unverified. Remove the worktree.
 
 ## Rules
