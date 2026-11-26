@@ -62,6 +62,15 @@ def _record_day(row):
     return None
 
 
+def is_dated(row):
+    """Whether the row carries a date a calendar cutoff can compare."""
+    try:
+        stamp = _parse_ts(_record_day(row))
+    except ValueError:
+        return False
+    return stamp is not None and stamp[0] == "dt"
+
+
 def filter_rows_at(rows, day):
     """Return only rows whose effective/recorded timestamp does not exceed `day`.
 
@@ -83,7 +92,7 @@ def filter_rows_at(rows, day):
     return kept
 
 
-def build_manifest(day, rows_by_source, *, delta_versions=None):
+def build_manifest(day, rows_by_source, *, delta_versions=None, failed_sources=(), undated=()):
     """Build a point-in-time manifest dict for `day` from `(source, entity) -> rows`."""
     sources = {}
     for (source, entity), rows in sorted(rows_by_source.items()):
@@ -105,12 +114,16 @@ def build_manifest(day, rows_by_source, *, delta_versions=None):
     }
     if delta_versions is not None:
         manifest["delta_versions"] = dict(delta_versions)
+    if failed_sources:
+        manifest["failed_sources"] = sorted(failed_sources)
+    if undated:
+        manifest["undated"] = sorted(undated)
     return manifest
 
 
-def write_manifest(root, day, rows_by_source, *, delta_versions=None):
+def write_manifest(root, day, rows_by_source, **options):
     """Write a point-in-time manifest JSON file under `root/manifests/`."""
-    manifest = build_manifest(day, rows_by_source, delta_versions=delta_versions)
+    manifest = build_manifest(day, rows_by_source, **options)
     out_dir = Path(root) / "manifests"
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{manifest['day_key']}.json"
