@@ -2,7 +2,7 @@
 
 import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from environments.norvale.native import judgment, router
 from environments.norvale.native.company import Engine
@@ -78,6 +78,28 @@ class JudgmentFacts(unittest.TestCase):
         ]
         self.assertEqual(engine.open_po_qty(orders, "BOT250"), 26)
         self.assertEqual(engine.open_po_qty(orders, "BOT250", excluding="open"), 2)
+
+    def test_order_rejected_in_this_pass_is_not_open_supply_for_the_next(self):
+        draft = dict(docstatus=0, supplier="PackRight", grand_total=51.48, items=[LINE])
+        native = {key: dict(draft, name=key) for key in ("first", "second")}
+        engine = Engine.__new__(Engine)
+        engine.day, engine.config, engine.wh = 2, {}, dict(rm="Raw", hold="Hold")
+        engine.state = dict(decisions={}, ops=dict(purchases={key: {"day": 1} for key in native}, changes={}))
+        engine.get = lambda key, role: dict(native.get(key, dict(draft, name=key)))
+        engine.observe = Mock(return_value=[])
+        engine.observed_usage = Mock(return_value={})
+        engine.persist, engine.log = Mock(), Mock()
+        engine.purchase_decision = Mock(return_value=dict(action="reject", reason="no"))
+
+        def reject(method, args):
+            native[json.loads(args["doc"])["name"]]["workflow_state"] = "Rejected"
+
+        engine.api = {"SCM_MGR": Mock(call=Mock(side_effect=reject))}
+        engine.approvals()
+        open_qty = [
+            c.args[2]["coverage"][0]["open_po_qty_excluding_this"] for c in engine.purchase_decision.call_args_list
+        ]
+        self.assertEqual(open_qty, [468, 0])
 
     def test_facts_policy_and_limits_reach_the_model_prompt(self):
         engine = Engine.__new__(Engine)

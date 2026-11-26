@@ -2165,7 +2165,7 @@ class Engine:
                 self.api["SCM_MGR"].call(
                     "frappe.model.workflow.apply_workflow", {"doc": json.dumps(po), "action": action}
                 )
-                updated = self.get(key, "SCM_MGR")
+                updated = purchase_docs[key] = self.get(key, "SCM_MGR")
                 self.log("workflow_readback", role="SCM_MGR", doc=updated)
                 if action == "Approve":
                     self.schedule_supplier_arrival(key, p, updated)
