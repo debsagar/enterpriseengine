@@ -157,6 +157,8 @@ class Preflight(unittest.TestCase):
         direct = {long_run.CEILING: "5", long_run.JEV_PRICE: "1", "OPENAI_API_KEY": "openai-key"}
         with self.assertRaisesRegex(PreflightError, "usage.cost"):
             self.check(env=direct)
+        with self.assertRaisesRegex(PreflightError, "usage.cost"):
+            self.check(env={**direct, "OPENAI_BASE_URL": "http://openrouter.ai/api/v1"})
         with self.assertRaisesRegex(PreflightError, "GB free"):
             self.check(free=10**9)
         with self.assertRaisesRegex(PreflightError, "address pools"):

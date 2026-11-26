@@ -102,7 +102,8 @@ def preflight(run):
     endpoint = model_endpoint()
     if endpoint is None:
         raise PreflightError("Set OPENROUTER_API_KEY")
-    if urlsplit(endpoint[1]).hostname != "openrouter.ai":
+    url = urlsplit(endpoint[1])
+    if (url.scheme, url.hostname) != ("https", "openrouter.ai"):
         raise PreflightError("The spend ceiling needs replies that report usage.cost; set OPENROUTER_API_KEY")
     for name in (CEILING, JEV_PRICE):
         if amount(name) is None:
