@@ -1303,6 +1303,27 @@ class Engine:
         self.persist()
         self.log("policy_authorized", role=role, policy=p, evidence=evidence)
 
+    def policy_outcome(self, evidence):
+        """Settle a purchase already inside a standing policy's scope: approve, defer or reject.
+
+        Only evidence that is present is checked; a policy does not itself require a quote.
+        """
+        quote = evidence.get("supplier_quote") or {}
+
+        def lines(rows):
+            return sorted((row["item_code"], row.get("qty"), row.get("rate")) for row in rows)
+
+        differs = [
+            field for field in ("supplier", "grand_total") if field in quote and quote[field] != evidence.get(field)
+        ]
+        if "items" in quote and lines(quote["items"]) != lines(evidence["items"]):
+            differs.append("items")
+        if differs:
+            return "reject", "Purchase differs from its supplier quote in " + ", ".join(differs)
+        if quote.get("valid_till") and quote["valid_till"] < self.date():
+            return "defer", "Supplier quote expired on " + quote["valid_till"]
+        return "approve", "Within authorized policy scope and review date"
+
     def choose(self, key, role, evidence, question, action="approve", model=False):
         if key in self.state["decisions"]:
             return self.state["decisions"][key]["output"]
@@ -1415,16 +1436,14 @@ class Engine:
             self.persist()
             self.log("decision", **result)
             return result["output"]
+        action, reason = self.policy_outcome(evidence)
+        verb = {"approve": "approved", "defer": "deferred", "reject": "rejected"}[action]
         result = {
             "mode": "standing-policy",
             "input": {"role": role, "as_of": self.date(), "evidence": evidence, "facts": checked},
             "policy": policy,
             "classification": False,
-            "output": {
-                "action": "approve",
-                "reason": "Within authorized policy scope and review date",
-                "message": "Purchase approved under standing policy.",
-            },
+            "output": {"action": action, "reason": reason, "message": f"Purchase {verb} under standing policy."},
         }
         self.state["decisions"][key] = result
         self.persist()
@@ -2212,7 +2231,7 @@ class Engine:
                             "current_reorder_level": self.reorder_level("SCM_MGR", c["item"]),
                             "released_qty": sum(r["actual_qty"] for r in stock),
                             "observed_daily_usage": self.observed_usage().get(c["item"], 0),
-                            "open_po_qty": self.open_po_qty(purchase_docs.values(), c["item"]),
+                            "tracked_open_po_qty": self.open_po_qty(purchase_docs.values(), c["item"]),
                             "has_supplier": c["item"] in self.catalog.source_list,
                         },
                     },
@@ -2949,6 +2968,8 @@ class Engine:
             factory = c["company_authority"]
             if not isinstance(factory, str) or len(factory.split(":")) != 2 or not all(factory.split(":")):
                 raise ValueError("company_authority must be module:factory")
+        if "daily_bug_limit" in c and (type(c["daily_bug_limit"]) is not int or c["daily_bug_limit"] < 0):
+            raise ValueError("daily_bug_limit must be a nonnegative integer")
         if "company_operating" in c and (
             c["company_operating"] is not True
             or "company_timing" not in c
@@ -3165,6 +3186,9 @@ class Engine:
                 from environments.norvale.integrations.company_run.lake import scheduled_scan
 
                 scheduled_scan(self, (day + 1) * DAY - 1)
+                if lot_flow := getattr(self, "company_erp", None):
+                    limit = {"limit": self.config["daily_bug_limit"]} if "daily_bug_limit" in self.config else {}
+                    lot_flow.check_error_budget(day, **limit)
 
     def scheduled_company_event(self, clock, payload):
         if not self.config.get("company_operating"):

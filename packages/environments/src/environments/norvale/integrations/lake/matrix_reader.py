@@ -24,6 +24,16 @@ def normalize_event(event):
     }
 
 
+def joined_matrix_rooms(base_url, access_token, *, timeout=15):
+    """Room IDs this identity has joined."""
+    req = urllib.request.Request(
+        f"{base_url.rstrip('/')}/_matrix/client/v3/joined_rooms",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))["joined_rooms"]
+
+
 def fetch_matrix_messages(base_url, access_token, room_id, *, limit=100, timeout=15, since=None):
     """Fetch room messages from Synapse client-server API (read-only, paginated)."""
     encoded_room = urllib.parse.quote(room_id, safe="")
