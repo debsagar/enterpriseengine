@@ -4,9 +4,10 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from environments.norvale.integrations.lake.calendar_reader import parse_vevents, scan_calendar
-from environments.norvale.integrations.lake.mail_reader import normalize_message, scan_mail
+from environments.norvale.integrations.lake.mail_reader import fetch_imap_messages, normalize_message, scan_mail
 from environments.norvale.integrations.lake.manifest import (
     build_manifest,
     filter_rows_at,
@@ -96,6 +97,15 @@ class TestReaders(unittest.TestCase):
         sink = _FakeSink()
         self.assertEqual(scan_mail([raw], sink=sink), 1)
         self.assertEqual(sink.calls[0][0], "mail")
+
+    def test_mail_fetch_reports_a_refused_search(self):
+        with patch("imaplib.IMAP4") as imap:
+            client = imap.return_value.__enter__.return_value
+            client.search.return_value = ("NO", [b""])
+            with self.assertRaisesRegex(RuntimeError, "SEARCH"):
+                fetch_imap_messages("mail", 143, "user", "password")
+            client.search.return_value = ("OK", [b""])
+            self.assertEqual(fetch_imap_messages("mail", 143, "user", "password"), [])
 
     def test_calendar_reader_folded_and_recurrence(self):
         ics = (
