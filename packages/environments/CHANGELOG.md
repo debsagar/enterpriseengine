@@ -19,6 +19,7 @@
 
 ### Fixed
 
+- TK-101 no longer rebuilds its full-horizon scan input lists on every plant advance, so the time per simulated day no longer grows with the configured horizon.
 - Register a PLM product family for every seeded SKU during Norvale operating setup, so day-0 inspections no longer fail with "No registered PLM family".
 
 ## [0.1.0] - 2026-11-24
