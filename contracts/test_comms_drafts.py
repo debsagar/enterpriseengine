@@ -69,6 +69,29 @@ class Drafts(unittest.TestCase):
             self.assertEqual(self.compose(engine, replies(bad)), TEMPLATE, bad)
             self.assertIn("comms_draft_rejected", [c.args[0] for c in engine.log.call_args_list])
 
+    def test_signs_slash_dates_and_grouped_numbers_are_compared_whole(self):
+        for one, other in [("48 Kg", "-48 Kg"), ("due 01/06/2027", "due 06/01/2027"), ("1,200 units", "200,1 units")]:
+            self.assertNotEqual(judgment.names(one), judgment.names(other), one)
+        self.assertEqual(judgment.names("Days [0, 1]. Due 2027-01-06."), {"0", "1", "2027-01-06"})
+
+    def test_message_queued_before_drafting_is_sent_verbatim(self):
+        engine, provider = company(), replies(GOOD)
+        engine.state["outbox"] = {"old": ["SCM_MGR", "BUYER", "Decision", "PUR-ORD-2027-00001: reject."]}
+        with patch.dict("os.environ", ONLINE), patch.object(router, "provider_json", provider):
+            engine.send_outbox()
+        self.assertEqual(engine.mail.call_args.args[4], "PUR-ORD-2027-00001: reject.")
+        self.assertEqual((provider.sent, engine.state["outbox"]), ([], {}))
+
+    def test_shortage_style_message_without_headline_stays_queued_until_sent(self):
+        engine = company()
+        engine.mail.side_effect = [TimeoutError("pending"), None]
+        with patch.dict("os.environ", {**ONLINE, "NORVALE_COMMS_MODEL": ""}):
+            with self.assertRaises(TimeoutError):
+                engine.notify("change:SLES", "BUYER", "SCM_MGR", "Shortage", "", TEMPLATE)
+            engine.send_outbox()
+        self.assertEqual(engine.mail.call_args.args[4], TEMPLATE)
+        self.assertEqual(engine.state["outbox"], {})
+
     def test_spend_ceiling_is_not_swallowed(self):
         engine = company()
         engine.state["spend"] = {"usd": 1.0, "calls": 1, "unpriced_calls": 0}

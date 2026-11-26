@@ -2079,9 +2079,11 @@ class Engine:
         self.send_outbox()
 
     def send_outbox(self):
-        for key, (sender, recipient, subject, headline, detail) in list(self.state.get("outbox", {}).items()):
-            body = self.compose(key, sender, recipient, subject, detail)
-            self.mail(key, sender, recipient, subject, f"{headline} {body}")
+        for key, (sender, recipient, subject, *text) in list(self.state.get("outbox", {}).items()):
+            if len(text) == 2:  # headline and draftable detail; a single body was queued earlier, send it as is
+                detail = self.compose(key, sender, recipient, subject, text[1])
+                text = [" ".join(filter(None, [text[0], detail]))]
+            self.mail(key, sender, recipient, subject, text[0])
             del self.state["outbox"][key]
             self.persist()
 
@@ -2608,9 +2610,9 @@ class Engine:
                     "BUYER",
                 )
                 ops["changes"][change] = {"item": item, "level": level, "requested_day": self.day}
+                # Queued with the change itself, so a failed draft or send is retried.
                 subject = "Repeated shortage: master data request"
-                body = self.compose(change, "BUYER", "SCM_MGR", subject, self.get(change)["description"])
-                self.mail(change, "BUYER", "SCM_MGR", subject, body)
+                self.notify(change, "BUYER", "SCM_MGR", subject, "", self.get(change)["description"])
             self.persist()
         if lot_flow:
             lot_flow.production(plan)
@@ -2981,7 +2983,13 @@ class Engine:
                 "CFO",
             )
         subject = "Periodic operating review"
-        self.mail(key, "CFO", "CEO", subject, self.compose(key, "CFO", "CEO", subject, result["message"]))
+        body = self.compose(key, "CFO", "CEO", subject, result["message"])
+        if body != result["message"]:  # a drafted explanation never carries the decision alone
+            headline = "Review outcome: " + result["action"].replace("_", " ") + "."
+            if result["action"] == "approve_with_condition":
+                headline += f" Condition: {result['condition']}."
+            body = headline + " " + body
+        self.mail(key, "CFO", "CEO", subject, body)
         # The stage persists the checkpoint and completion together.
         self.state["management_quarter"] = quarter
 

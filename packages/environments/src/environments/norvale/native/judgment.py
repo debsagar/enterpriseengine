@@ -289,8 +289,8 @@ DRAFTING = (
 
 def names(text):
     """Record names, item codes, dates and figures: the tokens a rewording must neither drop nor invent."""
-    found = re.findall(r"[\w.-]*\d[\w.-]*|\b[A-Z]{2,}(?:-[A-Z0-9]+)*\b", text)
-    return {token.strip(".-") for token in found}
+    found = re.findall(r"[+-]?[\w./-]*\d(?:[\w./-]|,(?=\d))*|\b[A-Z]{2,}(?:-[A-Z0-9]+)*\b", text)
+    return {token.rstrip("./-").lstrip("./") for token in found}
 
 
 def check_draft(subject, template, body):
