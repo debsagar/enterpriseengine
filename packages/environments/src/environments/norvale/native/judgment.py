@@ -135,12 +135,13 @@ def facts(role, evidence, as_of, policies=()):
         if scoped:
             # Same selection as Engine.choose: the last policy that covers the total, else the last in scope.
             covering = [limit for limit in scoped if total <= limit]
-            values["policy_approval_limit_headroom"] = round((covering or scoped)[-1] - total, 2)
-        if values.get("policy_approval_limit_headroom", 0) < 0:
-            flag(
-                "over_policy_approval_limit",
-                f"grand_total {total} exceeds the standing policy limit by {-values['policy_approval_limit_headroom']}",
-            )
+            policy_limit = (covering or scoped)[-1]
+            values["policy_approval_limit_headroom"] = round(policy_limit - total, 2)
+            if total > policy_limit:
+                flag(
+                    "over_policy_approval_limit",
+                    f"grand_total {total} exceeds the standing policy limit {policy_limit}",
+                )
     return {**values, "flags": flags}
 
 

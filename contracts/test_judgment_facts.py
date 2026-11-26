@@ -64,6 +64,7 @@ class JudgmentFacts(unittest.TestCase):
         policy = dict(suppliers=["PackRight"], items=["BOT250"], approval_limit=50)
         self.assertEqual(flags(ORDER, policies=[policy]), ["over_policy_approval_limit"])
         self.assertEqual(flags(ORDER, policies=[dict(policy, approval_limit=100), policy]), [])
+        self.assertEqual(flags(ORDER, policies=[dict(policy, approval_limit=51.479)]), ["over_policy_approval_limit"])
         self.assertEqual(flags({"native_balances": {"Cash": 5, "Stock": -4}}, "CFO"), ["ledger_not_balanced"])
 
     def test_open_po_coverage_uses_stock_units_and_only_available_orders(self):
