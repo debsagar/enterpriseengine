@@ -428,6 +428,7 @@ class RestartTests(unittest.TestCase):
             return task.setdefault(key, dict(fields, name="task-1"))
 
         e.write = create
+        e.compose = lambda *args: args[-1]
         e.api = {"PLANNER": Mock(), "SALES": Mock()}
         e.api["PLANNER"].get.return_value = self.native[op["key"]]
         e.api["SALES"].get.side_effect = lambda *args: next(iter(task.values()))
