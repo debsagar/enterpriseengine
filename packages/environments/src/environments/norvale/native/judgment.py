@@ -1,5 +1,10 @@
-"""What a role's decision prompt says: observed evidence, code-checked facts, policy and limits."""
+"""What a role's decision prompt says, how a model is asked, and which answers may execute."""
 
+import json
+import os
+import urllib.request
+
+from environments.norvale.native import long_run
 from environments.norvale.walkthrough import ROLES
 
 ACTIONS = ("approve", "approve_with_condition", "request_info", "reject")
@@ -234,3 +239,38 @@ def prompt(role, as_of, evidence, question, policies=()):
         "policy": {"effective_policies": list(policies)},
         "instruction": INSTRUCTION,
     }
+
+
+def complete(content, log, *, model=None, before=None, after=None):
+    """One JSON completion with no tools. Raises without credentials; nothing is approved by default.
+
+    before runs just ahead of the paid request (spend ceiling) and after receives the raw reply (spend record).
+    """
+    endpoint = None if os.environ.get("NORVALE_OFFLINE") == "1" else long_run.model_endpoint()
+    if not endpoint:
+        raise RuntimeError("LLM judgment requires credentials; no approval fallback")
+    key, base, default = endpoint
+    model = model or default
+    if before:
+        before()
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": json.dumps(content)}],
+        "response_format": {"type": "json_object"},
+        "max_tokens": 1600,
+    }
+    log("model_request", model=model, input=content)
+    request = urllib.request.Request(
+        base + "/chat/completions",
+        json.dumps(payload).encode(),
+        headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+    )
+    from environments.norvale.native.router import provider_json
+
+    raw = provider_json("Model", request, lambda attempt: log("model_http_attempt", attempt=attempt))
+    log("model_response", response=raw)
+    if after:
+        after(raw)
+    if raw["choices"][0].get("finish_reason") != "stop":
+        raise RuntimeError("Incomplete model response; raw response retained for diagnosis")
+    return json.loads(raw["choices"][0]["message"]["content"])

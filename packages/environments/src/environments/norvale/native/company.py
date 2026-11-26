@@ -487,35 +487,13 @@ class Engine:
         if key in self.state["decisions"]:
             return self.state["decisions"][key]
         prompt = judgment.prompt(role, self.date(), evidence, question, self.effective_policies(role))
-        endpoint = None if os.environ.get("NORVALE_OFFLINE") == "1" else long_run.model_endpoint()
-        if endpoint:
-            import urllib.request
-
-            keyenv, base, model = endpoint
-            long_run.check_spend(self.state)
-            payload = {
-                "model": model,
-                "messages": [{"role": "user", "content": json.dumps(prompt)}],
-                "response_format": {"type": "json_object"},
-                "max_tokens": 1600,
-            }
-            self.log("model_request", model=model, input=prompt)
-            req = urllib.request.Request(
-                base + "/chat/completions",
-                json.dumps(payload).encode(),
-                headers={"Authorization": "Bearer " + keyenv, "Content-Type": "application/json"},
-            )
-            from environments.norvale.native.router import provider_json
-
-            raw = provider_json("Model", req, lambda attempt: self.log("model_http_attempt", attempt=attempt))
-            self.log("model_response", response=raw)
-            long_run.record_spend(self, "model", raw)
-            if raw["choices"][0].get("finish_reason") != "stop":
-                raise RuntimeError("Incomplete model response; raw response retained for diagnosis")
-            answer = json.loads(raw["choices"][0]["message"]["content"])
-            mode = "model"
-        else:
-            raise RuntimeError("LLM judgment requires credentials; no approval fallback")
+        answer = judgment.complete(
+            prompt,
+            self.log,
+            before=lambda: long_run.check_spend(self.state),
+            after=lambda raw: long_run.record_spend(self, "model", raw),
+        )
+        mode = "model"
         answer = judgment.graded(prompt, answer)
         if "held_from" in answer:
             self.log("approval_held", role=role, proposed=answer["held_from"], reason=answer["reason"])
