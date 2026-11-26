@@ -21,6 +21,26 @@ class Pending(ValueError):
     """The dependent operation must wait for authoritative evidence or reconciliation."""
 
 
+# Pending kinds (the operation name before ":") where a deliberate Pending is ordinary waiting on business
+# evidence. Every other kind, every transport or application error, and every wrapped exception is a bug.
+EXPECTED_WAITS = frozenset(
+    """allocate-lot bank-feed delivery-reconciliation dispatch equipment interrupted invoice maintenance
+    mes-batch mes-completion mes-dispatch mes-finish mes-operator mes-poll mes-reconcile mes-start
+    operating-result operating-review operating-rework operating-sample plan-lot quality-deadline
+    quality-reconciliation receipt rework rework-reconciliation sales-impact settle supplier-invoice sync""".split()
+)
+DAILY_BUG_LIMIT = 5
+
+
+class ErrorBudgetExceeded(RuntimeError):
+    """A business day logged more bug-class pending errors than the run allows."""
+
+
+def pending_class(kind, exc):
+    deliberate = isinstance(exc, Pending) and exc.__cause__ is None and exc.__context__ is None
+    return "expected" if deliberate and kind in EXPECTED_WAITS else "bug"
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, allow_nan=False).encode()).hexdigest()
 
@@ -82,12 +102,26 @@ class CompanyERP:
                 "last_error": str(exc),
                 "next_day": self.e.day + 1,
             }
+            kind = key.split(":", 1)[0]
+            label = pending_class(kind, exc)
+            if label == "bug":
+                bugs = self.state.setdefault("bug_errors", {}).setdefault(str(self.e.day), {})
+                bugs[kind] = bugs.get(kind, 0) + 1
             self.e.persist()
-            self.e.log("company_erp_pending", operation=key, role=role, error=str(exc))
+            self.e.log("company_erp_pending", operation=key, role=role, error=str(exc), error_class=label)
             return None
         if self.state.setdefault("pending", {}).pop(key, None):
             self.e.persist()
         return result
+
+    def check_error_budget(self, day, limit=DAILY_BUG_LIMIT):
+        """Post-day check: stop the run when the day's bug-class errors exceed the limit."""
+        kinds = self.state.get("bug_errors", {}).get(str(day), {})
+        total = sum(kinds.values())
+        self.e.log("error_budget", business_day=day, bug_errors=total, limit=limit, kinds=kinds)
+        if total > limit:
+            worst = ", ".join(f"{kind} x{count}" for kind, count in sorted(kinds.items(), key=lambda row: -row[1]))
+            raise ErrorBudgetExceeded(f"Day {day}: {total} bug-class errors exceed the limit of {limit} ({worst})")
 
     @staticmethod
     def match_supplier_bill(order, receipt, invoice):
