@@ -114,12 +114,14 @@ class Watching(unittest.TestCase):
                 "input": {"role": "SCM_MGR", "as_of": "2027-01-03", "facts": {"flags": []}},
                 "output": {"action": "approve"},
             }
+            engine.state["completed"] += ["seed", "d0000:service"]
             engine.run_stage("d0002:service")
             beat = json.loads((Path(tmp) / "heartbeat.json").read_text())
             self.assertEqual((beat["business_day"], beat["stage"]), (2, "d0002:service"))
             self.assertEqual(beat["behaviour"]["case_types"]["purchase"]["approval_rate"], 1.0)
             saved = json.loads((Path(tmp) / "behaviour.json").read_text())
             self.assertEqual(saved["2027-01-03"], beat["behaviour"])
+            self.assertEqual((list(saved), saved["2027-01-01"]["decisions"]), (["2027-01-01", "2027-01-03"], 0))
             self.assertEqual(beat["spend"]["usd"], 0)
             with patch.object(engine, "step", side_effect=SpendCeilingExceeded("reached")):
                 with self.assertRaises(SpendCeilingExceeded):

@@ -56,9 +56,14 @@ def daily(decisions):
     return days
 
 
-def save(run, decisions, date):
-    """Rewrite <run>/behaviour.json with every business day and return the numbers for date."""
+def save(run, decisions, date, worked=()):
+    """Rewrite <run>/behaviour.json and return the numbers for date.
+
+    worked lists the business dates with a completed stage, so a day without decisions still has an entry.
+    """
     days = daily(decisions)
+    for day in worked:
+        days.setdefault(day, empty())
     path = run / "behaviour.json"
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(dict(sorted(days.items())), indent=2) + "\n")

@@ -6,6 +6,7 @@ import json
 import math
 import os
 import random
+import re
 import sys
 import time
 from contextlib import suppress
@@ -3247,7 +3248,9 @@ class Engine:
         }
         self.log("completed", **{"result": self.result})
         if self.config and self.config.get("company_operating"):
-            today = behaviour.save(self.run, self.state.get("decisions", {}), self.date())
+            stages = (re.match(r"d(\d+):", done) for done in self.state["completed"])
+            worked = sorted({self.dated(int(stage[1])) for stage in stages if stage})
+            today = behaviour.save(self.run, self.state.get("decisions", {}), self.date(), worked)
             long_run.heartbeat(self, behaviour=today)
 
     def run_phase(self, day, key, action):
