@@ -109,9 +109,17 @@ class Watching(unittest.TestCase):
             engine.docs = {}
             engine.events = lambda: iter([(2, "d0002:service", lambda: None)])
             engine.run_phase = lambda day, key, action: None
+            engine.state["decisions"]["po-review:a:2"] = {
+                "mode": "model",
+                "input": {"role": "SCM_MGR", "as_of": "2027-01-03", "facts": {"flags": []}},
+                "output": {"action": "approve"},
+            }
             engine.run_stage("d0002:service")
             beat = json.loads((Path(tmp) / "heartbeat.json").read_text())
             self.assertEqual((beat["business_day"], beat["stage"]), (2, "d0002:service"))
+            self.assertEqual(beat["behaviour"]["case_types"]["purchase"]["approval_rate"], 1.0)
+            saved = json.loads((Path(tmp) / "behaviour.json").read_text())
+            self.assertEqual(saved["2027-01-03"], beat["behaviour"])
             self.assertEqual(beat["spend"]["usd"], 0)
             with patch.object(engine, "step", side_effect=SpendCeilingExceeded("reached")):
                 with self.assertRaises(SpendCeilingExceeded):
