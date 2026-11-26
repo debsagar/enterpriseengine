@@ -70,6 +70,17 @@ class Spending(unittest.TestCase):
         self.assertEqual(engine.state["decisions"], {})
         self.assertEqual(engine.state["spend"]["unpriced_calls"], 1)
 
+    def test_an_unpriced_call_blocks_after_restart_until_reconciled(self):
+        sent, engine = [], judge()
+        engine.state["spend"] = dict(usd=0.0, calls=1, unpriced_calls=1)  # as saved by the stopped process
+        with environment(**LIMITS), provider(sent, {"cost": 0.1}):
+            with self.assertRaisesRegex(SpendCeilingExceeded, long_run.RECONCILED):
+                engine.decision("po", "SCM_MGR", {}, "Approve?")
+            self.assertEqual(sent, [])
+            os.environ[long_run.RECONCILED] = "1"
+            engine.decision("po", "SCM_MGR", {}, "Approve?")
+        self.assertEqual(len(sent), 1)
+
     def test_router_tokens_are_priced_and_the_ceiling_stops_routing(self):
         engine = judge()
         routed = dict(judgment=False, response=dict(usage=dict(input_tokens=900_000, output_tokens=100_000)))
@@ -143,6 +154,9 @@ class Preflight(unittest.TestCase):
         for name in LIMITS:
             with self.subTest(name), self.assertRaisesRegex(PreflightError, "Set "):
                 self.check(env={k: v for k, v in LIMITS.items() if k != name})
+        direct = {long_run.CEILING: "5", long_run.JEV_PRICE: "1", "OPENAI_API_KEY": "openai-key"}
+        with self.assertRaisesRegex(PreflightError, "usage.cost"):
+            self.check(env=direct)
         with self.assertRaisesRegex(PreflightError, "GB free"):
             self.check(free=10**9)
         with self.assertRaisesRegex(PreflightError, "address pools"):

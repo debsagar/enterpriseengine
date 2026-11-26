@@ -4,7 +4,7 @@
 
 ### Added
 
-- Long-run safety for operating runs: `<run>/heartbeat.json` after every stage and on a stop; a stall guard (`stall_minutes`, default 30); a spend total in the checkpoint with an owner ceiling (`NORVALE_SPEND_CEILING_USD`, JEV priced by `NORVALE_JEV_USD_PER_MTOK`); and a preflight (both limits, 20 GB free, a creatable Docker network) before a live operating run starts.
+- Long-run safety for operating runs: `<run>/heartbeat.json` after every stage and on a stop; a stall guard (`stall_minutes`, default 30); a spend total in the checkpoint with an owner ceiling (`NORVALE_SPEND_CEILING_USD`, JEV priced by `NORVALE_JEV_USD_PER_MTOK`); and a preflight (an OpenRouter endpoint, both limits, 20 GB free, a creatable Docker network) before a live operating run starts. An unpriced call blocks further paid calls under a ceiling until `NORVALE_UNPRICED_CALLS_RECONCILED` covers it.
 - Operating runs label every `company_erp_pending` error `expected` or `bug` and stop at the end of a business day with more bug-class errors than `daily_bug_limit` (config, default 5).
 - Add point-in-time lake snapshot manifests and readers for mail, calendar, Matrix messages, and master directory records.
 - The operating company's scheduled lake collector now reads mail, calendars, Matrix rooms and the staff directory, and saves a manifest per business date under `lake/manifests/`, naming any source that failed that pass. Newly commissioned runs only.

@@ -2,6 +2,8 @@
 
 The owner sets the limits in the environment on every invocation:
 NORVALE_SPEND_CEILING_USD (total for the run) and NORVALE_JEV_USD_PER_MTOK (JEV reports tokens, not cost).
+A call with no known cost blocks further paid calls until the owner, having allowed for it in the ceiling,
+sets NORVALE_UNPRICED_CALLS_RECONCILED to the run's number of such calls.
 """
 
 import json
@@ -14,9 +16,11 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 CEILING = "NORVALE_SPEND_CEILING_USD"
 JEV_PRICE = "NORVALE_JEV_USD_PER_MTOK"
+RECONCILED = "NORVALE_UNPRICED_CALLS_RECONCILED"
 # ponytail: one fixed floor; derive it from measured bytes per day once a long run has been measured.
 MIN_FREE_BYTES = 20 * 10**9
 STALL_MINUTES = 30
@@ -64,8 +68,15 @@ def spend(state):
 def check_spend(state):
     """Call before each paid request. One request can overshoot the ceiling by its own cost."""
     ceiling = amount(CEILING)
-    if ceiling is not None and spend(state)["usd"] >= ceiling:
-        raise SpendCeilingExceeded(f"Spend ${spend(state)['usd']:.4f} has reached the ${ceiling:.4f} ceiling")
+    if ceiling is None:
+        return
+    total = spend(state)
+    if total["usd"] >= ceiling:
+        raise SpendCeilingExceeded(f"Spend ${total['usd']:.4f} has reached the ${ceiling:.4f} ceiling")
+    if total["unpriced_calls"] > (amount(RECONCILED) or 0):
+        raise SpendCeilingExceeded(
+            f"{total['unpriced_calls']} paid calls have no known cost; allow for them in the ceiling, then set {RECONCILED}"
+        )
 
 
 def record_spend(engine, provider, response):
@@ -88,8 +99,11 @@ def record_spend(engine, provider, response):
 
 def preflight(run):
     """Refuse to start without owner limits, disk space or a free Docker network."""
-    if model_endpoint() is None:
-        raise PreflightError("Set OPENROUTER_API_KEY or OPENAI_API_KEY")
+    endpoint = model_endpoint()
+    if endpoint is None:
+        raise PreflightError("Set OPENROUTER_API_KEY")
+    if urlsplit(endpoint[1]).hostname != "openrouter.ai":
+        raise PreflightError("The spend ceiling needs replies that report usage.cost; set OPENROUTER_API_KEY")
     for name in (CEILING, JEV_PRICE):
         if amount(name) is None:
             raise PreflightError(f"Set {name}; the owner sets it for every long run")
