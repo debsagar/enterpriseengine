@@ -82,8 +82,8 @@ def graded(sent, answer):
     answer["cites"] = [
         c for c in cites if str(c).strip(".[] ") and any(resolves(root, c) for root in (sent, evidence, inner))
     ]
-    answer.setdefault("reason", "")
-    answer.setdefault("message", answer["reason"])
+    answer["reason"] = str(answer.get("reason") or "")
+    answer["message"] = str(answer.get("message") or answer["reason"] or "No detail given.")
     if answer["action"] not in APPROVALS:
         return answer
     if any(f["flag"] == "over_role_approval_limit" for f in sent["facts"]["flags"]):

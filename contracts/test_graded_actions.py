@@ -35,6 +35,11 @@ class Grading(unittest.TestCase):
         with self.assertRaises(ValueError):
             judgment.graded(sent(), answer("defer"))
 
+    def test_null_text_fields_cannot_block_execution(self):
+        reply = judgment.graded(sent(), dict(action="request_info", reason="Confirm date", message=None))
+        self.assertEqual(reply["message"], "Confirm date")
+        self.assertEqual(judgment.graded(sent(), dict(action="reject", reason=None))["message"], "No detail given.")
+
     def test_cites_resolve_by_flag_item_and_index(self):
         node = {"facts": {"flags": [{"flag": "quote_expired"}]}, "stock": [{"item_code": "SLES", "qty": 1}]}
         for path in ("facts.flags.quote_expired", "stock.SLES.qty", "stock[0].qty"):
@@ -104,6 +109,28 @@ class Execution(unittest.TestCase):
             self.assertEqual(written, expected.get(action, []), action)
             self.assertEqual(engine.schedule_supplier_arrival.called, step == "Approve", action)
             self.assertIn("PO-1: " + action.replace("_", " "), engine.mail.call_args.args[4])
+
+    def test_condition_and_mail_survive_a_failure_after_approval(self):
+        po = dict(name="PO-1", docstatus=0, supplier="Brenner", grand_total=1, items=[])
+        engine = Engine.__new__(Engine)
+        engine.day, engine.config, engine.wh = 2, {}, dict(rm="Raw", hold="Hold")
+        engine.state = dict(decisions={}, ops=dict(purchases={"po": {"day": 1}}, changes={}))
+        engine.get = Mock(return_value=po)
+        engine.observe, engine.observed_usage = Mock(return_value=[]), Mock(return_value={})
+        result = dict(action="approve_with_condition", reason="why", message="note", condition="Check delivery")
+        engine.purchase_decision = Mock(return_value=result)
+        engine.persist, engine.log, engine.mail = Mock(), Mock(), Mock()
+        engine.write = Mock(side_effect=[TimeoutError("task"), {}])
+        engine.schedule_supplier_arrival = Mock()
+        engine.api = {"SCM_MGR": Mock(call=Mock(side_effect=lambda *a: po.update(docstatus=1)))}
+        with self.assertRaises(TimeoutError):
+            engine.approvals()
+        engine.mail.assert_not_called()
+        engine.approvals()
+        self.assertEqual(engine.write.call_count, 2)
+        engine.mail.assert_called_once()
+        self.assertNotIn("unreported", engine.state["ops"]["purchases"]["po"])
+        engine.purchase_decision.assert_called_once()
 
     def test_failed_mail_stays_queued_and_is_retried(self):
         engine = Engine.__new__(Engine)

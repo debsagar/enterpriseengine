@@ -2101,6 +2101,15 @@ class Engine:
             "SCM_MGR",
         )
 
+    def finish_purchase_decision(self, purchase, order):
+        """Create the condition task and tell the buyer once the workflow outcome is readable."""
+        key, result = purchase["unreported"]
+        if result["action"] == "approve_with_condition":
+            self.condition_task(key, "Purchase Order", order, result["condition"])
+        self.report_outcome(key, "BUYER", order, result)
+        del purchase["unreported"]
+        self.persist()
+
     def approvals(self):
         self.send_outbox()
         ops = self.state["ops"]
@@ -2109,6 +2118,8 @@ class Engine:
             if p.get("received"):
                 continue
             po = purchase_docs[key]
+            if "unreported" in p and (po["docstatus"] == 1 or po.get("workflow_state") == "Rejected"):
+                self.finish_purchase_decision(p, po["name"])
             if self.purchase_unavailable(po):
                 continue
             if po["docstatus"] == 1:
@@ -2217,15 +2228,16 @@ class Engine:
             )
             if result["action"] in (*judgment.APPROVALS, "reject"):
                 action = "Reject" if result["action"] == "reject" else "Approve"
+                p["unreported"] = [decision_key, result]
+                self.persist()
                 self.api["SCM_MGR"].call(
                     "frappe.model.workflow.apply_workflow", {"doc": json.dumps(po), "action": action}
                 )
                 updated = purchase_docs[key] = self.get(key, "SCM_MGR")
                 self.log("workflow_readback", role="SCM_MGR", doc=updated)
-                if result["action"] == "approve_with_condition":
-                    self.condition_task(decision_key, "Purchase Order", po["name"], result["condition"])
                 if action == "Approve":
                     self.schedule_supplier_arrival(key, p, updated)
+                self.finish_purchase_decision(p, po["name"])
             else:
                 review_after = self.day + 2
                 fields = dict(
@@ -2245,8 +2257,8 @@ class Engine:
                     if any(confirmed.get(field) != value for field, value in fields.items()):
                         raise RuntimeError("Purchase buyer follow-up differs from the pending review")
                 p["review_after"] = review_after
+                self.report_outcome(decision_key, "BUYER", po["name"], result)
             self.persist()
-            self.report_outcome(decision_key, "BUYER", po["name"], result)
         for key, c in list(ops["changes"].items()):
             if c.get("implemented") or "rejected_day" in c:
                 continue
@@ -2312,7 +2324,6 @@ class Engine:
                         "SCM_MGR",
                     )
                     c["review_after"] = self.day + 7
-                self.persist()
                 self.report_outcome(decision_key, "BUYER", f"reorder request {request['name']}", result)
             elif self.day > c["approved_day"]:
                 approval = self.get("approval:" + key, "IT_ADMIN")
