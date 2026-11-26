@@ -28,6 +28,11 @@ class DecisionCases(unittest.TestCase):
         for private in ("arrival_due", "demand_scale", "private_regime", "custom_norvale_operation"):
             self.assertNotIn(private, text)
 
+    def test_questions_offer_no_action_outside_the_graded_set(self):
+        for case in CASES:
+            for earlier in ("defer", "investigate"):
+                self.assertNotIn(earlier, case["question"].lower(), case["id"])
+
     def test_valid_approvals_carry_no_contradiction_flag(self):
         for case in CASES:
             if case["label"] == "approve":

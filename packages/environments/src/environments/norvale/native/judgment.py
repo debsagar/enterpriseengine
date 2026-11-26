@@ -79,6 +79,8 @@ def resolves(node, path):
 
 def graded(sent, answer):
     """Hold an approval the role may not execute. Nothing is ever upgraded to an approval."""
+    if answer.get("action") in ("defer", "investigate"):  # earlier wording for "not approved yet"
+        answer = {**answer, "action": "request_info"}
     if answer.get("action") not in ACTIONS:
         raise ValueError("Invalid decision action")
     evidence = sent["evidence"]

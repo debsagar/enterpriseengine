@@ -33,8 +33,10 @@ class Grading(unittest.TestCase):
             held = judgment.graded(prompt, proposed)
             self.assertEqual((held["action"], held["held_from"]), ("request_info", proposed["action"]))
         self.assertIn("CFO", judgment.graded(sent(30000), answer())["message"])
+        for earlier in ("defer", "investigate"):
+            self.assertEqual(judgment.graded(sent(), answer(earlier))["action"], "request_info")
         with self.assertRaises(ValueError):
-            judgment.graded(sent(), answer("defer"))
+            judgment.graded(sent(), answer("escalate"))
 
     def test_null_text_fields_cannot_block_execution(self):
         reply = judgment.graded(sent(), dict(action="request_info", reason="Confirm date", message=None))
