@@ -36,12 +36,14 @@ def inputs(cfg, operator):
     drop = cfg["steam_drop"]["at_minute"] * SCANS
     feed = cfg["feed"]
     cut = operator["k"] if operator and operator["action"] == "pause" else n
+    paused_feed = feed * cfg["pause_feed_scale"] if cut < n else feed
+    dropped_pressure = cfg["steam_drop"]["pressure"] if drop < n else 6.0
     zero = _Step(n, 0.0)
     return PlantInputs(
-        Ff=_Step(n, feed, cut, feed * cfg["pause_feed_scale"]),
+        Ff=_Step(n, feed, cut, paused_feed),
         Tf=_Step(n, 25.0),
         Ta=_Step(n, 20.0),
-        Ph=_Step(n, 6.0, drop, cfg["steam_drop"]["pressure"]),
+        Ph=_Step(n, 6.0, drop, dropped_pressure),
         spT=_Step(n, 78.0),
         spL=_Step(n, 2.0),
         mT=_Step(n, 1),

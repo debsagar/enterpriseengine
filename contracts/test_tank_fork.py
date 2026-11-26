@@ -153,6 +153,12 @@ class Tk101WhatIf(unittest.TestCase):
         with self.assertRaises(IndexError):
             timeline.Ph[259_200]
 
+    def test_inactive_events_do_not_require_unused_settings(self):
+        cfg = dict(CONFIG, horizon_minutes=1, steam_drop={"at_minute": 1})
+        del cfg["pause_feed_scale"]
+        timeline = tank.inputs(cfg, None)
+        self.assertEqual((timeline.Ff[0], timeline.Ph[0]), (cfg["feed"], 6.0))
+
     def test_norvale_catalog_registers_the_plant_on_a_shifted_clock(self):
         with TemporaryDirectory() as directory:
             engine = open_catalog(Path(directory), {"seed": 1, "tank": CONFIG}, {"day": 0})
