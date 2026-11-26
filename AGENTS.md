@@ -18,3 +18,4 @@ Read README.md → docs/HANDOFF.md → docs/ARCHITECTURE.md before changing beha
 - Project state lives in PROJECT-LOG.jsonl (append-only). Read relevant recent events. Record validation evidence in the PR. The four swarm roles are off, and the provenance and swarm checks are optional on dev. Maintainers own updates to the shared log.
 
 For code changes, completion notes should name affected A–L blocks, changed behavior, validation and remaining limits. Update architecture/docs only where the implementation or intended contract changed.
+- 180-day run work: follow `skills/run-180/SKILL.md` (shared by all agents; tracker = GitHub issues labelled `run-180`).
