@@ -487,35 +487,13 @@ class Engine:
         if key in self.state["decisions"]:
             return self.state["decisions"][key]
         prompt = judgment.prompt(role, self.date(), evidence, question, self.effective_policies(role))
-        endpoint = None if os.environ.get("NORVALE_OFFLINE") == "1" else long_run.model_endpoint()
-        if endpoint:
-            import urllib.request
-
-            keyenv, base, model = endpoint
-            long_run.check_spend(self.state)
-            payload = {
-                "model": model,
-                "messages": [{"role": "user", "content": json.dumps(prompt)}],
-                "response_format": {"type": "json_object"},
-                "max_tokens": 1600,
-            }
-            self.log("model_request", model=model, input=prompt)
-            req = urllib.request.Request(
-                base + "/chat/completions",
-                json.dumps(payload).encode(),
-                headers={"Authorization": "Bearer " + keyenv, "Content-Type": "application/json"},
-            )
-            from environments.norvale.native.router import provider_json
-
-            raw = provider_json("Model", req, lambda attempt: self.log("model_http_attempt", attempt=attempt))
-            self.log("model_response", response=raw)
-            long_run.record_spend(self, "model", raw)
-            if raw["choices"][0].get("finish_reason") != "stop":
-                raise RuntimeError("Incomplete model response; raw response retained for diagnosis")
-            answer = json.loads(raw["choices"][0]["message"]["content"])
-            mode = "model"
-        else:
-            raise RuntimeError("LLM judgment requires credentials; no approval fallback")
+        answer = judgment.complete(
+            prompt,
+            self.log,
+            before=lambda: long_run.check_spend(self.state),
+            after=lambda raw: long_run.record_spend(self, "model", raw),
+        )
+        mode = "model"
         answer = judgment.graded(prompt, answer)
         if "held_from" in answer:
             self.log("approval_held", role=role, proposed=answer["held_from"], reason=answer["reason"])
@@ -772,7 +750,7 @@ class Engine:
             "purchase",
             "SCM_MGR",
             [{k: po.get(k) for k in ["name", "supplier", "grand_total", "schedule_date", "items"]}],
-            "Approve this replenishment purchase or defer/reject/investigate?",
+            "Decide this replenishment purchase.",
         )
         if answer["output"]["action"] in judgment.APPROVALS:
             self.log(
@@ -1178,7 +1156,7 @@ class Engine:
             "finance-review",
             "CFO",
             evidence,
-            "Review these account balances. Approve the report, investigate discrepancies by assigning Finance, defer for more evidence, or reject it. Do not infer unobserved plant facts.",
+            "Review these account balances and decide the report. Name any discrepancy Finance must investigate. Do not infer unobserved plant facts.",
         )
         if outcome["output"]["action"] != "approve":
             self.write(
@@ -2227,7 +2205,7 @@ class Engine:
                 decision_key,
                 "SCM_MGR",
                 evidence,
-                "Decide this PO on its own current evidence: approve, defer, reject or investigate. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to defer this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+                "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
                 model=first,
             )
             if result["action"] in (*judgment.APPROVALS, "reject"):
@@ -2293,7 +2271,7 @@ class Engine:
                             "has_supplier": c["item"] in self.catalog.source_list,
                         },
                     },
-                    "Approve this evidence-grounded reorder-level change, or defer/reject/investigate.",
+                    "Decide this evidence-grounded reorder-level change.",
                     model=True,
                 )
                 if result["action"] in judgment.APPROVALS:
@@ -2960,7 +2938,7 @@ class Engine:
             review_key,
             "CFO",
             {"report": self.get(key, "CFO")["name"], "native_balances": totals, "pending_requests": pending},
-            "Review current financial records and pending requests. Approve the review or investigate/defer/reject with a concrete next request. Do not assume unseen production facts.",
+            "Review current financial records and pending requests. Decide the review; unless approving, name a concrete next request. Do not assume unseen production facts.",
             action="investigate",
             model=True,
         )

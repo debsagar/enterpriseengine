@@ -46,7 +46,7 @@ class Spending(unittest.TestCase):
         with environment(OPENAI_API_KEY="openai-key", OPENROUTER_API_KEY="router-key"), provider(sent, None):
             judge().decision("po", "SCM_MGR", {}, "Approve?")
         self.assertEqual(sent[0].full_url, "https://openrouter.ai/api/v1/chat/completions")
-        self.assertEqual(sent[0].headers["Authorization"], "Bearer router-key")
+        self.assertEqual(sent[0].get_header("Authorization"), "Bearer router-key")
         self.assertEqual(json.loads(sent[0].data)["model"], "openai/gpt-4.1-mini")
         with environment(OPENAI_API_KEY="openai-key"):
             self.assertEqual(long_run.model_endpoint(), ("openai-key", "https://api.openai.com/v1", "gpt-4.1-mini"))

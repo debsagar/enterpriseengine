@@ -59,8 +59,9 @@ def route(evidence, memory, policies, on_attempt=None):
     req = urllib.request.Request(
         "https://api.typesafe.ai/v1/systemone",
         json.dumps(body).encode(),
-        headers={"Authorization": "Bearer " + os.environ["TYPESAFE_API_KEY"], "Content-Type": "application/json"},
+        headers={"Content-Type": "application/json"},
     )
+    req.add_unredirected_header("Authorization", "Bearer " + os.environ["TYPESAFE_API_KEY"])
     try:
         raw = provider_json("JEV", req, on_attempt)
     except urllib.error.HTTPError as exc:
