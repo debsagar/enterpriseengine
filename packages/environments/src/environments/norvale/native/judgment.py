@@ -2,22 +2,99 @@
 
 from environments.norvale.walkthrough import ROLES
 
+ACTIONS = ("approve", "approve_with_condition", "request_info", "reject")
+APPROVALS = ("approve", "approve_with_condition")
+MANDATES = {
+    "SCM_MGR": "Approve or reject supplier purchases and item reorder changes using observed evidence; issue scoped purchasing policies.",
+    "CFO": "Review finances and revise purchasing policies; no configured spending ceiling.",
+    "BUYER": "Observe materials, request purchases; cannot approve own purchase or book stock.",
+    "IT_ADMIN": "Implement separately approved item changes after approval date.",
+    "PRODUCTION": "Execute authorized operations within available stock and shift capacity.",
+}
+
 INSTRUCTION = (
-    "Return JSON with action, reason, message. Do not assume unseen facts. Prior decisions may be mistaken: "
-    "reassess using current native evidence and explicit operating policies; do not perpetuate unsupported "
-    "concerns. facts holds values computed by code from the evidence; facts.flags are contradictions found by "
-    "code. Do not approve over a flag unless the reason names it and cites the evidence that resolves it. "
-    "policy holds the effective standing policies and your approval limit. Action may be approve, defer, reject, "
-    "investigate. Approval is not implementation. You may propose standing_policy with effective_date, "
-    "review_date, nonnegative numeric approval_limit and reorder_target, nonempty exact suppliers and items "
-    "lists. Only SCM_MGR/CFO may authorize it. Ground all values in observed evidence; omit if insufficient."
+    "Return JSON with action, reason, message, cites. action is one of: approve; approve_with_condition (approval "
+    "takes effect now and condition, a string naming one concrete follow-up, is assigned as a task); request_info "
+    "(nothing is approved; message asks for the missing fact); reject (the request is closed). cites is a list of "
+    "paths into this input that the reason rests on, such as evidence.observations.grand_total or "
+    "facts.flags.duplicate_open_order; an approval without a resolvable path is not executed. Do not assume unseen "
+    "facts. Prior decisions may be mistaken: reassess using current native evidence and explicit operating "
+    "policies; do not perpetuate unsupported concerns. facts holds values computed by code from the evidence; "
+    "facts.flags are contradictions found by code. Do not approve over a flag unless the reason names it and cites "
+    "the evidence that resolves it. role_card states your duty, authority limits and escalation; policy holds the "
+    "effective standing policies. Approval is not implementation. You may propose standing_policy with "
+    "effective_date, review_date, nonnegative numeric approval_limit and reorder_target, nonempty exact suppliers "
+    "and items lists. Only SCM_MGR/CFO may authorize it. When the same kind of purchase will recur and the "
+    "evidence supports a rule, propose one so routine cases need no further judgment. Ground all values in "
+    "observed evidence; omit if insufficient."
 )
+
+
+def roster(role):
+    rows = {r["role_id"]: r for r in ROLES}
+    return rows.get({"SCM_MGR": "SC_MGR", "BUYER": "BUYER_CHEM"}.get(role, role), {})
 
 
 def limits(role):
     """The written authority limits for an ERP role, from the company roster."""
-    roster = {r["role_id"]: r for r in ROLES}
-    return roster.get({"SCM_MGR": "SC_MGR"}.get(role, role), {}).get("write_authority", {}).get("limits", {})
+    return roster(role).get("write_authority", {}).get("limits", {})
+
+
+def role_card(role):
+    row = roster(role)
+    escalation = row.get("escalation_edge", {})
+    return {
+        "role": role,
+        "title": row.get("title"),
+        "duty": MANDATES.get(role),
+        "goal": row.get("mandate"),
+        "authority_limits": limits(role),
+        "escalates_to": escalation.get("escalates_to"),
+        "escalation_triggers": escalation.get("triggers", []),
+    }
+
+
+def resolves(node, path):
+    """Whether a cited path names something present: dict keys, list indexes, flag or item names."""
+    for part in [p for p in str(path).replace("[", ".").replace("]", "").split(".") if p]:
+        if isinstance(node, dict) and part in node:
+            node = node[part]
+        elif isinstance(node, list):
+            named = [r for r in node if isinstance(r, dict) and part in (r.get("flag"), r.get("item_code"))]
+            if part.isdigit() and int(part) < len(node):
+                node = node[int(part)]
+            elif named:
+                node = named[0]
+            else:
+                return False
+        else:
+            return False
+    return True
+
+
+def graded(sent, answer):
+    """Hold an approval the role may not execute. Nothing is ever upgraded to an approval."""
+    if answer.get("action") not in ACTIONS:
+        raise ValueError("Invalid decision action")
+    evidence = sent["evidence"]
+    inner = evidence.get("observations", evidence) if isinstance(evidence, dict) else evidence
+    cites = answer.get("cites") if isinstance(answer.get("cites"), list) else []
+    answer["cites"] = [
+        c for c in cites if str(c).strip(".[] ") and any(resolves(root, c) for root in (sent, evidence, inner))
+    ]
+    answer["reason"] = str(answer.get("reason") or "")
+    answer["message"] = str(answer.get("message") or answer["reason"] or "No detail given.")
+    if answer["action"] not in APPROVALS:
+        return answer
+    if any(f["flag"] == "over_role_approval_limit" for f in sent["facts"]["flags"]):
+        why = f"Amount exceeds your approval limit; escalate to {sent['role_card']['escalates_to']}."
+    elif not answer["cites"]:
+        why = "The approval cited no evidence present in the decision input."
+    elif answer["action"] == "approve_with_condition" and not str(answer.get("condition") or "").strip():
+        why = "The conditional approval named no condition."
+    else:
+        return answer
+    return {**answer, "action": "request_info", "held_from": answer["action"], "reason": why, "message": why}
 
 
 def by_item(rows):
@@ -153,6 +230,7 @@ def prompt(role, as_of, evidence, question, policies=()):
         "question": question,
         "evidence": evidence,
         "facts": facts(role, evidence, as_of, policies),
-        "policy": {"effective_policies": list(policies), "authority_limits": limits(role)},
+        "role_card": role_card(role),
+        "policy": {"effective_policies": list(policies)},
         "instruction": INSTRUCTION,
     }

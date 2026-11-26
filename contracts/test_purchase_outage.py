@@ -45,6 +45,7 @@ class PurchaseOutage(TestCase):
         engine.observed_usage = Mock(return_value={})
         engine.effective_policies = Mock(return_value=[])
         engine.log = Mock()
+        engine.mail = Mock()
         engine.admin = Mock()
         engine.admin.list.return_value = [{"name": "ToDo-custom_norvale_operation"}]
 
@@ -87,7 +88,12 @@ class PurchaseOutage(TestCase):
                         "finish_reason": "stop",
                         "message": {
                             "content": json.dumps(
-                                dict(action="approve", reason="Reviewed revised evidence", message="Approved")
+                                dict(
+                                    action="approve",
+                                    reason="Reviewed revised evidence",
+                                    message="Approved",
+                                    cites=["evidence.observations.grand_total"],
+                                )
                             )
                         },
                     }

@@ -94,7 +94,7 @@ class JudgmentFacts(unittest.TestCase):
         engine.get = lambda key, role: dict(native.get(key, dict(draft, name=key)))
         engine.observe = Mock(return_value=[])
         engine.observed_usage = Mock(return_value={})
-        engine.persist, engine.log = Mock(), Mock()
+        engine.persist, engine.log, engine.mail = Mock(), Mock(), Mock()
         engine.purchase_decision = Mock(return_value=dict(action="reject", reason="no"))
 
         def reject(method, args):
@@ -121,7 +121,8 @@ class JudgmentFacts(unittest.TestCase):
             with patch.object(router, "provider_json", provider):
                 engine.decision("change", "SCM_MGR", {"observations": CHANGE}, "Approve?")
         self.assertEqual(sent[0]["facts"]["flags"][0]["flag"], "stock_at_or_above_requested_level")
-        self.assertEqual(sent[0]["policy"]["authority_limits"], {"po_approval_eur": 25000})
+        self.assertEqual(sent[0]["role_card"]["authority_limits"], {"po_approval_eur": 25000})
+        self.assertEqual(sent[0]["role_card"]["escalates_to"], "CFO")
         self.assertEqual(sent[0]["policy"]["effective_policies"], [])
 
 
