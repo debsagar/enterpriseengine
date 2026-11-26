@@ -49,6 +49,9 @@ def legacy_results(directory, seed, config):
     run = engine(directory, desk, seed, start)
     run.run(until=start + 16 * world.WEEK)
     truth = run.private_truth()
+    # The goldens predate the answer-key records added for P0; they cover the legacy keys.
+    for key in ("entities", "links", "cases", "decisions"):
+        truth.pop(key)
     for row in truth["world"]:
         row.pop("process", None)
     return [

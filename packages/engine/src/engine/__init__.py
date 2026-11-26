@@ -236,9 +236,14 @@ class Engine:
     def fork(self, branch_dir, *, snapshot_external=None):
         """Copy the committed run and return the new directory for opening with Engine.
 
-        snapshot_external(staging_dir, minute) runs while the source is locked.
-        It must provision isolated copies of the host's systems at that boundary.
-        Files it writes under staging_dir move into branch_dir on success.
+        Hook contract: snapshot_external(staging_dir, minute) is called once,
+        after the engine checkpoint is copied and while the source is locked,
+        with minute equal to the committed business minute being branched. It
+        must provision isolated copies of every attached system (native
+        transport or adapters) at that boundary; it is required when any is
+        attached. Files it writes under staging_dir move into branch_dir on
+        success. It must not alter the engine checkpoint copy in staging_dir.
+        If it raises, or breaks that rule, no branch directory is created.
         """
         if self._active is not None:
             raise RuntimeError("Fork requires a committed boundary outside an event handler")
@@ -259,7 +264,14 @@ class Engine:
                 with closing(sqlite3.connect(database)) as target:
                     source.backup(target)
                 if snapshot_external is not None:
+                    copied = sha256(database.read_bytes()).digest()
                     snapshot_external(staging_dir, checkpoint["now"])
+                    if (
+                        database.is_symlink()
+                        or not database.is_file()
+                        or sha256(database.read_bytes()).digest() != copied
+                    ):
+                        raise RuntimeError("Snapshot hook must not alter the engine checkpoint copy")
                 if branch_dir.exists() or branch_dir.is_symlink():
                     raise FileExistsError(str(branch_dir))
                 staging_dir.rename(branch_dir)
@@ -1147,35 +1159,56 @@ class Engine:
             cutoff = checkpoint["now"] if as_of is None else as_of
             if type(cutoff) is not int or not 0 <= cutoff <= checkpoint["now"]:
                 raise ValueError("Extractor cutoff must be a committed business minute")
-            grade = getattr(self._consumer, "grade_extraction", None)
-            if grade is None:
-                return (), {}, checkpoint, cutoff
+            # An event is terminal at the minute its complete/superseded entry
+            # was committed; later edits of the same run are not yet history.
             terminal = {
-                entry["id"]
+                entry["id"]: entry["at"]
                 for (data,) in db.execute(
                     "SELECT entry FROM history WHERE id <= ? ORDER BY id", (checkpoint["history_end"],)
                 )
                 if (entry := json.loads(data))["phase"] in ("complete", "superseded") and entry["at"] <= cutoff
             }
-            records = [
-                operation["record"]
+            confirmed = [
+                (operation["record"], operation["event"])
                 for (data,) in db.execute("SELECT data FROM writes ORDER BY rowid")
                 if (operation := json.loads(data))["status"] == "confirmed"
                 and operation.get("event", {}).get("id") in terminal
                 and operation["record"]["at"] <= cutoff
             ]
-        questions, answers = grade(records, f"business minute {cutoff}")
-        return questions, answers, checkpoint, cutoff
+            decisions = [
+                {
+                    "event_id": event_id,
+                    "sequence": operation,
+                    "completed_at": terminal[event_id],
+                    "decision": json.loads(data),
+                }
+                for operation, event_id, data in db.execute(
+                    "SELECT operation, event_id, data FROM decisions ORDER BY operation"
+                )
+                if event_id in terminal
+            ]
+        grade = getattr(self._consumer, "grade_extraction", None)
+        if grade is None:
+            questions, answers = (), {}
+        else:
+            questions, answers = grade([record for record, _ in confirmed], f"business minute {cutoff}")
+        return questions, answers, checkpoint, cutoff, confirmed, decisions
 
     def extractor_questions(self, *, as_of=None):
         """Return public question IDs and text through the requested cutoff."""
-        questions, _, _, _ = self._extractor_snapshot(as_of)
-        return list(questions)
+        return list(self._extractor_snapshot(as_of)[0])
 
     def private_truth(self, *, as_of=None):
-        """Owner-only evaluator state through the requested cutoff."""
-        _, answers, checkpoint, cutoff = self._extractor_snapshot(as_of)
-        truth = {**world.truth(checkpoint["state"], self.config, cutoff), "answers": answers}
+        """Owner-only evaluator state through the requested cutoff.
+
+        Besides world rows and grader answers, it lists confirmed native
+        records as entities, field references between them as links, records
+        grouped by case, and committed consumer decisions, all limited to
+        events that finished by the cutoff.
+        """
+        _, answers, checkpoint, cutoff, confirmed, decisions = self._extractor_snapshot(as_of)
+        truth = world.truth(checkpoint["state"], self.config, cutoff, records=confirmed, decisions=decisions)
+        truth["answers"] = answers
         if self._world_process is not None:
             for row, sample in zip(truth["world"], checkpoint.get("world_samples", ())):
                 row["process"] = deepcopy(sample)

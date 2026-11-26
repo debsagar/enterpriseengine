@@ -11,7 +11,7 @@ Read README.md → docs/HANDOFF.md → docs/ARCHITECTURE.md before changing beha
 - The delivered data is frozen evidence. Preserve hashes and past failures/corrections. New behavior belongs in a distinct run.
 - No new model-call/spend ceiling without owner instruction; never silently approve on failure. Do not run generation, make paid calls, touch live services, or publish unless the current task authorizes it.
 - Never commit credentials, raw SQL, mail archives, private state/traces/oracles, service volumes or runs/. Public exports must retain useful native links but exclude privileged simulation hints.
-- Keep changes simple: reuse native product features and existing clients. No speculative generic company framework or mandatory nested routers.
+- Keep changes simple: reuse native product features and existing clients. Build reusable, company-agnostic components that companies (Norvale first) are assembled from (owner, 2026-11-25); no abstraction beyond what a component needs, no mandatory nested routers.
 - Notebook inspection stays read-only. Explain generated tables directly underneath their outputs. No unnecessary ZIP deliverables.
 - Run `ruff check` and `ruff format --check` before pushing.
 - Run appropriate offline checks from README.md. Report what was actually checked, not just saved historical pass results.
