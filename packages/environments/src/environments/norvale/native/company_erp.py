@@ -817,7 +817,11 @@ class CompanyERP:
             self.attempt("rework-reconciliation", "PRODUCTION", self.poll_rework)
         uncertain = self.reserved_dispatch_batches()
         for lot in list(self.state["lots"].values()):
-            if lot["batch"] not in uncertain:
+            if lot["batch"] not in uncertain and (
+                lot.get("kind") != "opening"
+                or self.disposition(lot, "QA") is not None
+                or self.balance(lot, self.e.wh["hold"], "QA") > 0
+            ):
                 self.attempt("sync:" + lot["batch"], "QA", lambda: self.sync(lot))
 
     def poll_rework(self):
@@ -840,6 +844,14 @@ class CompanyERP:
         warehouse = self.e.wh["fg" if lot["kind"] == "finished" else "rm"]
         balance = self.balance(lot, warehouse, role)
         d = self.disposition(lot, role)
+        if (
+            lot.get("kind") == "opening"
+            and d is None
+            and not self.state.get("synced", {}).get(lot["batch"])
+            and "sync:" + lot["batch"] not in self.state.get("pending", {})
+            and self.balance(lot, self.e.wh["hold"], role) == 0
+        ):
+            return max(0, balance - self.used(lot)), None
         if (
             not d
             or d != self.state.get("synced", {}).get(lot["batch"])
