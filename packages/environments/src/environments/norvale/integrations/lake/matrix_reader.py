@@ -9,9 +9,7 @@ from datetime import datetime, timezone
 def normalize_event(event):
     """Normalize a Matrix room event dict into a lake-ready record."""
     ts_ms = event.get("origin_server_ts") or 0
-    recorded_at = (
-        datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc).isoformat() if ts_ms else ""
-    )
+    recorded_at = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc).isoformat() if ts_ms else ""
     content = event.get("content") or {}
     return {
         "name": str(event.get("event_id") or ""),
@@ -36,19 +34,12 @@ def fetch_matrix_messages(base_url, access_token, room_id, *, limit=100, timeout
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         payload = json.loads(resp.read().decode("utf-8"))
-    return [
-        normalize_event(ev)
-        for ev in payload.get("chunk", [])
-        if ev.get("type") == "m.room.message"
-    ]
+    return [normalize_event(ev) for ev in payload.get("chunk", []) if ev.get("type") == "m.room.message"]
 
 
 def scan_matrix(events, *, sink=None, source="matrix", entity="Matrix Message"):
     """Normalize raw Matrix events (if needed) and optionally ingest into `sink`."""
-    docs = [
-        normalize_event(ev) if "content" in ev or "origin_server_ts" in ev else dict(ev)
-        for ev in events
-    ]
+    docs = [normalize_event(ev) if "content" in ev or "origin_server_ts" in ev else dict(ev) for ev in events]
     if sink is not None:
         return sink.ingest(source, entity, docs, effective_field="effective_at")
     return docs

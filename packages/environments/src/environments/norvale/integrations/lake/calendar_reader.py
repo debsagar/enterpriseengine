@@ -47,7 +47,7 @@ def fetch_caldav_events(url, user, password, *, timeout=15):
         b'<?xml version="1.0" encoding="utf-8" ?>'
         b'<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
         b"<D:prop><D:getetag/><C:calendar-data/></D:prop>"
-        b"<C:filter><C:comp-filter name=\"VCALENDAR\"><C:comp-filter name=\"VEVENT\"/></C:comp-filter></C:filter>"
+        b'<C:filter><C:comp-filter name="VCALENDAR"><C:comp-filter name="VEVENT"/></C:comp-filter></C:filter>'
         b"</C:calendar-query>"
     )
     token = base64.b64encode(f"{user}:{password}".encode()).decode("ascii")

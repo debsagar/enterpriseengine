@@ -123,7 +123,9 @@ class TestReaders(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "accounts.json"
             p.write_text(
-                json.dumps({"accounts": [{"id": "emp-1", "full_name": "Alice", "email": "alice@norvale.test", "role": "QA"}]}),
+                json.dumps(
+                    {"accounts": [{"id": "emp-1", "full_name": "Alice", "email": "alice@norvale.test", "role": "QA"}]}
+                ),
                 encoding="utf-8",
             )
             docs = load_master_file(p)
