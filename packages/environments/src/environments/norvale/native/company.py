@@ -2929,6 +2929,8 @@ class Engine:
             factory = c["company_authority"]
             if not isinstance(factory, str) or len(factory.split(":")) != 2 or not all(factory.split(":")):
                 raise ValueError("company_authority must be module:factory")
+        if "daily_bug_limit" in c and (type(c["daily_bug_limit"]) is not int or c["daily_bug_limit"] < 0):
+            raise ValueError("daily_bug_limit must be a nonnegative integer")
         if "company_operating" in c and (
             c["company_operating"] is not True
             or "company_timing" not in c
@@ -3145,6 +3147,9 @@ class Engine:
                 from environments.norvale.integrations.company_run.lake import scheduled_scan
 
                 scheduled_scan(self, (day + 1) * DAY - 1)
+                if lot_flow := getattr(self, "company_erp", None):
+                    limit = {"limit": self.config["daily_bug_limit"]} if "daily_bug_limit" in self.config else {}
+                    lot_flow.check_error_budget(day, **limit)
 
     def scheduled_company_event(self, clock, payload):
         if not self.config.get("company_operating"):
