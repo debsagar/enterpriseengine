@@ -49,6 +49,12 @@ class JudgmentFacts(unittest.TestCase):
         self.assertEqual(checked["po_minus_quote_total"], 0)
         self.assertEqual(checked["role_approval_limit_headroom"], 24948.52)
 
+    def test_taxes_above_the_net_total_are_not_a_contradiction(self):
+        taxed = {**ORDER, "grand_total": 62.29, "net_total": 51.48}
+        taxed["supplier_quote"] = dict(ORDER["supplier_quote"], grand_total=62.29)
+        self.assertEqual(flags(taxed), [])
+        self.assertEqual(flags({**taxed, "net_total": 60}), ["total_not_sum_of_lines"])
+
     def test_contradictions_are_flagged(self):
         dearer = {**LINE, "rate": 0.2, "amount": 93.6}
         self.assertEqual(

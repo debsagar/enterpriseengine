@@ -70,8 +70,9 @@ def facts(role, evidence, as_of, policies=()):
             flag("nonpositive_line", f"{row['item_code']} qty {row.get('qty')} rate {row.get('rate')}")
     if total is not None and rows and all("amount" in r for r in rows):
         summed = round(sum(r["amount"] for r in rows), 2)
-        if abs(summed - total) > 0.01:
-            flag("total_not_sum_of_lines", f"lines sum to {summed}, grand_total {total}")
+        net = seen.get("net_total", total)  # grand_total also carries taxes and charges
+        if abs(summed - net) > 0.01:
+            flag("total_not_sum_of_lines", f"lines sum to {summed}, order net total {net}")
 
     usage = seen.get("observed_daily_usage") or {}
     stock = []

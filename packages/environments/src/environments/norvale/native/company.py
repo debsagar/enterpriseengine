@@ -2093,6 +2093,8 @@ class Engine:
                 ["item_code", "warehouse", "actual_qty"],
             )
             evidence = {k: po.get(k) for k in ["name", "supplier", "grand_total"]}
+            if po.get("net_total") is not None:
+                evidence["net_total"] = po["net_total"]
             evidence["items"] = [
                 {k: r.get(k) for k in ["item_code", "item_name", "qty", "uom", "rate", "amount", "schedule_date"]}
                 for r in po["items"]
