@@ -4,6 +4,7 @@
 
 ### Added
 
+- Long-run safety for operating runs: `<run>/heartbeat.json` after every stage and on a stop; a stall guard (`stall_minutes`, default 30); a spend total in the checkpoint with an owner ceiling (`NORVALE_SPEND_CEILING_USD`, JEV priced by `NORVALE_JEV_USD_PER_MTOK`); and a preflight (both limits, 20 GB free, a creatable Docker network) before a live operating run starts.
 - Add point-in-time lake snapshot manifests and readers for mail, calendar, Matrix messages, and master directory records.
 - The operating company's scheduled lake collector now reads mail, calendars, Matrix rooms and the staff directory, and saves a manifest per business date under `lake/manifests/`, naming any source that failed that pass. Newly commissioned runs only.
 - Run the TK-101 `process.tank` plant on the Norvale engine clock (`environments.consumers.tank`): its `PlantState` is registered with the engine so `Engine.fork()` copies it, and a low alarm becomes a `tank_boundary` event. Enable with a `tank` section in the run config.
@@ -19,6 +20,7 @@
 
 ### Fixed
 
+- The role model's API key, endpoint and model now come from one provider; with both keys set, the OpenAI key was sent to OpenRouter. OpenRouter now wins.
 - Register a PLM product family for every seeded SKU during Norvale operating setup, so day-0 inspections no longer fail with "No registered PLM family".
 
 ## [0.1.0] - 2026-11-24
