@@ -1309,6 +1309,27 @@ class Engine:
         self.persist()
         self.log("policy_authorized", role=role, policy=p, evidence=evidence)
 
+    def policy_outcome(self, evidence):
+        """Settle a purchase already inside a standing policy's scope: approve, defer or reject.
+
+        Only evidence that is present is checked; a policy does not itself require a quote.
+        """
+        quote = evidence.get("supplier_quote") or {}
+
+        def lines(rows):
+            return sorted((row["item_code"], row.get("qty"), row.get("rate")) for row in rows)
+
+        differs = [
+            field for field in ("supplier", "grand_total") if field in quote and quote[field] != evidence.get(field)
+        ]
+        if "items" in quote and lines(quote["items"]) != lines(evidence["items"]):
+            differs.append("items")
+        if differs:
+            return "reject", "Purchase differs from its supplier quote in " + ", ".join(differs)
+        if quote.get("valid_till") and quote["valid_till"] < self.date():
+            return "defer", "Supplier quote expired on " + quote["valid_till"]
+        return "approve", "Within authorized policy scope and review date"
+
     def choose(self, key, role, evidence, question, action="approve", model=False):
         if key in self.state["decisions"]:
             return self.state["decisions"][key]["output"]
@@ -1419,16 +1440,14 @@ class Engine:
             self.persist()
             self.log("decision", **result)
             return result["output"]
+        action, reason = self.policy_outcome(evidence)
+        verb = {"approve": "approved", "defer": "deferred", "reject": "rejected"}[action]
         result = {
             "mode": "standing-policy",
             "input": {"role": role, "as_of": self.date(), "evidence": evidence},
             "policy": policy,
             "classification": False,
-            "output": {
-                "action": "approve",
-                "reason": "Within authorized policy scope and review date",
-                "message": "Purchase approved under standing policy.",
-            },
+            "output": {"action": action, "reason": reason, "message": f"Purchase {verb} under standing policy."},
         }
         self.state["decisions"][key] = result
         self.persist()
