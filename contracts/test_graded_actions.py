@@ -80,6 +80,31 @@ class Execution(unittest.TestCase):
         change, written, _, _ = self.review_change("request_info")
         self.assertEqual((written["info"]["description"], change["review_after"]), ("note", 9))
 
+    def test_each_action_on_a_purchase_order_writes_erp_and_mail(self):
+        workflow = {"approve": "Approve", "approve_with_condition": "Approve", "reject": "Reject", "request_info": None}
+        for action, step in workflow.items():
+            line = dict(item_code="SLES", qty=48, rate=1.42, amount=68.16)
+            po = dict(name="PO-1", docstatus=0, supplier="Brenner", grand_total=68.16, items=[line])
+            engine = Engine.__new__(Engine)
+            engine.day, engine.config, engine.wh = 2, {}, dict(rm="Raw", hold="Hold")
+            engine.state = dict(decisions={}, ops=dict(purchases={"po": {"day": 1}}, changes={}))
+            engine.get = Mock(return_value=po)
+            engine.observe, engine.observed_usage = Mock(return_value=[]), Mock(return_value={})
+            engine.purchase_decision = Mock(
+                return_value=dict(action=action, reason="why", message="note", condition="Check delivery")
+            )
+            engine.persist, engine.log, engine.mail, engine.write = Mock(), Mock(), Mock(), Mock()
+            engine.schedule_supplier_arrival = Mock()
+            engine.api = {"SCM_MGR": Mock(), "BUYER": Mock()}
+            engine.approvals()
+            applied = [c.args[1]["action"] for c in engine.api["SCM_MGR"].call.call_args_list]
+            self.assertEqual(applied, [step] if step else [], action)
+            written = [c.args[0].split(":")[0] for c in engine.write.call_args_list]
+            expected = {"approve_with_condition": ["condition"], "request_info": ["pending"]}
+            self.assertEqual(written, expected.get(action, []), action)
+            self.assertEqual(engine.schedule_supplier_arrival.called, step == "Approve", action)
+            self.assertIn("PO-1: " + action.replace("_", " "), engine.mail.call_args.args[4])
+
     def test_failed_mail_stays_queued_and_is_retried(self):
         engine = Engine.__new__(Engine)
         engine.state, engine.persist = {}, lambda: None

@@ -24,8 +24,9 @@ INSTRUCTION = (
     "the evidence that resolves it. role_card states your duty, authority limits and escalation; policy holds the "
     "effective standing policies. Approval is not implementation. You may propose standing_policy with "
     "effective_date, review_date, nonnegative numeric approval_limit and reorder_target, nonempty exact suppliers "
-    "and items lists. Only SCM_MGR/CFO may authorize it. Ground all values in observed evidence; omit if "
-    "insufficient."
+    "and items lists. Only SCM_MGR/CFO may authorize it. When the same kind of purchase will recur and the "
+    "evidence supports a rule, propose one so routine cases need no further judgment. Ground all values in "
+    "observed evidence; omit if insufficient."
 )
 
 
