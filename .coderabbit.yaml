@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# AGENTS.md and CLAUDE.md are picked up by default; ruff settings come from pyproject.toml.
+reviews:
+  auto_review:
+    # PRs target dev; without this only PRs into main (the default branch) are reviewed.
+    base_branches: ["^dev$"]
+  path_filters:
+    - "!data/**" # frozen dataset
+    - "!quality-run/**"
+    - "!uv.lock"

@@ -104,7 +104,17 @@ def reliability(previous, rng):
     return dict(state=next_state, age=age)
 
 
-def truth(state, config, cutoff):
+RECORD_KEYS = ("system", "kind", "native_id", "at")
+
+
+def truth(state, config, cutoff, *, records=(), decisions=()):
+    """Return the evaluator answer key through cutoff.
+
+    records are confirmed native records with their originating event, and
+    decisions are committed consumer decisions, both already limited to events
+    that finished by cutoff. A link is a record field whose value names another
+    record's native ID; a case groups records that share a "case" field.
+    """
     rows = [row for row in state.get("_world", []) if row["at"] <= cutoff]
     envelope = {"world": deepcopy(rows)}
     deliveries = {key: row for key, row in state.get("_world_deliveries", {}).items() if row["checked_at"] <= cutoff}
@@ -112,6 +122,25 @@ def truth(state, config, cutoff):
         envelope["deliveries"] = deepcopy(deliveries)
     if "private_marker" in config:
         envelope["marker"] = deepcopy(config["private_marker"])
+    entities, by_id, cases = [], {}, {}
+    for record, event in records:
+        ref = [record["system"], record["native_id"]]
+        fields = {key: deepcopy(value) for key, value in record.items() if key not in (*RECORD_KEYS, "retry_id")}
+        entity = {key: record[key] for key in RECORD_KEYS}
+        entities.append({**entity, "event_id": event["id"], "role": event.get("role"), "fields": fields})
+        by_id.setdefault(record["native_id"], []).append(ref)
+        if isinstance(record.get("case"), str):
+            cases.setdefault(record["case"], []).append(ref)
+    links = []
+    for entity in entities:
+        source = [entity["system"], entity["native_id"]]
+        for field, value in entity["fields"].items():
+            for target_id in value if isinstance(value, list) else [value]:
+                if isinstance(target_id, str):
+                    for target in by_id.get(target_id, ()):
+                        if target != source:
+                            links.append({"from": source, "field": field, "to": target})
+    envelope.update(entities=entities, links=links, cases=cases, decisions=deepcopy(list(decisions)))
     return envelope
 
 
