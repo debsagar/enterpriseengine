@@ -289,7 +289,7 @@ DRAFTING = (
 
 def names(text):
     """Record names, item codes, dates and figures: the tokens a rewording must neither drop nor invent."""
-    found = re.findall(r"[+-]?[\w./-]*\d(?:[\w./-]|,(?=\d))*|\b[A-Z]{2,}(?:-[A-Z0-9]+)*\b", text)
+    found = re.findall(r"[+-]?[\w./-]*\d(?:[\w./-]|,(?=\d))*|\b[A-Z]{2,}(?:[-_][A-Z0-9]+)*\b", text)
     return {token.rstrip("./-").lstrip("./") for token in found}
 
 

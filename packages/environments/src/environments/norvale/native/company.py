@@ -2072,17 +2072,18 @@ class Engine:
             self.log("purchase_review_unavailable", decision=key, role=role, reason=str(exc))
             return result
 
-    def notify(self, key, sender, recipient, subject, headline, detail):
+    def notify(self, key, sender, recipient, subject, headline, detail, tail=""):
         """Queue an outcome message with the checkpoint, so a failed send is retried."""
-        self.state.setdefault("outbox", {})[key] = [sender, recipient, subject, headline, detail]
+        self.state.setdefault("outbox", {})[key] = [sender, recipient, subject, headline, detail, tail]
         self.persist()
         self.send_outbox()
 
     def send_outbox(self):
         for key, (sender, recipient, subject, *text) in list(self.state.get("outbox", {}).items()):
-            if len(text) == 2:  # headline and draftable detail; a single body was queued earlier, send it as is
-                detail = self.compose(key, sender, recipient, subject, text[1])
-                text = [" ".join(filter(None, [text[0], detail]))]
+            if len(text) == 3:  # only the detail is drafted; a single body was queued earlier and is sent as is
+                headline, detail, tail = text
+                detail = self.compose(key, sender, recipient, subject, detail)
+                text = [" ".join(filter(None, [headline, detail, tail]))]
             self.mail(key, sender, recipient, subject, text[0])
             del self.state["outbox"][key]
             self.persist()
@@ -2090,11 +2091,11 @@ class Engine:
     def report_outcome(self, key, recipient, record, output):
         """Tell the requester what was decided, naming the native record and any condition."""
         action = output["action"].replace("_", " ")
-        headline = f"{record}: {action}."
-        if output["action"] == "approve_with_condition":
-            headline += f" Condition: {output['condition']}."
+        # Template bytes must not change: a replay of an already sent outcome has to match its delivery record.
+        condition = f"Condition: {output['condition']}" if output["action"] == "approve_with_condition" else ""
         detail = output.get("message") or output.get("reason", "")
-        self.notify("outcome:" + key, "SCM_MGR", recipient, f"Decision on {record}: {action}", headline, detail)
+        subject = f"Decision on {record}: {action}"
+        self.notify("outcome:" + key, "SCM_MGR", recipient, subject, f"{record}: {action}.", detail, condition)
 
     def condition_task(self, key, doctype, name, condition):
         self.write(

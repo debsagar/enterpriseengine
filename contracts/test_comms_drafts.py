@@ -74,6 +74,15 @@ class Drafts(unittest.TestCase):
             self.assertNotEqual(judgment.names(one), judgment.names(other), one)
         self.assertEqual(judgment.names("Days [0, 1]. Due 2027-01-06."), {"0", "1", "2027-01-06"})
 
+    def test_replayed_outcome_matches_the_body_sent_before_drafting_existed(self):
+        engine = company()
+        engine.state["mail_operations"] = {"outcome:k": {}}
+        output = dict(action="approve_with_condition", message="note", condition="Check delivery")
+        with patch.dict("os.environ", ONLINE):
+            engine.report_outcome("k", "BUYER", "PO-1", output)
+        self.assertEqual(engine.mail.call_args.args[4], "PO-1: approve with condition. note Condition: Check delivery")
+        self.assertNotEqual(judgment.names("Ask SCM_MGR."), judgment.names("Ask IT_ADMIN."))
+
     def test_message_queued_before_drafting_is_sent_verbatim(self):
         engine, provider = company(), replies(GOOD)
         engine.state["outbox"] = {"old": ["SCM_MGR", "BUYER", "Decision", "PUR-ORD-2027-00001: reject."]}
