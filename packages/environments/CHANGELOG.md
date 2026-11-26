@@ -13,6 +13,7 @@
 
 ### Changed
 
+- A purchase inside a standing policy's scope is no longer always approved on the routine path: it is rejected when it differs from its supplier quote, and deferred when that quote has expired.
 - Run Norvale's daily phases as ordered events on the engine's queue; the controller's state now lives in the engine checkpoint, and `state.json` is read once to seed a pre-engine run and never written.
 - Correct source paths and commands in the Norvale integration guides.
 
