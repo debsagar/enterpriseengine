@@ -23,7 +23,7 @@ from engine.versions import artifact_versions, load_artifact
 
 from environments.norvale.environment import compose as compose_mod
 from environments.norvale.environment.stack import Stack
-from environments.norvale.native import company_state, long_run
+from environments.norvale.native import company_state, judgment, long_run
 from environments.norvale.paths import CHECKOUT
 from environments.norvale.walkthrough import ROLES, EnterpriseSimV4
 
@@ -486,13 +486,7 @@ class Engine:
     def decision(self, key, role, evidence, question):
         if key in self.state["decisions"]:
             return self.state["decisions"][key]
-        prompt = {
-            "role": role,
-            "as_of": self.date(),
-            "question": question,
-            "evidence": evidence,
-            "instruction": "Return JSON with action, reason, message. Do not assume unseen facts. Prior decisions may be mistaken: reassess using current native evidence and explicit operating policies; do not perpetuate unsupported concerns. Action may be approve, defer, reject, investigate. Approval is not implementation. You may propose standing_policy with effective_date, review_date, nonnegative numeric approval_limit and reorder_target, nonempty exact suppliers and items lists. Only SCM_MGR/CFO may authorize it. Ground all values in observed evidence; omit if insufficient.",
-        }
+        prompt = judgment.prompt(role, self.date(), evidence, question, self.effective_policies(role))
         endpoint = None if os.environ.get("NORVALE_OFFLINE") == "1" else long_run.model_endpoint()
         if endpoint:
             import urllib.request
@@ -1370,6 +1364,7 @@ class Engine:
             )
         ]
         policy = matches[-1] if matches else None
+        checked = judgment.facts(role, evidence, self.date(), policies)
 
         def comparable_evidence(value):
             normalized = dict(value)
@@ -1407,6 +1402,7 @@ class Engine:
                 },
             }
             route_cases = [c for c in cases if c["as_of"] >= policy["effective_date"]]
+        route_evidence["code_checked_contradictions"] = checked["flags"]
         if not cached:
             long_run.check_spend(self.state)
         routed = (
@@ -1429,7 +1425,7 @@ class Engine:
         if not policy:
             result = {
                 "mode": "pending-policy",
-                "input": {"role": role, "as_of": self.date(), "evidence": evidence},
+                "input": {"role": role, "as_of": self.date(), "evidence": evidence, "facts": checked},
                 "output": {
                     "action": "defer",
                     "reason": "Router classified routine, but no authorized rule can execute this case. Request an applicable policy or revised classification.",
@@ -1444,7 +1440,7 @@ class Engine:
         verb = {"approve": "approved", "defer": "deferred", "reject": "rejected"}[action]
         result = {
             "mode": "standing-policy",
-            "input": {"role": role, "as_of": self.date(), "evidence": evidence},
+            "input": {"role": role, "as_of": self.date(), "evidence": evidence, "facts": checked},
             "policy": policy,
             "classification": False,
             "output": {"action": action, "reason": reason, "message": f"Purchase {verb} under standing policy."},
@@ -1937,17 +1933,8 @@ class Engine:
                     continue
                 vendor = self.catalog.source_list[code]
                 cost, (lead, sd), _ = self.catalog.vendors[vendor]["supplies"][code]
-                master = self.api["BUYER"].get("Item", code)
-                configured = next(
-                    (
-                        r["warehouse_reorder_level"]
-                        for r in master.get("reorder_levels", [])
-                        if r["warehouse"] == self.wh["rm"]
-                    ),
-                    0,
-                )
-                targets = [p["reorder_target"] for p in self.effective_policies("SCM_MGR") if code in p["items"]]
-                threshold = max([daily * (lead + self.catalog.safety_days[code]), configured] + targets)
+                configured = self.reorder_level("BUYER", code)
+                threshold = self.reorder_threshold(code, vendor, daily, configured)
                 coverage_end = self.dated(self.day + math.ceil(lead + self.catalog.safety_days[code]))
                 # Overdue open commitments still need receipt or buyer resolution. Counting
                 # them avoids issuing a duplicate order solely because a promised date passed.
@@ -2041,6 +2028,27 @@ class Engine:
         purchase["arrival_due"] = max(self.day + 1, promised + delay + rng.choice([-1, 0, 0, 2]))
         purchase["approved_day"] = self.day
 
+    def reorder_threshold(self, code, vendor, daily, configured):
+        lead = self.catalog.vendors[vendor]["supplies"][code][1][0]
+        targets = [p["reorder_target"] for p in self.effective_policies("SCM_MGR") if code in p["items"]]
+        return max([daily * (lead + self.catalog.safety_days[code]), configured] + targets)
+
+    def reorder_level(self, role, code):
+        master = self.api[role].get("Item", code)
+        return next(
+            (r["warehouse_reorder_level"] for r in master.get("reorder_levels", []) if r["warehouse"] == self.wh["rm"]),
+            0,
+        )
+
+    def open_po_qty(self, orders, code, excluding=None):
+        return sum(
+            self.purchase_balance(r) * (r.get("conversion_factor") or 1)
+            for other in orders
+            if other["name"] != excluding and other["docstatus"] in (0, 1) and not self.purchase_unavailable(other)
+            for r in other["items"]
+            if r["item_code"] == code
+        )
+
     def purchase_decision(self, key, role, evidence, question, **options):
         from environments.norvale.native.router import ProviderUnavailable
 
@@ -2085,6 +2093,8 @@ class Engine:
                 ["item_code", "warehouse", "actual_qty"],
             )
             evidence = {k: po.get(k) for k in ["name", "supplier", "grand_total"]}
+            if po.get("net_total") is not None:
+                evidence["net_total"] = po["net_total"]
             evidence["items"] = [
                 {k: r.get(k) for k in ["item_code", "item_name", "qty", "uom", "rate", "amount", "schedule_date"]}
                 for r in po["items"]
@@ -2135,18 +2145,20 @@ class Engine:
                         for b in coverage
                         if b["item_code"] == row["item_code"] and b["warehouse"] == self.wh["hold"]
                     ),
-                    "open_po_qty_excluding_this": sum(
-                        max(0, r["qty"] - r.get("received_qty", 0))
-                        for other in purchase_docs.values()
-                        if other["name"] != po["name"]
-                        and other["docstatus"] in (0, 1)
-                        and other.get("workflow_state") != "Rejected"
-                        for r in other["items"]
-                        if r["item_code"] == row["item_code"]
+                    "open_po_qty_excluding_this": self.open_po_qty(
+                        purchase_docs.values(), row["item_code"], excluding=po["name"]
                     ),
                 }
                 for row in po["items"]
             ]
+            vendor = p.get("vendor")
+            for row in coverage:
+                code = row["item_code"]
+                if vendor and code in self.catalog.vendors[vendor]["supplies"]:
+                    row["reorder_target_qty"] = round(
+                        self.reorder_threshold(code, vendor, usage.get(code, 0), self.reorder_level("SCM_MGR", code)),
+                        2,
+                    )
             evidence.update(
                 coverage=coverage,
                 observed_daily_usage={r["item_code"]: usage.get(r["item_code"], 0) for r in po["items"]},
@@ -2174,7 +2186,7 @@ class Engine:
                 self.api["SCM_MGR"].call(
                     "frappe.model.workflow.apply_workflow", {"doc": json.dumps(po), "action": action}
                 )
-                updated = self.get(key, "SCM_MGR")
+                updated = purchase_docs[key] = self.get(key, "SCM_MGR")
                 self.log("workflow_readback", role="SCM_MGR", doc=updated)
                 if action == "Approve":
                     self.schedule_supplier_arrival(key, p, updated)
@@ -2203,17 +2215,27 @@ class Engine:
                 if self.day <= c["requested_day"] or self.day < c.get("review_after", 0):
                     continue
                 request = self.get(key, "SCM_MGR")
+                stock = self.observe(
+                    "SCM_MGR",
+                    "Bin",
+                    {"item_code": c["item"], "warehouse": self.wh["rm"]},
+                    ["item_code", "actual_qty"],
+                )
                 result = self.choose(
                     "change-review:" + key + ":" + str(self.day),
                     "SCM_MGR",
                     {
                         "request": request,
-                        "stock": self.observe(
-                            "SCM_MGR",
-                            "Bin",
-                            {"item_code": c["item"], "warehouse": self.wh["rm"]},
-                            ["item_code", "actual_qty"],
-                        ),
+                        "stock": stock,
+                        "requested_change": {
+                            "item_code": c["item"],
+                            "requested_reorder_level": c["level"],
+                            "current_reorder_level": self.reorder_level("SCM_MGR", c["item"]),
+                            "released_qty": sum(r["actual_qty"] for r in stock),
+                            "observed_daily_usage": self.observed_usage().get(c["item"], 0),
+                            "tracked_open_po_qty": self.open_po_qty(purchase_docs.values(), c["item"]),
+                            "has_supplier": c["item"] in self.catalog.source_list,
+                        },
                     },
                     "Approve this evidence-grounded reorder-level change, or defer/reject/investigate.",
                     model=True,
