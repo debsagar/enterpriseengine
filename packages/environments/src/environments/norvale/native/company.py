@@ -2101,9 +2101,13 @@ class Engine:
             "SCM_MGR",
         )
 
-    def finish_purchase_decision(self, purchase, order):
+    def finish_purchase_decision(self, purchase, po):
         """Create the condition task and tell the buyer once the workflow outcome is readable."""
         key, result = purchase["unreported"]
+        order, rejected = po["name"], po.get("workflow_state") == "Rejected"
+        if rejected == (result["action"] in judgment.APPROVALS):  # ERP recorded the opposite: report ERP
+            note = "ERP records this outcome from another approver; the saved decision was not applied."
+            result = dict(action="reject" if rejected else "approve", reason=note, message=note)
         if result["action"] == "approve_with_condition":
             self.condition_task(key, "Purchase Order", order, result["condition"])
         self.report_outcome(key, "BUYER", order, result)
@@ -2119,7 +2123,7 @@ class Engine:
                 continue
             po = purchase_docs[key]
             if "unreported" in p and (po["docstatus"] == 1 or po.get("workflow_state") == "Rejected"):
-                self.finish_purchase_decision(p, po["name"])
+                self.finish_purchase_decision(p, po)
             if self.purchase_unavailable(po):
                 continue
             if po["docstatus"] == 1:
@@ -2237,7 +2241,7 @@ class Engine:
                 self.log("workflow_readback", role="SCM_MGR", doc=updated)
                 if action == "Approve":
                     self.schedule_supplier_arrival(key, p, updated)
-                self.finish_purchase_decision(p, po["name"])
+                self.finish_purchase_decision(p, updated)
             else:
                 review_after = self.day + 2
                 fields = dict(

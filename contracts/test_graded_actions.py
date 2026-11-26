@@ -101,6 +101,8 @@ class Execution(unittest.TestCase):
             engine.persist, engine.log, engine.mail, engine.write = Mock(), Mock(), Mock(), Mock()
             engine.schedule_supplier_arrival = Mock()
             engine.api = {"SCM_MGR": Mock(), "BUYER": Mock()}
+            if step == "Reject":
+                engine.api["SCM_MGR"].call.side_effect = lambda *a: po.update(workflow_state="Rejected")
             engine.approvals()
             applied = [c.args[1]["action"] for c in engine.api["SCM_MGR"].call.call_args_list]
             self.assertEqual(applied, [step] if step else [], action)
@@ -131,6 +133,16 @@ class Execution(unittest.TestCase):
         engine.mail.assert_called_once()
         self.assertNotIn("unreported", engine.state["ops"]["purchases"]["po"])
         engine.purchase_decision.assert_called_once()
+
+    def test_saved_approval_is_not_reported_over_an_erp_rejection(self):
+        engine = Engine.__new__(Engine)
+        engine.persist, engine.condition_task, engine.report_outcome = Mock(), Mock(), Mock()
+        saved = dict(action="approve_with_condition", reason="why", message="note", condition="Check")
+        purchase = {"unreported": ["k", saved]}
+        engine.finish_purchase_decision(purchase, dict(name="PO-1", workflow_state="Rejected"))
+        engine.condition_task.assert_not_called()
+        self.assertEqual(engine.report_outcome.call_args.args[3]["action"], "reject")
+        self.assertNotIn("unreported", purchase)
 
     def test_failed_mail_stays_queued_and_is_retried(self):
         engine = Engine.__new__(Engine)
