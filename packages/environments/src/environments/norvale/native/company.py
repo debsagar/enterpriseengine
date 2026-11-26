@@ -516,8 +516,9 @@ class Engine:
             mode = "model"
         else:
             raise RuntimeError("LLM judgment requires credentials; no approval fallback")
-        if answer.get("action") not in ["approve", "defer", "reject", "investigate"]:
-            raise ValueError("Invalid decision action")
+        answer = judgment.graded(prompt, answer)
+        if "held_from" in answer:
+            self.log("approval_held", role=role, proposed=answer["held_from"], reason=answer["reason"])
         if answer.get("standing_policy") is not None:
             try:
                 self.adopt_policy(role, answer["standing_policy"], evidence, key)
@@ -773,7 +774,7 @@ class Engine:
             [{k: po.get(k) for k in ["name", "supplier", "grand_total", "schedule_date", "items"]}],
             "Approve this replenishment purchase or defer/reject/investigate?",
         )
-        if answer["output"]["action"] == "approve":
+        if answer["output"]["action"] in judgment.APPROVALS:
             self.log(
                 "request",
                 role="SCM_MGR",
@@ -1045,7 +1046,7 @@ class Engine:
             {"purchase": self.get("po", "SCM_MGR")["name"]},
         ]
         decision = self.decision("master-change", "SCM_MGR", evidence, "Approve the proposed reorder level change?")
-        if decision["output"]["action"] == "approve":
+        if decision["output"]["action"] in judgment.APPROVALS:
             self.write(
                 "change-approval",
                 "ToDo",
@@ -1179,12 +1180,12 @@ class Engine:
             evidence,
             "Review these account balances. Approve the report, investigate discrepancies by assigning Finance, defer for more evidence, or reject it. Do not infer unobserved plant facts.",
         )
-        if outcome["output"]["action"] in ("investigate", "reject", "defer"):
+        if outcome["output"]["action"] != "approve":
             self.write(
                 "finance-followup",
                 "ToDo",
                 {
-                    "description": outcome["output"]["reason"],
+                    "description": outcome["output"].get("condition") or outcome["output"]["reason"],
                     "allocated_to": "finance@norvale.test",
                     "date": "2027-02-03",
                     "status": "Open",
@@ -1281,6 +1282,8 @@ class Engine:
         end = datetime.fromisoformat(p["review_date"]).date().isoformat()
         if not self.date() <= start < end:
             raise ValueError("Invalid policy dates")
+        if p["approval_limit"] > judgment.limits(role).get("po_approval_eur", math.inf):
+            raise ValueError("Policy limit exceeds role authority")
         self.write(
             "policy:" + key,
             "Note",
@@ -1571,11 +1574,7 @@ class Engine:
                     {
                         "effective_date": "2027-01-01",
                         "review_date": "2027-05-01",
-                        "SCM_MGR": "Approve or reject supplier purchases and item reorder changes using observed evidence; issue scoped purchasing policies.",
-                        "CFO": "Review finances and revise purchasing policies; no configured spending ceiling.",
-                        "BUYER": "Observe materials, request purchases; cannot approve own purchase or book stock.",
-                        "IT_ADMIN": "Implement separately approved item changes after approval date.",
-                        "PRODUCTION": "Execute authorized operations within available stock and shift capacity.",
+                        **judgment.MANDATES,
                     }
                 ),
             },
@@ -2068,7 +2067,42 @@ class Engine:
             self.log("purchase_review_unavailable", decision=key, role=role, reason=str(exc))
             return result
 
+    def notify(self, key, sender, recipient, subject, body):
+        """Queue an outcome message with the checkpoint, so a failed send is retried."""
+        self.state.setdefault("outbox", {})[key] = [sender, recipient, subject, body]
+        self.persist()
+        self.send_outbox()
+
+    def send_outbox(self):
+        for key, message in list(self.state.get("outbox", {}).items()):
+            self.mail(key, *message)
+            del self.state["outbox"][key]
+            self.persist()
+
+    def report_outcome(self, key, recipient, record, output):
+        """Tell the requester what was decided, naming the native record and any condition."""
+        action = output["action"].replace("_", " ")
+        body = f"{record}: {action}. {output.get('message') or output.get('reason', '')}"
+        if output["action"] == "approve_with_condition":
+            body += f" Condition: {output['condition']}"
+        self.notify("outcome:" + key, "SCM_MGR", recipient, f"Decision on {record}: {action}", body)
+
+    def condition_task(self, key, doctype, name, condition):
+        self.write(
+            "condition:" + key,
+            "ToDo",
+            {
+                "description": f"Condition of approval for {name}: {condition}",
+                "reference_type": doctype,
+                "reference_name": name,
+                "allocated_to": "buyer@norvale.test",
+                "date": self.dated(self.day + 2),
+            },
+            "SCM_MGR",
+        )
+
     def approvals(self):
+        self.send_outbox()
         ops = self.state["ops"]
         purchase_docs = {key: self.get(key, "SCM_MGR") for key, p in ops["purchases"].items() if not p.get("received")}
         for key, p in list(ops["purchases"].items()):
@@ -2181,19 +2215,23 @@ class Engine:
                 "Decide this PO on its own current evidence: approve, defer, reject or investigate. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to defer this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
                 model=first,
             )
-            if result["action"] in ("approve", "reject"):
-                action = "Approve" if result["action"] == "approve" else "Reject"
+            if result["action"] in (*judgment.APPROVALS, "reject"):
+                action = "Reject" if result["action"] == "reject" else "Approve"
                 self.api["SCM_MGR"].call(
                     "frappe.model.workflow.apply_workflow", {"doc": json.dumps(po), "action": action}
                 )
                 updated = purchase_docs[key] = self.get(key, "SCM_MGR")
                 self.log("workflow_readback", role="SCM_MGR", doc=updated)
+                if result["action"] == "approve_with_condition":
+                    self.condition_task(decision_key, "Purchase Order", po["name"], result["condition"])
                 if action == "Approve":
                     self.schedule_supplier_arrival(key, p, updated)
             else:
                 review_after = self.day + 2
                 fields = dict(
-                    description=result["reason"] + "; review " + self.dated(review_after),
+                    description=result["message" if result["action"] == "request_info" else "reason"]
+                    + "; review "
+                    + self.dated(review_after),
                     reference_type="Purchase Order",
                     reference_name=po["name"],
                     allocated_to="buyer@norvale.test",
@@ -2208,8 +2246,9 @@ class Engine:
                         raise RuntimeError("Purchase buyer follow-up differs from the pending review")
                 p["review_after"] = review_after
             self.persist()
+            self.report_outcome(decision_key, "BUYER", po["name"], result)
         for key, c in list(ops["changes"].items()):
-            if c.get("implemented"):
+            if c.get("implemented") or "rejected_day" in c:
                 continue
             if "approved_day" not in c:
                 if self.day <= c["requested_day"] or self.day < c.get("review_after", 0):
@@ -2221,8 +2260,9 @@ class Engine:
                     {"item_code": c["item"], "warehouse": self.wh["rm"]},
                     ["item_code", "actual_qty"],
                 )
+                decision_key = "change-review:" + key + ":" + str(self.day)
                 result = self.choose(
-                    "change-review:" + key + ":" + str(self.day),
+                    decision_key,
                     "SCM_MGR",
                     {
                         "request": request,
@@ -2240,7 +2280,7 @@ class Engine:
                     "Approve this evidence-grounded reorder-level change, or defer/reject/investigate.",
                     model=True,
                 )
-                if result["action"] == "approve":
+                if result["action"] in judgment.APPROVALS:
                     self.write(
                         "approval:" + key,
                         "ToDo",
@@ -2252,9 +2292,28 @@ class Engine:
                         },
                         "SCM_MGR",
                     )
+                    if result["action"] == "approve_with_condition":
+                        self.condition_task(decision_key, "ToDo", request["name"], result["condition"])
                     c["approved_day"] = self.day
+                elif result["action"] == "reject":
+                    self.api["SCM_MGR"].update("ToDo", request["name"], {"status": "Cancelled"})
+                    c["rejected_day"] = self.day
                 else:
+                    self.write(
+                        "info:" + decision_key,
+                        "ToDo",
+                        {
+                            "description": result.get("message") or result["reason"],
+                            "reference_type": "ToDo",
+                            "reference_name": request["name"],
+                            "allocated_to": "buyer@norvale.test",
+                            "date": self.dated(self.day + 2),
+                        },
+                        "SCM_MGR",
+                    )
                     c["review_after"] = self.day + 7
+                self.persist()
+                self.report_outcome(decision_key, "BUYER", f"reorder request {request['name']}", result)
             elif self.day > c["approved_day"]:
                 approval = self.get("approval:" + key, "IT_ADMIN")
                 request = self.get(key, "IT_ADMIN")
@@ -2895,7 +2954,7 @@ class Engine:
                 "followup:" + key,
                 "ToDo",
                 {
-                    "description": result["reason"],
+                    "description": result.get("condition") or result["reason"],
                     "allocated_to": "finance@norvale.test",
                     "date": self.dated(self.day + 3),
                 },

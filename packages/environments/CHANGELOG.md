@@ -4,6 +4,7 @@
 
 ### Added
 
+- Role decisions are graded (`approve`, `approve_with_condition`, `request_info`, `reject`), cite evidence paths and receive a role card with duty, authority limits and escalation. Each outcome writes ERP records and mails the requester; conditions become tasks, rejected reorder requests are cancelled. Approvals without a resolvable citation, without a stated condition, or above the role limit are held as `request_info`.
 - Role decision prompts carry code-checked facts (days of cover, stock against reorder target, PO-minus-quote deltas, approval-limit headroom), explicit contradiction flags, effective policies and the role's written limits. Routing sees the same flags.
 - Long-run safety for operating runs: `<run>/heartbeat.json` after every stage and on a stop; a stall guard (`stall_minutes`, default 30); a spend total in the checkpoint with an owner ceiling (`NORVALE_SPEND_CEILING_USD`, JEV priced by `NORVALE_JEV_USD_PER_MTOK`); and a preflight (an OpenRouter endpoint, both limits, 20 GB free, a creatable Docker network) before a live operating run starts. An unpriced call blocks further paid calls under a ceiling until `NORVALE_UNPRICED_CALLS_RECONCILED` covers it.
 - Operating runs label every `company_erp_pending` error `expected` or `bug` and stop at the end of a business day with more bug-class errors than `daily_bug_limit` (config, default 5).
