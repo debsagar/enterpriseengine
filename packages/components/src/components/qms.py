@@ -88,7 +88,7 @@ class QMS:
                 payload = json.loads(raw)
                 kind = payload.get("exc_type", "HTTPError")
                 detail = payload.get("exception") or raw[:600]
-            except ValueError:
+            except (ValueError, AttributeError):  # not JSON, or JSON that is not an object
                 kind = "HTTPError"
                 detail = raw[:600]
             raise APIError(exc.code, kind, detail) from None
