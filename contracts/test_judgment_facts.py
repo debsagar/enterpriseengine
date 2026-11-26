@@ -1,0 +1,87 @@
+"""Code-checked facts and contradiction flags in role decision prompts (R9, R18)."""
+
+import json
+import unittest
+from unittest.mock import patch
+
+from environments.norvale.native import judgment, router
+from environments.norvale.native.company import Engine
+
+LINE = dict(item_code="BOT250", qty=468, rate=0.11, amount=51.48)
+ORDER = dict(
+    supplier="PackRight",
+    grand_total=51.48,
+    items=[LINE],
+    supplier_quote=dict(supplier="PackRight", valid_till="2027-01-08", grand_total=51.48, items=[LINE]),
+    coverage=[
+        dict(
+            item_code="BOT250",
+            released_raw_materials_qty=100,
+            quarantine_qty=0,
+            open_po_qty_excluding_this=0,
+            reorder_target_qty=500,
+        )
+    ],
+    observed_daily_usage={"BOT250": 50},
+)
+# Probe run, day 2: a reorder increase to 618 was approved with 901 on hand.
+CHANGE = dict(
+    requested_change=dict(
+        item_code="BOT250",
+        requested_reorder_level=618,
+        current_reorder_level=0,
+        released_qty=901,
+        observed_daily_usage=51.43,
+        has_supplier=True,
+    )
+)
+
+
+def flags(evidence, role="SCM_MGR", policies=()):
+    return [f["flag"] for f in judgment.facts(role, evidence, "2027-01-02", policies)["flags"]]
+
+
+class JudgmentFacts(unittest.TestCase):
+    def test_clean_order_has_facts_and_no_flags(self):
+        checked = judgment.facts("SCM_MGR", {"observations": ORDER}, "2027-01-02")
+        self.assertEqual(checked["flags"], [])
+        self.assertEqual(checked["stock"][0]["days_of_cover_released"], 2.0)
+        self.assertEqual(checked["po_minus_quote_total"], 0)
+        self.assertEqual(checked["role_approval_limit_headroom"], 24948.52)
+
+    def test_contradictions_are_flagged(self):
+        dearer = {**LINE, "rate": 0.2, "amount": 93.6}
+        self.assertEqual(
+            flags({**ORDER, "items": [dearer], "grand_total": 93.6}), ["quote_line_mismatch", "quote_total_mismatch"]
+        )
+        self.assertIn("quote_line_mismatch", flags({**ORDER, "items": [LINE, LINE]}))
+        covered = dict(ORDER["coverage"][0], released_raw_materials_qty=901, open_po_qty_excluding_this=12)
+        self.assertEqual(
+            flags({**ORDER, "coverage": [covered]}), ["stock_above_reorder_target", "duplicate_open_order"]
+        )
+        self.assertEqual(flags(CHANGE), ["stock_at_or_above_requested_level"])
+        self.assertIn("over_role_approval_limit", flags({"grand_total": 30000}))
+        policy = dict(suppliers=["PackRight"], items=["BOT250"], approval_limit=50)
+        self.assertEqual(flags(ORDER, policies=[policy]), ["over_policy_approval_limit"])
+        self.assertEqual(flags({"native_balances": {"Cash": 5, "Stock": -4}}, "CFO"), ["ledger_not_balanced"])
+
+    def test_facts_policy_and_limits_reach_the_model_prompt(self):
+        engine = Engine.__new__(Engine)
+        engine.day, engine.state = 1, {"decisions": {}}
+        engine.persist, engine.log = lambda: None, lambda *a, **kw: None
+        sent = []
+
+        def provider(name, request, on_attempt):
+            sent.append(json.loads(json.loads(request.data)["messages"][0]["content"]))
+            return {"choices": [{"finish_reason": "stop", "message": {"content": '{"action": "reject"}'}}]}
+
+        with patch.dict("os.environ", {"NORVALE_OFFLINE": "0", "OPENAI_API_KEY": "stub"}):
+            with patch.object(router, "provider_json", provider):
+                engine.decision("change", "SCM_MGR", {"observations": CHANGE}, "Approve?")
+        self.assertEqual(sent[0]["facts"]["flags"][0]["flag"], "stock_at_or_above_requested_level")
+        self.assertEqual(sent[0]["policy"]["authority_limits"], {"po_approval_eur": 25000})
+        self.assertEqual(sent[0]["policy"]["effective_policies"], [])
+
+
+if __name__ == "__main__":
+    unittest.main()
