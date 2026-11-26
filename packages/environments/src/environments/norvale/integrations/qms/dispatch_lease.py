@@ -48,7 +48,8 @@ if kind == "release_transfer":
                 commit.get("quantity") != scopes[0]["dispatch_qty"]):
             frappe.throw("Release lease requires matching ERP commit readback")
         legs = commit.get("legs", {})
-        outward, inward = legs.get("Outward", {}), legs.get("Inward", {})
+        outward = legs.get("Outward", {})
+        inward = legs.get("Inward", {})
         if (set(legs) != {"Outward", "Inward"} or
                 not all(leg.get("ledger") and leg.get("bundle") for leg in (outward, inward)) or
                 outward["ledger"] == inward["ledger"] or outward["bundle"] == inward["bundle"]):

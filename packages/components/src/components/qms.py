@@ -22,10 +22,14 @@ STATES = {
 
 
 class APIError(RuntimeError):
-    def __init__(self, status, kind):
+    def __init__(self, status, kind, detail=""):
         self.status = status
         self.kind = kind
-        super().__init__(f"Frappe HTTP {status} ({kind})")
+        self.detail = detail
+        msg = f"Frappe HTTP {status} ({kind})"
+        if detail:
+            msg += f": {detail}"
+        super().__init__(msg)
 
 
 def eligible(records, batch, revision, quantity, uom):
@@ -79,11 +83,15 @@ class QMS:
             with self.opener.open(request, timeout=30) as response:
                 return json.load(response)
         except HTTPError as exc:
+            raw = exc.read().decode(errors="replace")
             try:
-                kind = json.load(exc).get("exc_type", "HTTPError")
-            except ValueError:
+                payload = json.loads(raw)
+                kind = payload.get("exc_type", "HTTPError")
+                detail = payload.get("exception") or raw[:600]
+            except (ValueError, AttributeError):  # not JSON, or JSON that is not an object
                 kind = "HTTPError"
-            raise APIError(exc.code, kind) from None
+                detail = raw[:600]
+            raise APIError(exc.code, kind, detail) from None
 
     @staticmethod
     def resource(doctype, name=None):
