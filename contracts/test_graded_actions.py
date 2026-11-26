@@ -102,7 +102,7 @@ class Execution(unittest.TestCase):
             engine.schedule_supplier_arrival = Mock()
             engine.api = {"SCM_MGR": Mock(), "BUYER": Mock()}
             if step == "Reject":
-                engine.api["SCM_MGR"].call.side_effect = lambda *a: po.update(workflow_state="Rejected")
+                engine.api["SCM_MGR"].call.side_effect = lambda *a, po=po: po.update(workflow_state="Rejected")
             engine.approvals()
             applied = [c.args[1]["action"] for c in engine.api["SCM_MGR"].call.call_args_list]
             self.assertEqual(applied, [step] if step else [], action)
