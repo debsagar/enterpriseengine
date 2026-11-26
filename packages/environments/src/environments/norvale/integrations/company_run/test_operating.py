@@ -87,7 +87,7 @@ class OperatingTest(TestCase):
         self.assertTrue(config["supplier_quality"])
         self.assertIn("LAB", config["company_timing"]["shifts"])
 
-    def test_setup_registers_a_family_for_every_seeded_sku(self):
+    def setup_company(self, fail=None):
         skus = [dict(sku_id="SKU-30001"), dict(sku_id="SKU-30002")]
         with TemporaryDirectory() as tmp:
             run = Path(tmp)
@@ -96,15 +96,23 @@ class OperatingTest(TestCase):
             sources.write_text(json.dumps({"products": {}}))
 
             def publish(actor, item):
-                actor.cfg["products"][item] = dict(family=item)
+                if item == fail:
+                    raise ValueError("PLM refused the draft")
+                actor.cfg["products"][item] = dict(family=item, published=True)
                 save(sources, actor.cfg)
+
+            def attempt(key, role, action):
+                try:
+                    return action()
+                except Pending:
+                    return None
 
             company = Engine.__new__(Engine)
             company.run, company.config, company.state = run, dict(company_operating=True), {}
             company.catalog = SimpleNamespace(skus=skus)
             plm = SimpleNamespace(_family=lambda family: [])
             company.company_erp = SimpleNamespace(
-                attempt=lambda key, role, action: action(),
+                attempt=attempt,
                 authority=SimpleNamespace(clients=lambda item: (dict(family=item), plm, None, None)),
             )
             company.date = lambda: "2027-01-01"
@@ -114,8 +122,19 @@ class OperatingTest(TestCase):
                 patch("environments.norvale.native.systems_v2.identities"),
                 patch.object(Operating, "publish", publish),
             ):
-                company.recurring_setup()
-            self.assertEqual(set(json.loads(sources.read_text())["products"]), {"SKU-30001", "SKU-30002"})
+                if fail:
+                    with self.assertRaisesRegex(RuntimeError, fail):
+                        company.recurring_setup()
+                    company.seed_opening_orders.assert_not_called()
+                else:
+                    company.recurring_setup()
+            return set(json.loads(sources.read_text())["products"])
+
+    def test_setup_registers_a_family_for_every_seeded_sku(self):
+        self.assertEqual(self.setup_company(), {"SKU-30001", "SKU-30002"})
+
+    def test_setup_fails_when_a_seeded_sku_cannot_be_registered(self):
+        self.assertEqual(self.setup_company(fail="SKU-30002"), {"SKU-30001"})
 
     def test_repeatable_measurement_uses_confirmed_lot_genealogy_and_rework(self):
         actor = Operating.__new__(Operating)
