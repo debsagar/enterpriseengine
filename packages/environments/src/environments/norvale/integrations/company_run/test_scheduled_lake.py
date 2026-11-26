@@ -60,7 +60,10 @@ class ScheduledLake(TestCase):
             mail = normalize_message(
                 b"Message-ID: <1@norvale.test>\r\nDate: Sat, 02 Jan 2027 08:00:00 +0000\r\n\r\nHello\r\n"
             )
-            ics = "BEGIN:VEVENT\nUID:1\nDTSTART:20270102T090000Z\nEND:VEVENT\n"
+            ics = (
+                "BEGIN:VEVENT\nUID:1\nDTSTART:20270102T090000Z\nEND:VEVENT\n"
+                "BEGIN:VEVENT\nUID:2\nDTSTART:20270230\nEND:VEVENT\n"
+            )
             chat = normalize_event(dict(event_id="$1", origin_server_ts=1798876800000, content=dict(body="Hi")))
             module = "environments.norvale.integrations.company_run.lake."
             with (
@@ -88,7 +91,9 @@ class ScheduledLake(TestCase):
                 sources = snapshot_at(archive, date)["sources"]
                 found = {(s, e): row["count"] for s, entities in sources.items() for e, row in entities.items()}
                 self.assertEqual(found, dict.fromkeys(expected, count) if count else {}, date)
-                self.assertEqual(snapshot_at(archive, date)["undated"], ["quality/Quality Inspection"])
+                self.assertEqual(
+                    snapshot_at(archive, date)["undated"], ["calendar/Calendar Event", "quality/Quality Inspection"]
+                )
 
     def test_business_cutoffs_independent_failure_and_resume(self):
         with TemporaryDirectory() as temp:

@@ -64,7 +64,10 @@ def _record_day(row):
 
 def is_dated(row):
     """Whether the row carries a date a calendar cutoff can compare."""
-    stamp = _parse_ts(_record_day(row))
+    try:
+        stamp = _parse_ts(_record_day(row))
+    except ValueError:
+        return False
     return stamp is not None and stamp[0] == "dt"
 
 
