@@ -5,6 +5,7 @@
 ### Added
 
 - Decision questions name only the graded actions; a reply of `defer` or `investigate` is read as `request_info` instead of stopping the run.
+- Set `NORVALE_COMMS_MODEL` to have a small model word the operating run's employee emails (unset keeps the templates). The decision headline stays code-written; a draft that drops or invents a record name, item code, date or number is discarded for the template.
 - A 40-case labelled decision set (`native/decision_cases.json`) and `python -m environments.norvale.native.score_decisions --model NAME --out FILE`, which scores one model on wrong approvals, wrong refusals and usage per call.
 - Role decisions are graded (`approve`, `approve_with_condition`, `request_info`, `reject`), cite evidence paths and receive a role card with duty, authority limits and escalation. Each outcome writes ERP records and mails the requester; conditions become tasks, rejected reorder requests are cancelled. Approvals without a resolvable citation, without a stated condition, or above the role limit are held as `request_info`.
 - Role decision prompts carry code-checked facts (days of cover, stock against reorder target, PO-minus-quote deltas, approval-limit headroom), explicit contradiction flags, effective policies and the role's written limits. Routing sees the same flags.
@@ -34,5 +35,4 @@
 
 ### Added
 
-- Decision questions name only the graded actions; a reply of `defer` or `investigate` is read as `request_info` instead of stopping the run.
 - Initial independently versioned environments release candidate.

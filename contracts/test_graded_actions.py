@@ -161,7 +161,7 @@ class Execution(unittest.TestCase):
         engine.state, engine.persist = {}, lambda: None
         engine.mail = Mock(side_effect=[TimeoutError("pending"), None])
         with self.assertRaises(TimeoutError):
-            engine.notify("outcome:1", "SCM_MGR", "BUYER", "s", "b")
+            engine.notify("outcome:1", "SCM_MGR", "BUYER", "s", "h", "b")
         self.assertIn("outcome:1", engine.state["outbox"])
         engine.send_outbox()
         self.assertEqual(engine.state["outbox"], {})

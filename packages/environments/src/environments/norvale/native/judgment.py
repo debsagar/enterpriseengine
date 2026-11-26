@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import urllib.request
 from urllib.parse import urlsplit
 
@@ -278,3 +279,25 @@ def complete(content, log, *, model=None, before=None, after=None):
     if not raw.get("choices") or raw["choices"][0].get("finish_reason") != "stop":
         raise RuntimeError("Incomplete model response; raw response retained for diagnosis")
     return json.loads(raw["choices"][0]["message"]["content"])
+
+
+DRAFTING = (
+    "Rewrite template as the body of a short work email from sender to recipient. Keep every record name, item code, "
+    "date and number exactly as written and add none. Add no facts, promises or decisions. Return JSON with body."
+)
+
+
+def names(text):
+    """Record names, item codes, dates and figures: the tokens a rewording must neither drop nor invent."""
+    found = re.findall(r"[\w.-]*\d[\w.-]*|\b[A-Z]{2,}(?:-[A-Z0-9]+)*\b", text)
+    return {token.strip(".-") for token in found}
+
+
+def check_draft(subject, template, body):
+    if not isinstance(body, str) or not body.strip():
+        raise ValueError("Draft has no body")
+    invented = names(body) - names(subject + " " + template)
+    missing = names(template) - names(body)
+    if invented or missing:
+        raise ValueError(f"Draft invented {sorted(invented)} and dropped {sorted(missing)}")
+    return body.strip()

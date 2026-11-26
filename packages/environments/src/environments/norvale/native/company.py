@@ -618,6 +618,35 @@ class Engine:
             },
         )
 
+    def compose(self, key, sender, recipient, subject, template):
+        """The body to send: the template, or NORVALE_COMMS_MODEL's rewording of it that keeps its record names.
+
+        The decision is already taken; the drafting model only words it. The first text is kept for retries.
+        """
+        drafts = (self.state or {}).get("drafts", {})
+        if key in drafts:
+            return drafts[key]
+        model = os.environ.get("NORVALE_COMMS_MODEL")
+        if not model or os.environ.get("NORVALE_OFFLINE") == "1" or key in self.state.get("mail_operations", {}):
+            return template
+        try:
+            reply = judgment.complete(
+                dict(task=judgment.DRAFTING, sender=sender, recipient=recipient, subject=subject, template=template),
+                self.log,
+                model=model,
+                before=lambda: long_run.check_spend(self.state),
+                after=lambda raw: long_run.record_spend(self, "model", raw),
+            )
+            body = judgment.check_draft(subject, template, reply.get("body"))
+        except long_run.SpendCeilingExceeded:
+            raise
+        except (RuntimeError, ValueError, KeyError, TypeError, AttributeError) as exc:
+            self.log("comms_draft_rejected", mail_key=key, reason=str(exc))
+            body = template
+        self.state.setdefault("drafts", {})[key] = body
+        self.persist()
+        return body
+
     def mail(self, key, sender, recipient, subject, body):
         from environments.norvale.agents.comms import Comms
         from environments.norvale.native.company_erp import MailReadbackError
@@ -1975,12 +2004,10 @@ class Engine:
             )
             ops["purchases"].setdefault(p["key"], p)
             self.persist()
+            subject = "Replenishment approval requested"
+            template = f"Native purchase {self.get(p['key'])['name']} replenishes released inventory below lead-time plus safety coverage."
             self.mail(
-                p["key"],
-                "BUYER",
-                "SCM_MGR",
-                "Replenishment approval requested",
-                f"Native purchase {self.get(p['key'])['name']} replenishes released inventory below lead-time plus safety coverage.",
+                p["key"], "BUYER", "SCM_MGR", subject, self.compose(p["key"], "BUYER", "SCM_MGR", subject, template)
             )
 
     def schedule_supplier_arrival(self, key, purchase, submitted):
@@ -2045,25 +2072,27 @@ class Engine:
             self.log("purchase_review_unavailable", decision=key, role=role, reason=str(exc))
             return result
 
-    def notify(self, key, sender, recipient, subject, body):
+    def notify(self, key, sender, recipient, subject, headline, detail):
         """Queue an outcome message with the checkpoint, so a failed send is retried."""
-        self.state.setdefault("outbox", {})[key] = [sender, recipient, subject, body]
+        self.state.setdefault("outbox", {})[key] = [sender, recipient, subject, headline, detail]
         self.persist()
         self.send_outbox()
 
     def send_outbox(self):
-        for key, message in list(self.state.get("outbox", {}).items()):
-            self.mail(key, *message)
+        for key, (sender, recipient, subject, headline, detail) in list(self.state.get("outbox", {}).items()):
+            body = self.compose(key, sender, recipient, subject, detail)
+            self.mail(key, sender, recipient, subject, f"{headline} {body}")
             del self.state["outbox"][key]
             self.persist()
 
     def report_outcome(self, key, recipient, record, output):
         """Tell the requester what was decided, naming the native record and any condition."""
         action = output["action"].replace("_", " ")
-        body = f"{record}: {action}. {output.get('message') or output.get('reason', '')}"
+        headline = f"{record}: {action}."
         if output["action"] == "approve_with_condition":
-            body += f" Condition: {output['condition']}"
-        self.notify("outcome:" + key, "SCM_MGR", recipient, f"Decision on {record}: {action}", body)
+            headline += f" Condition: {output['condition']}."
+        detail = output.get("message") or output.get("reason", "")
+        self.notify("outcome:" + key, "SCM_MGR", recipient, f"Decision on {record}: {action}", headline, detail)
 
     def condition_task(self, key, doctype, name, condition):
         self.write(
@@ -2579,13 +2608,9 @@ class Engine:
                     "BUYER",
                 )
                 ops["changes"][change] = {"item": item, "level": level, "requested_day": self.day}
-                self.mail(
-                    change,
-                    "BUYER",
-                    "SCM_MGR",
-                    "Repeated shortage: master data request",
-                    self.get(change)["description"],
-                )
+                subject = "Repeated shortage: master data request"
+                body = self.compose(change, "BUYER", "SCM_MGR", subject, self.get(change)["description"])
+                self.mail(change, "BUYER", "SCM_MGR", subject, body)
             self.persist()
         if lot_flow:
             lot_flow.production(plan)
@@ -2854,7 +2879,9 @@ class Engine:
             issue_body = task["description"] + " ERP task " + task["name"] + "; reported " + self.date()
             ticket = tickets.open(key, title, issue_body)
             self.log("ticket_readback", record=ticket)
-            self.mail(key, "MAINTENANCE", "PLANT_MGR", "Filler unavailable for service", self.get(key)["description"])
+            subject = "Filler unavailable for service"
+            body = self.compose(key, "MAINTENANCE", "PLANT_MGR", subject, self.get(key)["description"])
+            self.mail(key, "MAINTENANCE", "PLANT_MGR", subject, body)
             ops["maintenance"][key] = {
                 "day": self.day,
                 "due": self.day + self.config["maintenance_days"],
@@ -2953,7 +2980,8 @@ class Engine:
                 },
                 "CFO",
             )
-        self.mail(key, "CFO", "CEO", "Periodic operating review", result["message"])
+        subject = "Periodic operating review"
+        self.mail(key, "CFO", "CEO", subject, self.compose(key, "CFO", "CEO", subject, result["message"]))
         # The stage persists the checkpoint and completion together.
         self.state["management_quarter"] = quarter
 

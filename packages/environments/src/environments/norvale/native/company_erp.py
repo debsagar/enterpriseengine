@@ -1994,13 +1994,10 @@ class CompanyERP:
         if any(record.get(k) != v for k, v in fields.items()):
             raise Pending("Sales could not confirm the planning handoff")
         try:
-            e.mail(
-                key,
-                "SALES_OPS_MGR",
-                "ACCT_EXEC",
-                "Delivery allocation changed for " + order["name"],
-                change["notice"] + " ERP task " + record["name"] + ".",
-            )
+            subject = "Delivery allocation changed for " + order["name"]
+            template = change["notice"] + " ERP task " + record["name"] + "."
+            body = e.compose(key, "SALES_OPS_MGR", "ACCT_EXEC", subject, template)
+            e.mail(key, "SALES_OPS_MGR", "ACCT_EXEC", subject, body)
         except MailReadbackError as exc:
             raise Pending(f"Sales task {record['name']} awaits mail reconciliation: {exc}") from exc
         change["sales_task"] = record["name"]
