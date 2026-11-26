@@ -51,6 +51,13 @@ class Drafts(unittest.TestCase):
         self.assertEqual([r["model"] for r in provider.sent], ["small"])
         self.assertEqual(engine.state["spend"]["usd"], 0.001)
 
+    def test_a_changed_template_is_never_answered_with_the_old_draft(self):
+        engine = company()
+        self.compose(engine, replies(GOOD))
+        changed = TEMPLATE.replace("48", "60")
+        with patch.dict("os.environ", {**ONLINE, "NORVALE_COMMS_MODEL": ""}):
+            self.assertEqual(engine.compose("po", "BUYER", "SCM_MGR", "Approval requested", changed), changed)
+
     def test_drafts_that_change_records_fall_back_to_the_template(self):
         for bad in (
             GOOD.replace("00001", "00002"),

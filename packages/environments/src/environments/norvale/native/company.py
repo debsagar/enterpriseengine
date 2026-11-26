@@ -623,9 +623,9 @@ class Engine:
 
         The decision is already taken; the drafting model only words it. The first text is kept for retries.
         """
-        drafts = (self.state or {}).get("drafts", {})
-        if key in drafts:
-            return drafts[key]
+        kept = (self.state or {}).get("drafts", {}).get(key)
+        if kept and kept[0] == template:
+            return kept[1]
         model = os.environ.get("NORVALE_COMMS_MODEL")
         if not model or os.environ.get("NORVALE_OFFLINE") == "1" or key in self.state.get("mail_operations", {}):
             return template
@@ -643,7 +643,7 @@ class Engine:
         except (RuntimeError, ValueError, KeyError, TypeError, AttributeError) as exc:
             self.log("comms_draft_rejected", mail_key=key, reason=str(exc))
             body = template
-        self.state.setdefault("drafts", {})[key] = body
+        self.state.setdefault("drafts", {})[key] = [template, body]
         self.persist()
         return body
 
