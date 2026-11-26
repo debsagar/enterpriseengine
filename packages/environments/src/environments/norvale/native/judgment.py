@@ -254,8 +254,7 @@ def complete(content, log, *, model=None, before=None, after=None):
         raise RuntimeError("LLM judgment requires credentials; no approval fallback")
     key, base, default = endpoint
     model = model or default
-    target = urlsplit(base)
-    if target.scheme != "https" and target.hostname not in ("localhost", "127.0.0.1", "::1"):
+    if urlsplit(base).scheme != "https":
         raise RuntimeError("The model endpoint must use HTTPS so the API key is not sent in clear text")
     if before:
         before()
