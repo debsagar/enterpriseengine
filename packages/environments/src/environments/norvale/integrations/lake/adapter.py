@@ -79,6 +79,15 @@ class Lake:
         batches = QueryBuilder().register("snapshots", table).execute(query)
         return pa.table(batches.read_all()).to_pylist()
 
+    def index(self):
+        """Every snapshot's identity, digest and dates, without payloads."""
+        if not Path(self.path, "_delta_log").exists():
+            return []
+        columns = "source, entity, native_id, content_hash, source_recorded_at, effective_at, ingested_at"
+        query = f"SELECT {columns} FROM snapshots"
+        batches = QueryBuilder().register("snapshots", DeltaTable(self.path)).execute(query)
+        return pa.table(batches.read_all()).to_pylist()
+
     def read(self, role, entity, version=None):
         if entity not in self.allowed.get(role, set()):
             raise PermissionError(f"{role} cannot read {entity}")
