@@ -3248,10 +3248,13 @@ class Engine:
         }
         self.log("completed", **{"result": self.result})
         if self.config and self.config.get("company_operating"):
-            stages = (re.match(r"d(\d+):", done) for done in self.state["completed"])
-            worked = sorted({self.dated(int(stage[1])) for stage in stages if stage})
-            today = behaviour.save(self.run, self.state.get("decisions", {}), self.date(), worked)
-            long_run.heartbeat(self, behaviour=today)
+            long_run.heartbeat(self, behaviour=self.save_behaviour())
+
+    def save_behaviour(self):
+        """Rewrite the run's behaviour report and return today's numbers."""
+        stages = (re.match(r"d(\d+):", done) for done in self.state["completed"])
+        worked = sorted({self.dated(int(stage[1])) for stage in stages if stage})
+        return behaviour.save(self.run, self.state.get("decisions", {}), self.date(), worked)
 
     def run_phase(self, day, key, action):
         from environments.norvale.native.recurring_extensions import DAY, MIDNIGHT
@@ -3336,8 +3339,11 @@ class Engine:
             with long_run.stall_guard(self.run, self.config.get("stall_minutes", long_run.STALL_MINUTES)):
                 self._run_all()
         except BaseException as exc:
+            stopped = {"stopped": f"{type(exc).__name__}: {exc}"[:300]}
+            with suppress(Exception):  # reporting must not hide why the run stopped
+                stopped["behaviour"] = self.save_behaviour()
             with suppress(OSError):  # a full disk must not hide why the run stopped
-                long_run.heartbeat(self, stopped=f"{type(exc).__name__}: {exc}"[:300])
+                long_run.heartbeat(self, **stopped)
             raise
 
     def _run_all(self):

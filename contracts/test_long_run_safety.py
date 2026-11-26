@@ -128,6 +128,12 @@ class Watching(unittest.TestCase):
                     engine.run_all()
             beat = json.loads((Path(tmp) / "heartbeat.json").read_text())
             self.assertEqual(beat["stopped"], "SpendCeilingExceeded: reached")
+            self.assertEqual(beat["behaviour"], saved["2027-01-03"])
+            with patch.object(engine, "step", side_effect=SpendCeilingExceeded("again")):
+                with patch.object(engine, "save_behaviour", side_effect=KeyError("report")):
+                    with self.assertRaisesRegex(SpendCeilingExceeded, "again"):
+                        engine.run_all()
+            self.assertIn("again", json.loads((Path(tmp) / "heartbeat.json").read_text())["stopped"])
 
     def test_stall_guard_interrupts_only_a_silent_run(self):
         with TemporaryDirectory() as tmp:
