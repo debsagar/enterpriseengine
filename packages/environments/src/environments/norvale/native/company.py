@@ -1579,6 +1579,11 @@ class Engine:
                 "shortage_days": {},
             },
         )
+        if self.config.get("company_operating"):
+            from environments.norvale.integrations.company_run.operating import Operating
+
+            # Day-0 inspections run before production, so every seeded SKU needs its PLM family now.
+            Operating(self).definitions(sku["sku_id"] for sku in self.catalog.skus)
         self.persist()
         self.seed_opening_orders()
 

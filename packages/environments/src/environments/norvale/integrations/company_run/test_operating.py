@@ -1,5 +1,6 @@
 """Regression coverage of ordinary generator selection and the quality handoffs."""
 
+import json
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,6 +11,7 @@ from unittest.mock import Mock, patch
 from environments.norvale import generate
 from environments.norvale.integrations.company_run.operating import Operating, proposed_salvage
 from environments.norvale.integrations.company_run.timing import operating_quality
+from environments.norvale.native.company import Engine, save
 from environments.norvale.native.company_erp import Pending
 
 
@@ -84,6 +86,36 @@ class OperatingTest(TestCase):
         self.assertTrue(config["company_operating"])
         self.assertTrue(config["supplier_quality"])
         self.assertIn("LAB", config["company_timing"]["shifts"])
+
+    def test_setup_registers_a_family_for_every_seeded_sku(self):
+        skus = [dict(sku_id="SKU-30001"), dict(sku_id="SKU-30002")]
+        with TemporaryDirectory() as tmp:
+            run = Path(tmp)
+            (run / "env").mkdir()
+            sources = run / "env/company-sources.json"
+            sources.write_text(json.dumps({"products": {}}))
+
+            def publish(actor, item):
+                actor.cfg["products"][item] = dict(family=item)
+                save(sources, actor.cfg)
+
+            company = Engine.__new__(Engine)
+            company.run, company.config, company.state = run, dict(company_operating=True), {}
+            company.catalog = SimpleNamespace(skus=skus)
+            plm = SimpleNamespace(_family=lambda family: [])
+            company.company_erp = SimpleNamespace(
+                attempt=lambda key, role, action: action(),
+                authority=SimpleNamespace(clients=lambda item: (dict(family=item), plm, None, None)),
+            )
+            company.date = lambda: "2027-01-01"
+            for name in ("configure", "workflow_setup", "finance_costs", "write", "persist", "seed_opening_orders"):
+                setattr(company, name, Mock())
+            with (
+                patch("environments.norvale.native.systems_v2.identities"),
+                patch.object(Operating, "publish", publish),
+            ):
+                company.recurring_setup()
+            self.assertEqual(set(json.loads(sources.read_text())["products"]), {"SKU-30001", "SKU-30002"})
 
     def test_repeatable_measurement_uses_confirmed_lot_genealogy_and_rework(self):
         actor = Operating.__new__(Operating)
