@@ -8,6 +8,7 @@ NORVALE_SPEND_CEILING_USD, when set, stops the run once the costs recorded in --
 """
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -31,21 +32,27 @@ def spent(rows):
     return {"spend": {"usd": sum(c or 0 for c in costs), "unpriced_calls": costs.count(None)}}
 
 
+def fingerprint(case):
+    """Of the exact prompt, so a saved answer is never scored against changed evidence or wording."""
+    return hashlib.sha256(json.dumps(prompt(case), sort_keys=True).encode()).hexdigest()[:16]
+
+
 def ask(case, model, rows=()):
-    usage, sent = {}, prompt(case)
+    usage, sent, received = {}, prompt(case), []
 
     def log(kind, **data):
         if kind == "model_response":
+            received.append(True)
             usage.update(data["response"].get("usage") or {})
 
-    row = {"id": case["id"], "model": model}
+    row = {"id": case["id"], "model": model, "prompt": fingerprint(case)}
     try:
         answer = judgment.complete(sent, log, model=model, before=lambda: long_run.check_spend(spent(rows)))
         row["answer"] = answer
         row["proposed"] = answer.get("action")
         row["executed"] = judgment.graded(sent, dict(answer))["action"]
     except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as exc:
-        if not usage:
+        if not received:
             raise  # nothing came back (credentials, provider): stop rather than score it
         row["error"] = str(exc)
     return {**row, "usage": usage}
@@ -68,7 +75,7 @@ def score(cases, rows):
                 tally["wrong_refusals"].append(case["id"])
         out[stage] = tally
     for field in ("prompt_tokens", "completion_tokens", "cost"):
-        values = [r["usage"][field] for r in answered.values() if field in r.get("usage", {})]
+        values = [v for r in answered.values() if (v := r.get("usage", {}).get(field)) is not None]
         if values:
             out[field] = round(sum(values), 6)
             out[field + "_per_call"] = round(sum(values) / len(values), 6)
@@ -94,6 +101,9 @@ def main(argv=None):
     rows = [json.loads(line) for line in out.read_text().splitlines()] if out.exists() else []
     if any(r["model"] != args.model for r in rows):
         parser.error(f"{out} holds another model's answers")
+    current = {c["id"]: fingerprint(c) for c in cases}
+    if any(r.get("prompt") != current.get(r["id"]) for r in rows):
+        parser.error(f"{out} answers different prompts than these cases; use a new --out")
     done = {r["id"] for r in rows}
     with out.open("a") as stream:
         for case in cases:

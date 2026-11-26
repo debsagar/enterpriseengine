@@ -79,6 +79,24 @@ class DecisionCases(unittest.TestCase):
                     score_decisions.main(["--model", "stub", "--out", str(out)])
             self.assertEqual(len(out.read_text().splitlines()), 3)
 
+    def test_resume_refuses_changed_cases_and_keeps_replies_without_usage(self):
+        def cut_off(name, request, on_attempt):
+            return {"choices": [{"finish_reason": "length", "message": {"content": ""}}]}
+
+        env = {"NORVALE_OFFLINE": "0", "OPENAI_API_KEY": "stub", "NORVALE_SPEND_CEILING_USD": ""}
+        with tempfile.TemporaryDirectory() as temp, patch("builtins.print"), patch.dict("os.environ", env):
+            out, changed = Path(temp) / "cut.jsonl", Path(temp) / "cases.json"
+            with patch.object(router, "provider_json", cut_off):
+                result = score_decisions.main(["--model", "stub", "--out", str(out)])
+            self.assertEqual((result["answered"], result["invalid"], "cost" in result), (40, 40, False))
+            edited = json.loads(score_decisions.CASES.read_text())
+            edited["cases"][0]["question"] += " Now."
+            changed.write_text(json.dumps(edited))
+            with self.assertRaises(SystemExit), patch("sys.stderr"):
+                score_decisions.main(["--model", "stub", "--out", str(out), "--cases", str(changed)])
+        usage = {"id": CASES[0]["id"], "usage": {"cost": None}}
+        self.assertNotIn("cost", score_decisions.score(CASES, [usage]))
+
     def test_run_without_credentials_stops_without_scoring(self):
         with tempfile.TemporaryDirectory() as temp, patch.dict("os.environ", {"NORVALE_OFFLINE": "1"}):
             out = Path(temp) / "none.jsonl"

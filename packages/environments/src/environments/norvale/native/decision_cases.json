@@ -1,7 +1,7 @@
 {
  "about": "Labelled role decisions for Norvale. Labels were written before any model was run on these cases.",
  "sources": "probe-*: observations from /data/runs/probe-3d/business/trace.jsonl, with reorder_target_qty and requested_change derived by the same rules the company code uses. rule-* and trap-*: made from those observations by rule.",
- "excluded": "Probe orders 1 and 4 (some lines needed, some not) and reorder requests CARB, FRG-ALO, FRG-OCN, LAS (stock exactly at the requested level) have no single defensible label.",
+ "excluded": "Probe orders 1, 4 and 5 (some lines needed, some not) and reorder requests CARB, FRG-ALO, FRG-OCN, LAS (stock exactly at the requested level) have no single defensible label.",
  "scoring": "label is the preferred action; acceptable lists every action counted correct. Wrong approval: approve* on a non-approval label. Wrong refusal: non-approval on an approve label.",
  "cases": [
   {
@@ -209,8 +209,8 @@
    "rationale": "All four items are already at or above their reorder targets."
   },
   {
-   "id": "probe-po-5",
-   "source": "probe-3d d0001:approvals PUR-ORD-2027-00005",
+   "id": "rule-po-all-covered",
+   "source": "rule: probe PO 5 with BOT750 released stock raised from 131 to 300, above its target",
    "role": "SCM_MGR",
    "as_of": "2027-01-02",
    "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
@@ -308,7 +308,7 @@
      },
      {
       "item_code": "BOT750",
-      "released_raw_materials_qty": 131.0,
+      "released_raw_materials_qty": 300.0,
       "quarantine_qty": 0.0,
       "open_po_qty_excluding_this": 0,
       "reorder_target_qty": 231.43
@@ -355,7 +355,7 @@
     "request_info",
     "reject"
    ],
-   "rationale": "Three of four items are above target; BOT250 has 901 released against 462.86."
+   "rationale": "All four items are at or above their reorder targets."
   },
   {
    "id": "probe-reorder-BOT250",
@@ -392,8 +392,8 @@
      "current_reorder_level": 0,
      "released_qty": 901.0,
      "observed_daily_usage": 51.42857142857143,
-     "open_po_qty": 468.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 468.0
     }
    },
    "label": "request_info",
@@ -438,8 +438,8 @@
      "current_reorder_level": 0,
      "released_qty": 619.0,
      "observed_daily_usage": 39.42857142857143,
-     "open_po_qty": 360.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 360.0
     }
    },
    "label": "request_info",
@@ -484,8 +484,8 @@
      "current_reorder_level": 0,
      "released_qty": 1650.0,
      "observed_daily_usage": 116.57142857142857,
-     "open_po_qty": 1056.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 1056.0
     }
    },
    "label": "request_info",
@@ -530,8 +530,8 @@
      "current_reorder_level": 0,
      "released_qty": 10.0,
      "observed_daily_usage": 0.17142857142857143,
-     "open_po_qty": 12.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
     }
    },
    "label": "request_info",
@@ -576,8 +576,8 @@
      "current_reorder_level": 0,
      "released_qty": 19.0,
      "observed_daily_usage": 0.34285714285714286,
-     "open_po_qty": 12.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
     }
    },
    "label": "request_info",
@@ -622,8 +622,8 @@
      "current_reorder_level": 0,
      "released_qty": 4.0,
      "observed_daily_usage": 0.2052857142857143,
-     "open_po_qty": 12.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
     }
    },
    "label": "request_info",
@@ -668,8 +668,8 @@
      "current_reorder_level": 0,
      "released_qty": 100000.0,
      "observed_daily_usage": 39.152828571428564,
-     "open_po_qty": 0,
-     "has_supplier": false
+     "has_supplier": false,
+     "tracked_open_po_qty": 0
     }
    },
    "label": "reject",
@@ -714,8 +714,8 @@
      "current_reorder_level": 0,
      "released_qty": 131.0,
      "observed_daily_usage": 25.714285714285715,
-     "open_po_qty": 240.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 240.0
     }
    },
    "label": "approve",
@@ -760,8 +760,8 @@
      "current_reorder_level": 0,
      "released_qty": 10.0,
      "observed_daily_usage": 0.9737142857142856,
-     "open_po_qty": 12.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
     }
    },
    "label": "approve",
@@ -806,8 +806,8 @@
      "current_reorder_level": 0,
      "released_qty": 2.0,
      "observed_daily_usage": 0.20331428571428573,
-     "open_po_qty": 12.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
     }
    },
    "label": "approve",
@@ -852,8 +852,8 @@
      "current_reorder_level": 0,
      "released_qty": 9.0,
      "observed_daily_usage": 0.7508571428571429,
-     "open_po_qty": 12.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
     }
    },
    "label": "approve",
@@ -898,8 +898,8 @@
      "current_reorder_level": 0,
      "released_qty": 42.0,
      "observed_daily_usage": 4.078285714285714,
-     "open_po_qty": 48.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 48.0
     }
    },
    "label": "approve",
@@ -1831,8 +1831,8 @@
      "current_reorder_level": 0,
      "released_qty": 0.0,
      "observed_daily_usage": 51.42857142857143,
-     "open_po_qty": 0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 0
     }
    },
    "label": "approve",
@@ -1877,8 +1877,8 @@
      "current_reorder_level": 0,
      "released_qty": 3.0,
      "observed_daily_usage": 4.078285714285714,
-     "open_po_qty": 0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 0
     }
    },
    "label": "approve",
@@ -2866,8 +2866,7 @@
    },
    "label": "request_info",
    "acceptable": [
-    "request_info",
-    "reject"
+    "request_info"
    ],
    "rationale": "A matching order above the 25000 EUR role limit must be escalated, not approved."
   },
@@ -3043,8 +3042,8 @@
      "current_reorder_level": 0,
      "released_qty": 131.0,
      "observed_daily_usage": 25.714285714285715,
-     "open_po_qty": 240.0,
-     "has_supplier": true
+     "has_supplier": true,
+     "tracked_open_po_qty": 240.0
     }
    },
    "label": "request_info",
