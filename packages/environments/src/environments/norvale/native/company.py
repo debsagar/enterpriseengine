@@ -2013,9 +2013,9 @@ class Engine:
 
     def open_po_qty(self, orders, code, excluding=None):
         return sum(
-            max(0, r["qty"] - r.get("received_qty", 0))
+            self.purchase_balance(r) * (r.get("conversion_factor") or 1)
             for other in orders
-            if other["name"] != excluding and other["docstatus"] in (0, 1) and other.get("workflow_state") != "Rejected"
+            if other["name"] != excluding and other["docstatus"] in (0, 1) and not self.purchase_unavailable(other)
             for r in other["items"]
             if r["item_code"] == code
         )

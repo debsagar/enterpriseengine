@@ -65,6 +65,18 @@ class JudgmentFacts(unittest.TestCase):
         self.assertEqual(flags(ORDER, policies=[policy]), ["over_policy_approval_limit"])
         self.assertEqual(flags({"native_balances": {"Cash": 5, "Stock": -4}}, "CFO"), ["ledger_not_balanced"])
 
+    def test_open_po_coverage_uses_stock_units_and_only_available_orders(self):
+        engine = Engine.__new__(Engine)
+        line = dict(item_code="BOT250", qty=3, received_qty=1, conversion_factor=12)
+        orders = [
+            dict(name="open", docstatus=1, items=[line]),
+            dict(name="draft", docstatus=0, items=[dict(line, conversion_factor=1)]),
+            dict(name="hold", docstatus=1, status="On Hold", items=[line]),
+            dict(name="closed", docstatus=1, status="Closed", items=[line]),
+        ]
+        self.assertEqual(engine.open_po_qty(orders, "BOT250"), 26)
+        self.assertEqual(engine.open_po_qty(orders, "BOT250", excluding="open"), 2)
+
     def test_facts_policy_and_limits_reach_the_model_prompt(self):
         engine = Engine.__new__(Engine)
         engine.day, engine.state = 1, {"decisions": {}}
