@@ -275,6 +275,6 @@ def complete(content, log, *, model=None, before=None, after=None):
     log("model_response", response=raw)
     if after:
         after(raw)
-    if raw["choices"][0].get("finish_reason") != "stop":
+    if not raw.get("choices") or raw["choices"][0].get("finish_reason") != "stop":
         raise RuntimeError("Incomplete model response; raw response retained for diagnosis")
     return json.loads(raw["choices"][0]["message"]["content"])

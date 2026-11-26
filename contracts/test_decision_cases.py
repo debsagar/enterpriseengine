@@ -89,6 +89,9 @@ class DecisionCases(unittest.TestCase):
             with patch.object(router, "provider_json", cut_off):
                 result = score_decisions.main(["--model", "stub", "--out", str(out)])
             self.assertEqual((result["answered"], result["invalid"], "cost" in result), (40, 40, False))
+            empty = Path(temp) / "empty.jsonl"
+            with patch.object(router, "provider_json", lambda *a: {"choices": []}):
+                self.assertEqual(score_decisions.main(["--model", "stub", "--out", str(empty)])["invalid"], 40)
             edited = json.loads(score_decisions.CASES.read_text())
             edited["cases"][0]["question"] += " Now."
             changed.write_text(json.dumps(edited))
