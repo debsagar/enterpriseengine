@@ -85,9 +85,10 @@ class Operating(Demo):
             raise Pending("Unapproved legacy draft requires a native engineering review")
         PLM(**actors["approver"]).approve(pk, on=date, effective=date, evidence=evidence)
 
-    def definitions(self):
+    def definitions(self, seeded=()):
         """Commission new items and reconcile approved changes before planning."""
         items = set(self.cfg["products"])
+        items.update(seeded)
         items.update(
             order["item"] for order in self.e.state["ops"]["orders"].values() if not order.get("production_profile")
         )

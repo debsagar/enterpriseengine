@@ -1579,6 +1579,16 @@ class Engine:
                 "shortage_days": {},
             },
         )
+        if self.config.get("company_operating"):
+            from environments.norvale.integrations.company_run.operating import Operating
+
+            # Day-0 inspections run before production, so every seeded SKU needs its PLM family now.
+            participant = Operating(self)
+            seeded = [sku["sku_id"] for sku in self.catalog.skus]
+            participant.definitions(seeded)
+            products = participant.cfg["products"]
+            if missing := [item for item in seeded if not products.get(item, {}).get("published")]:
+                raise RuntimeError("Setup incomplete, no published PLM family for " + ", ".join(missing))
         self.persist()
         self.seed_opening_orders()
 
