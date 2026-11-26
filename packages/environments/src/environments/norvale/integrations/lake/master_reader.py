@@ -6,7 +6,9 @@ from pathlib import Path
 
 def normalize_account(record):
     """Normalize an employee/account record into a lake-ready master record."""
-    rec_id = str(record.get("id") or record.get("name") or record.get("email") or "")
+    rec_id = str(record.get("id") or record.get("name") or record.get("email") or "").strip()
+    if not rec_id:
+        raise ValueError(f"Master account record missing id/name/email: {record!r}")
     return {
         "name": rec_id,
         "id": rec_id,

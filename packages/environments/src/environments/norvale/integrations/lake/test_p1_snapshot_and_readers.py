@@ -11,9 +11,10 @@ from environments.norvale.integrations.lake.manifest import (
     build_manifest,
     filter_rows_at,
     snapshot_at,
+    stage_snapshot,
     write_manifest,
 )
-from environments.norvale.integrations.lake.master_reader import load_master_file, scan_master
+from environments.norvale.integrations.lake.master_reader import load_master_file, normalize_account, scan_master
 from environments.norvale.integrations.lake.matrix_reader import normalize_event, scan_matrix
 
 
@@ -27,16 +28,25 @@ class _FakeSink:
 
 
 class TestSnapshotManifest(unittest.TestCase):
-    def test_filter_rows_at_excludes_future_records(self):
+    def test_filter_rows_at_excludes_future_and_missing_records(self):
         rows = [
             {"name": "a", "effective_at": "2026-01-01T10:00:00Z"},
-            {"name": "b", "effective_at": "2026-01-05T10:00:00Z"},
+            {"name": "b", "effective_at": "20260102T090000Z"},
             {"name": "c", "effective_at": "2026-01-10T10:00:00Z"},
+            {"name": "missing", "effective_at": ""},
         ]
-        kept = filter_rows_at(rows, "2026-01-05T23:59:59Z")
+        kept = filter_rows_at(rows, "2026-01-03")
         self.assertEqual([r["name"] for r in kept], ["a", "b"])
 
-    def test_write_and_load_snapshot_at(self):
+    def test_filter_rows_at_integer_day_zero(self):
+        rows = [
+            {"name": "d0", "effective_at": 0},
+            {"name": "d1", "effective_at": 1},
+        ]
+        kept = filter_rows_at(rows, 0)
+        self.assertEqual([r["name"] for r in kept], ["d0"])
+
+    def test_write_load_and_stage_snapshot_at(self):
         rows_by_source = {
             ("mail", "Mail Message"): [
                 {"name": "m1", "effective_at": "2026-01-02T09:00:00Z"},
@@ -60,12 +70,18 @@ class TestSnapshotManifest(unittest.TestCase):
                 loaded["sources"]["mail"]["Mail Message"]["digest"],
             )
 
+            staging = Path(tmp) / "staging"
+            staged_manifest = stage_snapshot(staging, "2026-01-03", rows_by_source)
+            self.assertTrue(staged_manifest.exists())
+            staged_mail = json.loads((staging / "lake" / "records" / "mail__Mail_Message.json").read_text())
+            self.assertEqual([r["name"] for r in staged_mail], ["m1"])
+
 
 class TestReaders(unittest.TestCase):
-    def test_mail_reader(self):
+    def test_mail_reader_multi_recipient(self):
         raw = (
             b"From: Alice <alice@norvale.test>\r\n"
-            b"To: Bob <bob@norvale.test>\r\n"
+            b"To: Bob <bob@norvale.test>, Carol <carol@norvale.test>\r\n"
             b"Subject: Batch 42\r\n"
             b"Date: Thu, 01 Jan 2026 12:00:00 +0000\r\n"
             b"Message-ID: <msg-42@norvale.test>\r\n"
@@ -75,28 +91,30 @@ class TestReaders(unittest.TestCase):
         doc = normalize_message(raw)
         self.assertEqual(doc["message_id"], "<msg-42@norvale.test>")
         self.assertEqual(doc["sender"], "alice@norvale.test")
-        self.assertEqual(doc["recipients"], ["bob@norvale.test"])
+        self.assertEqual(doc["recipients"], ["bob@norvale.test", "carol@norvale.test"])
         self.assertEqual(doc["body"], "Release approved.")
         sink = _FakeSink()
         self.assertEqual(scan_mail([raw], sink=sink), 1)
         self.assertEqual(sink.calls[0][0], "mail")
 
-    def test_calendar_reader(self):
+    def test_calendar_reader_folded_and_recurrence(self):
         ics = (
-            "BEGIN:VCALENDAR\n"
-            "BEGIN:VEVENT\n"
-            "UID:evt-1\n"
-            "SUMMARY:Quality Review\n"
-            "DTSTART:20260102T090000Z\n"
-            "DTEND:20260102T100000Z\n"
-            "ORGANIZER:mailto:alice@norvale.test\n"
-            "ATTENDEE:mailto:bob@norvale.test\n"
-            "END:VEVENT\n"
-            "END:VCALENDAR\n"
+            "BEGIN:VCALENDAR\r\n"
+            "BEGIN:VEVENT\r\n"
+            "UID:evt-1\r\n"
+            "RECURRENCE-ID:20260109T090000Z\r\n"
+            "SUMMARY:Quality \r\n Review\r\n"
+            "DTSTART:20260102T090000Z\r\n"
+            "DTEND:20260102T100000Z\r\n"
+            "ORGANIZER:mailto:alice@norvale.test\r\n"
+            "ATTENDEE:mailto:bob@norvale.test\r\n"
+            "END:VEVENT\r\n"
+            "END:VCALENDAR\r\n"
         )
         events = parse_vevents(ics)
         self.assertEqual(len(events), 1)
-        self.assertEqual(events[0]["uid"], "evt-1")
+        self.assertEqual(events[0]["name"], "evt-1#20260109T090000Z")
+        self.assertEqual(events[0]["summary"], "Quality Review")
         self.assertEqual(events[0]["organizer"], "alice@norvale.test")
         self.assertEqual(events[0]["attendees"], ["bob@norvale.test"])
         sink = _FakeSink()
@@ -120,6 +138,8 @@ class TestReaders(unittest.TestCase):
         self.assertEqual(sink.calls[0][0], "matrix")
 
     def test_master_reader(self):
+        with self.assertRaises(ValueError):
+            normalize_account({"role": "QA"})
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "accounts.json"
             p.write_text(

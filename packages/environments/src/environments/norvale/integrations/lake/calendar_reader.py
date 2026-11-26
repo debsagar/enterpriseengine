@@ -1,22 +1,32 @@
 """Read-only CalDAV (Radicale) calendar reader for Norvale lake ingestion."""
 
 import base64
+import re
 import urllib.request
 import xml.etree.ElementTree as ET
+
+
+def _unfold_ics(ics_text):
+    """Unfold RFC 5545 continuation lines (CRLF/LF followed by space or tab)."""
+    return re.sub(r"\r?\n[ \t]", "", ics_text)
 
 
 def parse_vevents(ics_text):
     """Extract VEVENT blocks from an iCalendar (.ics) string."""
     events = []
     current = None
-    for raw_line in ics_text.splitlines():
+    for raw_line in _unfold_ics(ics_text).splitlines():
         line = raw_line.strip()
         if line == "BEGIN:VEVENT":
             current = {"attendees": []}
         elif line == "END:VEVENT" and current is not None:
             uid = current.get("uid", "")
+            rec_id = current.get("recurrence_id", "")
             dtstart = current.get("dtstart", "")
-            current.setdefault("name", uid or f"event:{dtstart}:{current.get('summary', '')}")
+            default_name = (
+                f"{uid}#{rec_id}" if (uid and rec_id) else (uid or f"event:{dtstart}:{current.get('summary', '')}")
+            )
+            current.setdefault("name", default_name)
             current["effective_at"] = dtstart
             current["source_recorded_at"] = current.get("dtstamp") or dtstart
             events.append(current)
@@ -26,6 +36,8 @@ def parse_vevents(ics_text):
             key = key_part.split(";", 1)[0].upper()
             if key == "UID":
                 current["uid"] = value
+            elif key == "RECURRENCE-ID":
+                current["recurrence_id"] = value
             elif key == "SUMMARY":
                 current["summary"] = value
             elif key == "DTSTART":
@@ -76,7 +88,18 @@ def scan_calendar(events_or_ics, *, sink=None, source="calendar", entity="Calend
     if isinstance(events_or_ics, str):
         docs = parse_vevents(events_or_ics)
     else:
-        docs = [dict(e) for e in events_or_ics]
+        docs = []
+        for e in events_or_ics:
+            doc = dict(e)
+            if not doc.get("name"):
+                uid = doc.get("uid", "")
+                rec_id = doc.get("recurrence_id", "")
+                doc["name"] = (
+                    f"{uid}#{rec_id}"
+                    if (uid and rec_id)
+                    else (uid or f"event:{doc.get('dtstart', '')}:{doc.get('summary', '')}")
+                )
+            docs.append(doc)
     if sink is not None:
         return sink.ingest(source, entity, docs, effective_field="effective_at")
     return docs
