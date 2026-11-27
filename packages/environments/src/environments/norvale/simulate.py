@@ -10,7 +10,10 @@ import sys
 from pathlib import Path
 
 from .native.long_run import PreflightError, preflight
-from .paths import CHECKOUT, PACKAGE, SOURCE_LAYOUT
+from .paths import CHECKOUT, PACKAGE, RUN_ARCHIVE, SOURCE_LAYOUT
+
+# Withheld from every child process of an offline run.
+PROVIDER_SETTINGS = ("TYPESAFE_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "NORVALE_COMMS_MODEL")
 
 
 def load_scenario(path):
@@ -50,8 +53,19 @@ def main(*, checkout=CHECKOUT):
     mode.add_argument(
         "--plan", action="store_true", help="Validate inputs and print the setup without starting services"
     )
+    p.add_argument(
+        "--offline",
+        action="store_true",
+        help="Run the native services with deterministic role decisions: no model calls or provider credentials",
+    )
     a = p.parse_args()
     runtime = a.run.resolve()
+    mode_name = "offline" if a.offline else "live"
+    env = dict(os.environ)
+    if a.offline:
+        env["NORVALE_OFFLINE"] = "1"
+        for key in PROVIDER_SETTINGS:
+            env.pop(key, None)
     try:
         if runtime.is_relative_to(checkout) or checkout.is_relative_to(runtime):
             raise ValueError("Choose a private run directory outside the checkout")
@@ -71,11 +85,10 @@ def main(*, checkout=CHECKOUT):
             return
         cfg = load_scenario(a.scenario)
         if a.plan:
-            print(
-                json.dumps(dict(scenario=cfg, run=str(runtime), mode="live", archive=str(runtime / "lake")), indent=2)
-            )
+            archive = str(runtime / RUN_ARCHIVE)
+            print(json.dumps(dict(scenario=cfg, run=str(runtime), mode=mode_name, archive=archive), indent=2))
             return
-        if (
+        if not a.offline and (
             os.environ.get("NORVALE_OFFLINE") == "1"
             or not os.environ.get("TYPESAFE_API_KEY")
             or not any(os.environ.get(k) for k in ("OPENAI_API_KEY", "OPENROUTER_API_KEY"))
@@ -90,7 +103,8 @@ def main(*, checkout=CHECKOUT):
             if not (Path(os.environ.get("NORVALE_CLOCK_LIB", "")) / "libfaketime.so.1").is_file():
                 raise ValueError("Set NORVALE_CLOCK_LIB to the directory containing libfaketime.so.1")
             subprocess.run(["docker", "compose", "version"], check=True)
-            preflight(runtime)
+            if not a.offline:
+                preflight(runtime)
             runtime.mkdir(mode=0o700)
         elif not (runtime / "scenario.json").is_file():
             raise ValueError("Existing directory is not a commissioned simulation")
@@ -100,23 +114,31 @@ def main(*, checkout=CHECKOUT):
             if not (runtime / "scenario.json").is_file() or load_scenario(runtime / "scenario.json") != cfg:
                 raise ValueError("Run already exists with different or missing scenario")
             if not (runtime / "commissioned").is_file():
+                log = "private/logs/provision.log" if (runtime / "run.json").is_file() else "provision.log"
+                raise ValueError(f"Commissioning was interrupted; inspect {log} before resuming the same services")
+            record = runtime / "run.json"
+            commissioned_mode = json.loads(record.read_text())["mode"] if record.is_file() else "live"
+            if commissioned_mode != mode_name:
                 raise ValueError(
-                    "Commissioning was interrupted; inspect provision.log before resuming the same services"
+                    f"This run was commissioned {commissioned_mode}; do not mix offline and live decisions"
                 )
         else:
             revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=checkout, text=True).strip()
             release.mkdir()
             (runtime / "revision").write_text(revision + "\n")
             (runtime / "scenario.json").write_text(json.dumps(cfg, indent=2) + "\n")
+            from .verify_layout import start_run
+
+            start_run(runtime, cfg, git_sha=revision, mode=mode_name)
             subprocess.run(["git", "archive", revision, "-o", str(runtime / "source.tar")], cwd=checkout, check=True)
             subprocess.run(["tar", "-xf", str(runtime / "source.tar"), "-C", str(release)], check=True)
             integrations = release / SOURCE_LAYOUT / "integrations"
             shutil.copytree(integrations / "revisions/odoo_addons", integrations / "mes/addons", dirs_exist_ok=True)
-            with (runtime / "provision.log").open("w") as log:
+            with (runtime / "private/logs/provision.log").open("w") as log:
                 subprocess.run(
                     ["uv", "sync", "--locked", "--all-packages", "--python", sys.executable],
                     cwd=release,
-                    env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(release / ".venv")},
+                    env={**env, "UV_PROJECT_ENVIRONMENT": str(release / ".venv")},
                     check=True,
                     stdout=log,
                     stderr=subprocess.STDOUT,
@@ -124,7 +146,7 @@ def main(*, checkout=CHECKOUT):
                 subprocess.run(
                     ["bash", integrations / "company_run/provision.sh", str(runtime)],
                     cwd=release,
-                    env={**os.environ, "NORVALE_COMPANY_OPERATING": "1"},
+                    env={**env, "NORVALE_COMPANY_OPERATING": "1"},
                     check=True,
                     stdout=log,
                     stderr=subprocess.STDOUT,
@@ -133,7 +155,22 @@ def main(*, checkout=CHECKOUT):
         python = release / ".venv/bin/python" if (release / SOURCE_LAYOUT).is_dir() else sys.executable
         # Archives made before the entry points still carry the root launcher.
         generator = ["generate.py"] if (release / "generate.py").is_file() else ["-m", "environments.norvale.generate"]
-        subprocess.run([python, *generator, "--run", str(runtime / "business")], cwd=release, check=True)
+        # Runs commissioned before the observable/private layout have no run.json and stay as they are.
+        layout = (runtime / "run.json").is_file()
+        if layout:
+            from .verify_layout import finish_run, start_run
+
+            start_run(runtime, cfg, git_sha=(runtime / "revision").read_text().strip(), mode=mode_name)
+        completed = False
+        try:
+            subprocess.run([python, *generator, "--run", str(runtime / "business")], cwd=release, env=env, check=True)
+            completed = True
+        finally:
+            # An interrupted run still gets a report that says so.
+            if layout:
+                report = finish_run(runtime, cfg, completed=completed)
+        if layout and not report["ok"]:
+            raise ValueError(f"Run verification failed; see {runtime / 'verification.json'}")
     except (OSError, ImportError, ValueError, PreflightError, subprocess.SubprocessError) as exc:
         p.exit(1, f"{exc}\n")
 

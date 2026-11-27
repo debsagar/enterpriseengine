@@ -11,6 +11,7 @@ from environments.norvale.integrations.plm import PLM
 from environments.norvale.integrations.qms.sample_reference import ENTITY as SAMPLE_ENTITY
 from environments.norvale.integrations.revisions.receivers import ERPNext, erp_receiver_marker
 from environments.norvale.native.company import Engine, save
+from environments.norvale.paths import RUN_ARCHIVE
 from environments.norvale.walkthrough import ROLES
 
 from .authority import qms_target
@@ -218,7 +219,7 @@ def configure(root, *, scoped_receipts=False, sample_writer=False):
 
         provision(e.run)
         if not binding.exists():
-            save(binding, dict(settings=str(root / "analytics.json"), archive=str(root / "lake")))
+            save(binding, dict(settings=str(root / "analytics.json"), archive=str(root / RUN_ARCHIVE)))
 
 
 if __name__ == "__main__":

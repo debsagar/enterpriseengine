@@ -4,6 +4,8 @@
 
 ### Added
 
+- `norvale-simulate` runs use a fixed layout: `run.json`, `verification.json`, `observable/lake`, `observable/days/<date>/manifest.json` and `private/{trace,reports,logs}`. It exits non-zero unless every requested day has a manifest and a clean end-of-day scan, no source failed, no lake row lacks a business date and every business-chain entity has records.
+- `norvale-simulate --offline` runs the native services with deterministic role decisions and no provider credentials.
 - Newly commissioned operating runs also archive ERP items, customers, suppliers, employees, batches, warehouses, supplier quotations, journal entries and tasks, MES manufacturing orders in every state and MES BOMs, and maintenance tickets with comments. `integrations/lake/flows.py` lists the entities of each business chain.
 - Lake snapshots appended by the company collector carry a `business_date`: the record's own simulated-clock stamp when it advances, otherwise the day the collector observed it (QMS, MES and PLM stamp wall-clock time). Daily manifests select by that date and list each record's `content_hash`, so a day resolves to exact versions.
 - Decision questions name only the graded actions; a reply of `defer` or `investigate` is read as `request_info` instead of stopping the run.
