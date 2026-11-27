@@ -53,11 +53,39 @@ These are pass/fail, computed into `behaviour.json` at the end of every run, inc
 | Messages are grounded | Every chat or mail message links to a case and a record. |
 | Software unaffected | `verification.json` passes and the sell, buy, make and design chains complete. |
 
+## What each test proves
+
+- The free run (`NORVALE_OFFLINE=1`, no model) proves wiring only: every trigger opens cases, every offline rule's action makes its native write, and the targets above are computed. It says nothing about decision quality.
+- A run must be 14 days or longer to count. The buy chain first completes on day 7, so a 5-day run fails verification for that reason alone.
+- Decision quality comes only from a run on the decision model (JEV, with the owner's spend ceiling), checked against the targets and the labelled decision test set (#87).
+
+## Expected cases per role (for cost)
+
+Measured in the 14-day free run `/data/runs/dry-14d-20261127` (2026-11-27), before any new role existed. These counts are the source records each trigger would see, so they bound how many cases a role opens.
+
+| Role | Source records in 14 days | Cases per business day |
+|---|---|---|
+| `SC_MGR` | 19 purchase and reorder decisions (per day: 0,2,5,0,3,0,1,1,0,1,3,1,0,2) | about 1.4 |
+| `QA_MGR` | 20 non-conformances opened | about 1.4, plus re-checks of cases kept open |
+| Finance | 11 supplier invoices | about 0.8 |
+| `PLANNER` | shortage tasks, a handful | under 0.5 |
+| `PROC_ENG` | items with 2 or more non-conformances | under 0.5 |
+
+That is about 4–5 cases a day in total. Only cases JEV classes as judgment calls reach the decision model, so model calls per day are at most this number; each also costs one small-model draft for its message. Re-measure after the first JEV run.
+
+## Relation to issues B1, B2 and B5
+
+This standard does not replace them. It is the frame they plug into for every role:
+- B1 (#85, evidence bundle and code-computed facts) is the `evidence` and `facts` fields.
+- B2 (#86, graded actions that execute with citations and role cards) is the `actions` field and decision steps 3–5.
+- B5 (#89, small model drafts messages, decision model picks the action) is the `messages` field.
+They were written for purchasing only; under this standard, each new role must supply its own facts, actions and messages in the same form.
+
 ## Adding a role
 
 1. Write the contract entry, including the offline rule.
 2. Add a test that the offline rule picks a non-approval when a blocking fact is present.
-3. Run the 5-day free dry run. The new role must meet the targets above.
+3. Run the 14-day free dry run. The new role must meet the targets above.
 
 ## First roles
 
