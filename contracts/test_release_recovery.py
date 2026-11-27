@@ -406,7 +406,7 @@ class ReleaseRecovery(Goals):
         def connect(reader, url, *args, **kwargs):
             reader.url = url
 
-        def documents(reader, entity):
+        def documents(reader, entity, *, cursor=None):
             if reader.url == "erp":
                 return [doc for (kind, _), doc in records.items() if kind == entity]
             return {"Quality Inspection": [qms_document], "Norvale Dispatch Lease": [receipt]}.get(entity, [])

@@ -1,4 +1,4 @@
-"""Single-process, full-scan Frappe reader and append-only local Delta archive."""
+"""Single-process Frappe reader and append-only local Delta archive."""
 
 import argparse
 import fcntl
@@ -430,7 +430,7 @@ class Frappe:
     def get(self, path):
         return self.response(path)["data"]
 
-    def documents(self, entity, *, registered_sample=None, primary_sample=True):
+    def documents(self, entity, *, registered_sample=None, primary_sample=True, cursor=None):
         if entity not in FIELDS:
             raise ValueError("unsupported entity")
         if entity == WORKFLOW_ENTITY:
@@ -527,7 +527,15 @@ class Frappe:
                     yield doc
             return
         site_marker = None
-        for name in self.names(entity):
+        if cursor is None:
+            names = self.names(entity)
+        else:
+            # The name/modified inventory also detects removed rows and backdated changes.
+            previous = cursor.get("versions", {})
+            versions = {row["name"]: row.get("modified") for row in self.list_rows(entity, ("name", "modified"))}
+            names = (name for name, stamp in versions.items() if not stamp or previous.get(name) != stamp)
+            cursor["versions"] = versions
+        for name in names:
             doc = self.get("/api/resource/" + quote(entity, safe="") + "/" + quote(name, safe=""))
             if doc.get("name") != name:
                 raise ValueError("Native response belongs to another record")
@@ -559,12 +567,16 @@ class Frappe:
             return {"name": name, "source_absent": True}
 
     def names(self, entity, *, page_size=100):
+        for row in self.list_rows(entity, ("name",), page_size=page_size):
+            yield row["name"]
+
+    def list_rows(self, entity, fields, *, page_size=100):
         # A deletion before the cursor must not shift unseen names off the next page.
         if type(page_size) is not int or page_size < 1:
             raise ValueError("Expected a positive page size")
         after = None
         while True:
-            params = {"fields": json.dumps(["name"]), "order_by": "name asc", "limit_page_length": page_size}
+            params = {"fields": json.dumps(fields), "order_by": "name asc", "limit_page_length": page_size}
             if after is not None:
                 params["filters"] = json.dumps([["name", ">", after]])
             try:
@@ -580,8 +592,7 @@ class Frappe:
                 return
             if after is not None and any(row["name"] == after for row in page):
                 raise ValueError("Source list did not advance past its cursor")
-            for row in page:
-                yield row["name"]
+            yield from page
             if len(page) < page_size:
                 return
             after = page[-1]["name"]
@@ -594,7 +605,16 @@ def scan_key(source, entity, scope=None):
 
 
 def ingest(
-    root, entity, fetch=None, *, source="erpnext", projection=project, reader=None, scope=None, open_reader=None
+    root,
+    entity,
+    fetch=None,
+    *,
+    source="erpnext",
+    projection=project,
+    reader=None,
+    scope=None,
+    open_reader=None,
+    fetch_incremental=None,
 ):
     if not isinstance(source, str) or not source.strip():
         raise ValueError("A source instance name is required")
@@ -612,20 +632,28 @@ def ingest(
         entry.update(source=source, entity=entity)
         entry["last_attempt"] = now()
         try:
+            cursor = dict(entry.get("cursor", {}))
             if open_reader is not None:
                 reader = open_reader()
-                records = reader.documents(entity)
+                records = reader.documents(entity, cursor=cursor)
+            elif fetch_incremental is not None:
+                records = fetch_incremental(cursor)
             else:
                 records = fetch()
             docs = [projection(entity, d) for d in records]
             lake = Lake(root / "delta", {})
-            latest = lake.latest_hashes(source, entity)
+            authoritative = reader and entity not in (WORKFLOW_ENTITY, SAMPLE_ENTITY)
+            latest = lake.latest_hashes(source, entity) if docs or authoritative else {}
+            observed = cursor["versions"].keys() if "versions" in cursor else {doc["name"] for doc in docs}
             if entity == DISPOSITION_ENTITY:
                 hashes = {doc["name"]: sha256(canonical(doc).encode()).hexdigest() for doc in docs}
-                if len(hashes) != len(docs) or any(hashes.get(name) != digest for name, digest in latest.items()):
+                if (
+                    len(hashes) != len(docs)
+                    or latest.keys() - observed
+                    or any(name in latest and latest[name] != digest for name, digest in hashes.items())
+                ):
                     raise ValueError("Native QMS disposition history changed or disappeared")
-            elif reader and entity not in (WORKFLOW_ENTITY, SAMPLE_ENTITY):
-                observed = {doc["name"] for doc in docs}
+            elif authoritative:
                 for name in latest.keys() - observed:
                     tombstone = {"name": name, "source_absent": True}
                     if latest[name] == sha256(canonical(tombstone).encode()).hexdigest():
@@ -634,6 +662,8 @@ def ingest(
                     if record is not None:
                         docs.append(tombstone if record == tombstone else projection(entity, record))
             count = lake.ingest(source, entity, docs, EFFECTIVE.get(entity), latest=latest)
+            if cursor:
+                entry["cursor"] = cursor
             marks = [str(d.get("modified") or "") for d in docs]
             entry.update(
                 last_success=now(), watermark=max([entry.get("watermark", "")] + marks), error=None, records=len(docs)

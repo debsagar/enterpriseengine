@@ -138,6 +138,7 @@ class TestReaders(unittest.TestCase):
     def test_mail_fetch_reports_a_refused_search(self):
         with patch("imaplib.IMAP4") as imap:
             client = imap.return_value.__enter__.return_value
+            client.select.return_value = ("OK", [b"0"])
             client.search.return_value = ("NO", [b""])
             with self.assertRaisesRegex(RuntimeError, "SEARCH"):
                 fetch_imap_messages("mail", 143, "user", "password")

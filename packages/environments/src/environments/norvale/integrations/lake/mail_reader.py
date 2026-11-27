@@ -42,12 +42,21 @@ def normalize_message(raw_bytes, *, mailbox="INBOX"):
     }
 
 
-def fetch_imap_messages(host, port, user, password, *, mailbox="INBOX", limit=None):
+def fetch_imap_messages(host, port, user, password, *, mailbox="INBOX", limit=None, cursor=None):
     """Fetch raw RFC822 messages from an IMAP server (read-only)."""
     with imaplib.IMAP4(host, port, timeout=15) as client:
         client.login(user, password)
-        client.select(mailbox, readonly=True)
-        status, data = client.search(None, "ALL")
+        selected, _ = client.select(mailbox, readonly=True)
+        if selected != "OK":
+            raise RuntimeError("IMAP SELECT failed")
+        if cursor is None:
+            last = 0
+            status, data = client.search(None, "ALL")
+        else:
+            validity = int(client.response("UIDVALIDITY")[1][0])
+            last = cursor.get("uid", 0) if cursor.get("validity") == validity else 0
+            status, data = client.uid("SEARCH", None, f"UID {last + 1}:*")
+            cursor.update(validity=validity, uid=last)
         if status != "OK":
             raise RuntimeError(f"IMAP SEARCH failed: {status}")
         if not data or not data[0]:
@@ -57,7 +66,13 @@ def fetch_imap_messages(host, port, user, password, *, mailbox="INBOX", limit=No
             uids = uids[-limit:]
         messages = []
         for uid in uids:
-            st, msg_data = client.fetch(uid, "(RFC822)")
+            if int(uid) <= last:
+                continue  # IMAP ranges include the largest UID even when the lower bound exceeds it.
+            if cursor is None:
+                st, msg_data = client.fetch(uid, "(RFC822)")
+            else:
+                st, msg_data = client.uid("FETCH", uid, "(BODY.PEEK[])")
+                cursor["uid"] = max(cursor["uid"], int(uid))
             if st != "OK" or not msg_data or not isinstance(msg_data[0], tuple):
                 raise RuntimeError(f"IMAP FETCH failed for uid {uid!r}: {st}")
             messages.append(normalize_message(msg_data[0][1], mailbox=mailbox))

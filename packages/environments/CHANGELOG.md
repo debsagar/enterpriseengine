@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The scheduled Norvale lake collector retains successful native read cursors per source, entity and scope, and logs its scan time. Frappe and Odoo use native version inventories, mail uses IMAP UIDs, CalDAV uses ETags, Matrix uses room pagination tokens, Gitea uses update times and the directory uses the file revision. QMS workflow and sample evidence, composite MES BOMs and InvenTree definitions, publications and changes still need full readback because their linked records have no shared change cursor.
+
 ### Added
 
 - Role contracts (`native/behaviour_roles.py`, `docs/BEHAVIOUR.md`): one registry and one daily `role_cases` phase, enabled by `"behaviour_roles": true` in an operating run's config (set at provision with `NORVALE_BEHAVIOUR_ROLES=1`). QA manager (close, keep open or escalate a non-conformance on a rejected lot), finance (approve, hold or request information on a supplier invoice; settlement pays only approved ones), planner (wait, reschedule or escalate a shortage, replacing the code-written task) and process engineer (raise or decline a design change after repeated non-conformances) each open one case per record, decide it (offline rule when `NORVALE_OFFLINE=1`), execute and read back the write, and escalate past-due cases.

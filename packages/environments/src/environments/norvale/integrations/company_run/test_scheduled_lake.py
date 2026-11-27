@@ -49,7 +49,7 @@ class ScheduledLake(TestCase):
             (env / "secrets.json").write_text(json.dumps(dict(CEO=dict(password="p", chat_token="t"))))
             engine = SimpleNamespace(run=run, state={}, persist=Mock(), log=Mock())
 
-            def documents(entity):
+            def documents(entity, *, cursor=None):
                 if today[0] == 0 or entity in (DISPOSITION_ENTITY, "Norvale Dispatch Lease"):
                     return []
                 at = "2027-01-02 08:00:00"
@@ -72,8 +72,10 @@ class ScheduledLake(TestCase):
                 patch.object(Frappe, "__init__", return_value=None),
                 patch("environments.norvale.integrations.plm.PLM"),
                 patch("environments.norvale.integrations.company_run.publications.collect"),
-                patch(module + "fetch_imap_messages", side_effect=lambda *a: [mail] * today[0]),
-                patch(module + "fetch_caldav_events", side_effect=lambda *a: parse_vevents(ics) if today[0] else []),
+                patch(module + "fetch_imap_messages", side_effect=lambda *a, **kw: [mail] * today[0]),
+                patch(
+                    module + "fetch_caldav_events", side_effect=lambda *a, **kw: parse_vevents(ics) if today[0] else []
+                ),
                 patch(module + "joined_matrix_rooms", return_value=["!room"]),
                 patch(module + "fetch_matrix_messages", side_effect=lambda *a, **k: [chat] * today[0]),
             ):
@@ -121,7 +123,7 @@ class ScheduledLake(TestCase):
             engine = SimpleNamespace(run=run, state={}, persist=Mock(), log=Mock())
             native = {}
 
-            def documents(entity):
+            def documents(entity, *, cursor=None):
                 return [dict(row) for row in native.get(entity, [])]
 
             with (
@@ -243,7 +245,7 @@ class ScheduledLake(TestCase):
             e.persist()
             recover = False
 
-            def documents(entity):
+            def documents(entity, *, cursor=None):
                 if entity in (DISPOSITION_ENTITY, "Norvale Dispatch Lease"):
                     return []
                 if entity == "Quality Inspection" and not recover:

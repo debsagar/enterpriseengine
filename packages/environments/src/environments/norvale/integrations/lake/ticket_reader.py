@@ -1,5 +1,7 @@
 """Archive maintenance tickets and their comments through the read-only Gitea identity."""
 
+from datetime import datetime, timedelta
+
 if __package__:
     from .boundary import ingest
 else:
@@ -31,15 +33,32 @@ def comment_document(row, issue):
 
 
 def scan(root, source, client):
-    """`client` lists issues with `records()` and one issue's comments with `comments(number)`."""
-    issues = []
+    """Read repository issues and comments by their native update time."""
 
-    def fetch_issues():
-        issues.extend(client.records())
-        return [issue_document(row) for row in issues]
+    def fetch(cursor, query, project):
+        latest = cursor.get("updated_at")
+        # Gitea timestamps have second precision. Replay the boundary second to
+        # include concurrent writes tied with the previous high watermark.
+        since = (datetime.fromisoformat(latest) - timedelta(seconds=1)).isoformat() if latest else None
+        for row in query(since=since):
+            stamp = row["updated_at"]
+            if not latest or stamp > latest:
+                latest = stamp
+            yield project(row)
+        if latest:
+            cursor["updated_at"] = latest
 
-    def fetch_comments():
-        return [comment_document(row, issue["number"]) for issue in issues for row in client.comments(issue["number"])]
+    def comments(cursor):
+        return fetch(
+            cursor,
+            client.changed_comments,
+            lambda row: comment_document(row, int(row["issue_url"].rsplit("/", 1)[-1])),
+        )
 
-    count = ingest(root, "Gitea Issue", fetch_issues, source=source, projection=lambda _, row: row)
-    return count + ingest(root, "Gitea Comment", fetch_comments, source=source, projection=lambda _, row: row)
+    return sum(
+        ingest(root, entity, source=source, projection=lambda _, row: row, fetch_incremental=read)
+        for entity, read in (
+            ("Gitea Issue", lambda cursor: fetch(cursor, client.records, issue_document)),
+            ("Gitea Comment", comments),
+        )
+    )

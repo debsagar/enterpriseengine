@@ -81,36 +81,54 @@ def scan_people(kind, cfg, root):
         for row in load_master_file(cfg["directory"]):
             yield endpoints, row, row["id"].lower(), secrets[row["id"]]
 
-    # ponytail: every pass re-reads full mailboxes, calendars and rooms; page by date if a long run slows.
-    def mail():
+    def mail(cursor):
         for eps, row, _, secret in identities():
             server = eps["mail"]
-            yield from fetch_imap_messages(server["host"], server["imap"], row["email"], secret["password"])
+            account = dict(cursor.get(row["id"], {}))
+            yield from fetch_imap_messages(
+                server["host"], server["imap"], row["email"], secret["password"], cursor=account
+            )
+            cursor[row["id"]] = account
 
-    def calendar():
+    def calendar(cursor):
         for eps, _, user, secret in identities():
             try:
-                events = fetch_caldav_events(f"{eps['calendar']}/{user}/calendar/", user, secret["password"])
+                account = dict(cursor.get(user, {}))
+                events = fetch_caldav_events(
+                    f"{eps['calendar']}/{user}/calendar/", user, secret["password"], cursor=account
+                )
+                cursor[user] = account
             except HTTPError as exc:
                 if exc.code != 404:  # this identity has no calendar collection yet
                     raise
+                cursor.pop(user, None)
                 continue
             # Each owner holds a separate copy of a shared invitation.
             yield from (dict(event, name=f"{user}/{event['name']}", owner=user) for event in events)
 
-    def matrix():
-        for eps, _, _, secret in identities():
+    def matrix(cursor):
+        for eps, _, user, secret in identities():
             token = secret["chat_token"]
             for room in joined_matrix_rooms(eps["chat"], token):
-                yield from fetch_matrix_messages(eps["chat"], token, room, limit=None)
+                key = f"{user}/{room}"
+                stream = dict(cursor.get(key, {}))
+                yield from fetch_matrix_messages(eps["chat"], token, room, limit=None, cursor=stream)
+                cursor[key] = stream
+
+    def master(cursor):
+        stat = Path(cfg["directory"]).stat()
+        version = [stat.st_ino, stat.st_size, stat.st_mtime_ns]
+        if cursor.get("file") != version:
+            yield from load_master_file(cfg["directory"])
+            cursor["file"] = version
 
     entity, fetch = {
         "mail": ("Mail Message", mail),
         "calendar": ("Calendar Event", calendar),
         "matrix": ("Matrix Message", matrix),
-        "master": ("Directory Account", lambda: load_master_file(cfg["directory"])),
+        "master": ("Directory Account", master),
     }[kind]
-    ingest(root, entity, lambda: list(fetch()), source=cfg["source"], projection=lambda _, doc: doc)
+    ingest(root, entity, source=cfg["source"], projection=lambda _, doc: doc, fetch_incremental=fetch)
 
 
 def write_daily_manifest(root, on, failed_sources, read_sources=()):
@@ -224,7 +242,7 @@ def scan(source, cfg, root):
         errors = []
         for reader in (collect, scan_labor, scan_staging, scan_definitions):
             try:
-                reader(root, client, product=cfg.get("product"), company=cfg.get("company"))
+                reader(root, client, product=cfg.get("product"), company=cfg.get("company"), incremental=True)
             except Exception as exc:
                 errors.append(exc)
         if errors:
@@ -447,6 +465,7 @@ def scheduled_scan(engine, minute):
     if status.get("at") == minute and not status.get("errors"):
         return
     unresolved_profiles = set()
+    started = time.monotonic()
     try:
         paths = json.loads(binding.read_text())
         config = json.loads(Path(paths["settings"]).read_text())
@@ -467,7 +486,13 @@ def scheduled_scan(engine, minute):
             last[source] = minute
     status.update(at=minute, errors=errors, unresolved_profiles=sorted(unresolved_profiles))
     engine.persist()
-    engine.log("lake_scan", business_minute=minute, last_success_minute=last, errors=errors)
+    engine.log(
+        "lake_scan",
+        business_minute=minute,
+        last_success_minute=last,
+        errors=errors,
+        seconds=round(time.monotonic() - started, 3),
+    )
 
 
 def main():

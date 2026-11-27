@@ -34,11 +34,11 @@ def joined_matrix_rooms(base_url, access_token, *, timeout=15):
         return json.loads(resp.read().decode("utf-8"))["joined_rooms"]
 
 
-def fetch_matrix_messages(base_url, access_token, room_id, *, limit=100, timeout=15, since=None):
+def fetch_matrix_messages(base_url, access_token, room_id, *, limit=100, timeout=15, since=None, cursor=None):
     """Fetch room messages from Synapse client-server API (read-only, paginated)."""
     encoded_room = urllib.parse.quote(room_id, safe="")
     messages = []
-    token = since
+    token = cursor.get("batch") if cursor is not None else since
     remaining = int(limit) if limit is not None else None
     while True:
         page_limit = 100 if remaining is None else min(100, remaining)
@@ -60,6 +60,8 @@ def fetch_matrix_messages(base_url, access_token, room_id, *, limit=100, timeout
             if ev.get("type") == "m.room.message":
                 messages.append(normalize_event(ev))
         end_token = payload.get("end")
+        if cursor is not None and end_token:
+            cursor["batch"] = end_token
         if not end_token or end_token == token:
             break
         token = end_token
