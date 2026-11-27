@@ -77,7 +77,7 @@ def end_of_day_scans(trace, days):
     if trace.is_file():
         with trace.open() as rows:
             for line in rows:
-                if '"lake_scan"' not in line:
+                if not line.strip():
                     continue
                 try:
                     event = json.loads(line)

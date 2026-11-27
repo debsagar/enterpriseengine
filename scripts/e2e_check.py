@@ -100,9 +100,7 @@ def chains(state):
     dispositions = {
         n: d for n, d in state.get("Norvale QMS Disposition", {}).items() if d.get("inspection") in inspections
     }
-    released = {d.get("batch_no") for d in dispositions.values()} | {
-        d.get("output_batch") for d in dispositions.values()
-    }
+    released = {d.get(key) for d in dispositions.values() for key in ("batch_no", "output_batch")} - {None, ""}
     transfers = {
         n: d
         for n, d in get("Stock Entry").items()
@@ -163,7 +161,7 @@ def software(run, rows, report):
     sources = defaultdict(set)
     for row in rows:
         sources[row["entity"], row["native_id"]].add(row["source"])
-    shared = [key for key, found in sources.items() if len(found) > 1 and system_of(min(found)) != "mes"]
+    shared = [key for key, found in sources.items() if len(found) > 1]
     if shared:
         # The chain checks join records by native ID, which is only sound for one deployment per system.
         failures.append(f"{len(shared)} record IDs come from more than one source, e.g. {shared[0]}")
