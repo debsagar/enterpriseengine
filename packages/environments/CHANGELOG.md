@@ -27,6 +27,7 @@
 
 ### Fixed
 
+- A rejected reorder-level request no longer blocks its item for the rest of a run: after 5 days a continuing shortage raises a new request.
 - The role model's API key, endpoint and model now come from one provider; with both keys set, the OpenAI key was sent to OpenRouter. OpenRouter now wins.
 - TK-101 no longer rebuilds its full-horizon scan input lists on every plant advance, so the time per simulated day no longer grows with the configured horizon.
 - Register a PLM product family for every seeded SKU during Norvale operating setup, so day-0 inspections no longer fail with "No registered PLM family".
