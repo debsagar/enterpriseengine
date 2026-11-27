@@ -92,6 +92,28 @@ class TestSnapshotManifest(unittest.TestCase):
             staged_mail = json.loads((staging / "lake" / "records" / "mail__Mail_Message.json").read_text())
             self.assertEqual([r["name"] for r in staged_mail], ["m1"])
 
+    def test_restaging_earlier_snapshot_removes_future_records(self):
+        mail = {("mail", "Mail Message"): [{"name": "future", "effective_at": "2026-01-08"}]}
+        master = {("master", "Directory Account"): [{"name": "staff", "effective_at": "2026-01-01"}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            staging = Path(tmp)
+            checkpoint = staging / "checkpoint.db"
+            checkpoint.write_text("keep")
+            later = stage_snapshot(staging, "2026-01-08", mail)
+            with self.assertRaises(TypeError):
+                stage_snapshot(
+                    staging,
+                    "2026-01-03",
+                    {("master", "Directory Account"): [dict(effective_at="2026-01-01", value=set())]},
+                )
+            self.assertTrue(later.exists())
+            earlier = stage_snapshot(staging, "2026-01-03", master)
+            self.assertEqual(
+                [p.name for p in (earlier.parents[1] / "records").iterdir()], ["master__Directory_Account.json"]
+            )
+            self.assertFalse(later.exists())
+            self.assertEqual(checkpoint.read_text(), "keep")
+
 
 class TestReaders(unittest.TestCase):
     def test_mail_reader_multi_recipient(self):
