@@ -110,15 +110,33 @@ def scan_people(kind, cfg, root):
 def write_daily_manifest(root, on, failed_sources):
     """Save what the archive holds for business date `on`: the last version of each record dated by then.
 
-    Records without a comparable date cannot be placed on a day; the manifest names their source and entity.
+    Records without a comparable date get the run day `on` when they are first seen.
     """
     from environments.norvale.integrations.lake.adapter import Lake
-    from environments.norvale.integrations.lake.manifest import filter_rows_at, is_dated, write_manifest
+    from environments.norvale.integrations.lake.manifest import _day_key, filter_rows_at, is_dated, write_manifest
+
+    on_key = _day_key(on)
+    seen_path = root / "first_seen.json"
+    first_seen = json.loads(seen_path.read_text()) if seen_path.is_file() else {}
+    seen_dirty = False
 
     index = Lake(root / "delta", {}).index()
-    undated = {f"{row['source']}/{row['entity']}" for row in index if not is_dated(row)}
+    undated = set()
+    eligible = list(filter_rows_at(filter(is_dated, index), on))
+    for row in index:
+        if not is_dated(row):
+            undated.add(f"{row['source']}/{row['entity']}")
+            key = f"{row['source']}\0{row['entity']}\0{row['native_id']}"
+            if key not in first_seen:
+                first_seen[key] = on_key
+                seen_dirty = True
+            if first_seen[key] <= on_key:
+                eligible.append(row)
+    if seen_dirty:
+        seen_path.write_text(json.dumps(first_seen, sort_keys=True) + "\n")
+
     latest = {}
-    for row in sorted(filter_rows_at(filter(is_dated, index), on), key=lambda r: r["ingested_at"]):
+    for row in sorted(eligible, key=lambda r: r["ingested_at"]):
         latest[row["source"], row["entity"], row["native_id"]] = row
     rows = {}
     for (source, entity, _), row in latest.items():

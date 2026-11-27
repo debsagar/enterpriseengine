@@ -163,3 +163,39 @@ class ScheduledLake(TestCase):
                 rows = Lake(archive / "delta", {})._rows()
                 self.assertCountEqual([r["source"] for r in rows], ["operations", "quality"])
                 self.assertTrue(all(c.kwargs["on"] == "2027-01-01" for c in publications.call_args_list))
+
+
+def test_write_daily_manifest_includes_undated_by_first_seen(tmp_path, monkeypatch):
+    from environments.norvale.integrations.company_run.lake import write_daily_manifest
+    from environments.norvale.integrations.lake import adapter
+
+    rows = [
+        {
+            "source": "mes",
+            "entity": "work_order",
+            "native_id": "WO-1",
+            "ingested_at": "2027-01-02T08:00:00Z",
+            "payload": {},
+        },
+        {
+            "source": "plm",
+            "entity": "part",
+            "native_id": "PART-1",
+            "ingested_at": "2027-01-02T08:00:00Z",
+            "payload": {},
+        },
+    ]
+
+    class FakeLake:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def index(self):
+            return rows
+
+    monkeypatch.setattr(adapter, "Lake", FakeLake)
+    m2 = write_daily_manifest(tmp_path, "2027-01-02", ())
+    assert m2["counts"]["mes/work_order"] == 1
+    assert m2["counts"]["plm/part"] == 1
+    m1 = write_daily_manifest(tmp_path, "2027-01-01", ())
+    assert m1["counts"] == {}

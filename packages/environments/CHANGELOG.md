@@ -4,6 +4,7 @@
 
 ### Added
 
+- Daily lake manifests now include undated MES, PLM, and other records stamped with the run day they were first seen.
 - Decision questions name only the graded actions; a reply of `defer` or `investigate` is read as `request_info` instead of stopping the run.
 - Operating runs report daily behaviour numbers in `<run>/behaviour.json` and the heartbeat: approval rate by case type, standing policies proposed and rejected, approvals held by code and approvals that overrode a contradiction flag.
 - Set `NORVALE_COMMS_MODEL` to have a small model word the operating run's employee emails (unset keeps the templates). The decision headline stays code-written; a draft that drops or invents a record name, item code, date or number is discarded for the template.
