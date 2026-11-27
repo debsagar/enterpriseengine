@@ -136,7 +136,8 @@ def stage(actor, work, inp, lot, product, native):
             raise Pending("MES opening balance has no reconciled native receipt")
 
     total = sum(Fraction(str(entry["qty"])) for key, entry in ledger.items() if key != root["key"])
-    limit = min(lot["qty"], inp["disposition"].get("qty", lot["qty"]))
+    # Go-live stock is pinned without a release, so only its lot quantity limits it.
+    limit = min(lot["qty"], (inp["disposition"] or {}).get("qty", lot["qty"]))
     if total + Fraction(str(pin["qty"])) > Fraction(str(limit)) + Fraction("0.00000001"):
         raise Pending("MES staging would exceed the released ERP source lot")
     if previous is not None and (
