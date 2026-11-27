@@ -82,9 +82,11 @@ def end_of_day_scans(trace, days):
                 try:
                     event = json.loads(line)
                 except ValueError:
+                    event = None
+                if not isinstance(event, dict):
                     problems["trace"] = "damaged line in the run trace"
                     continue
-                if isinstance(event, dict) and event.get("kind") == "lake_scan":
+                if event.get("kind") == "lake_scan":
                     last[event["business_minute"]] = event["errors"]
     for number, day in enumerate(days):
         errors = last.get((number + 1) * 1440 - 1)

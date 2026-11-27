@@ -132,7 +132,7 @@ class RunLayout(TestCase):
 
         generate(self.run_dir, read=("source", "calendar"))
         with (self.run_dir / "business/trace.jsonl").open("a") as trace:
-            trace.write('{"ki')
+            trace.write('null\n{"ki')
         report = finish_run(self.run_dir, SCENARIO, completed=True)
         self.assertFalse(report["ok"])
         self.assertEqual(report["end_of_day_scan_problems"], {"trace": "damaged line in the run trace"})

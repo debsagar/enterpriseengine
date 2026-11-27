@@ -242,8 +242,12 @@ def behaviour(run, rows, report):
     events = []
     for line in trace.read_text().splitlines() if trace.is_file() else []:
         try:
-            events.append(json.loads(line) if line.strip() else {})
+            event = json.loads(line) if line.strip() else {}
         except ValueError:
+            event = None
+        if isinstance(event, dict):
+            events.append(event)
+        else:
             failures.append("damaged line in the private trace")
     decisions = [event for event in events if event.get("kind") == "decision"]
     known = {row["native_id"] for row in rows}
