@@ -188,6 +188,10 @@ class PrimarySampleTest(TestCase):
             def names(_, entity):
                 return ["RETEST", dart["name"]] if entity == INSPECTION else []
 
+            def list_rows(client, entity, fields):
+                for name in names(client, entity):
+                    yield {key: (retest if name == "RETEST" else dart)[key] for key in fields}
+
             def get(_, url):
                 kind = unquote(url.split("/")[-2])
                 if kind == INSPECTION:
@@ -197,7 +201,7 @@ class PrimarySampleTest(TestCase):
             archive = root / "lake"
             with (
                 patch.object(Frappe, "__init__", return_value=None),
-                patch.object(Frappe, "names", names),
+                patch.object(Frappe, "list_rows", list_rows),
                 patch.object(Frappe, "get", get),
             ):
                 client = Frappe("unused", "r", "s")

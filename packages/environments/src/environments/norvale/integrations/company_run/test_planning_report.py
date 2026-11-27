@@ -90,7 +90,7 @@ class PlanningReportTests(unittest.TestCase):
                 client.return_value.documents.return_value = []
                 with self.assertRaises(ExceptionGroup):
                     scan("erp", config, root)
-                client.return_value.documents.assert_called_once_with("Purchase Order")
+                client.return_value.documents.assert_called_once_with("Purchase Order", cursor={})
                 stale = report()
                 self.assertEqual(stale["freshness"], "STALE")
                 self.assertEqual(stale["last_successful_scan_utc"], first["last_successful_scan_utc"])

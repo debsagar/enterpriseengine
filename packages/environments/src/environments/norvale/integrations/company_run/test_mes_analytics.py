@@ -42,7 +42,7 @@ class MesAnalyticsTests(TestCase):
             scoped = dict(PRIMARY, product=2, company=1)
             scan("mes", scoped, "archive")
             for collect in (completion, labor, staging, definitions):
-                collect.assert_called_once_with("archive", client, product=2, company=1)
+                collect.assert_called_once_with("archive", client, product=2, company=1, incremental=True)
 
     def test_registered_selection_keeps_legacy_and_rejects_commissioned_drift(self):
         self.assertEqual(registered_mes_scan({"mes": EXECUTION}, 2, 1, None)["reader"], EXECUTION)
