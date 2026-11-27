@@ -3,6 +3,7 @@
 import json
 import tempfile
 import unittest
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,7 +17,7 @@ from environments.norvale.integrations.lake.manifest import (
     write_manifest,
 )
 from environments.norvale.integrations.lake.master_reader import load_master_file, normalize_account, scan_master
-from environments.norvale.integrations.lake.matrix_reader import normalize_event, scan_matrix
+from environments.norvale.integrations.lake.matrix_reader import fetch_matrix_messages, normalize_event, scan_matrix
 
 
 class _FakeSink:
@@ -91,6 +92,28 @@ class TestSnapshotManifest(unittest.TestCase):
             staged_mail = json.loads((staging / "lake" / "records" / "mail__Mail_Message.json").read_text())
             self.assertEqual([r["name"] for r in staged_mail], ["m1"])
 
+    def test_restaging_earlier_snapshot_removes_future_records(self):
+        mail = {("mail", "Mail Message"): [{"name": "future", "effective_at": "2026-01-08"}]}
+        master = {("master", "Directory Account"): [{"name": "staff", "effective_at": "2026-01-01"}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            staging = Path(tmp)
+            checkpoint = staging / "checkpoint.db"
+            checkpoint.write_text("keep")
+            later = stage_snapshot(staging, "2026-01-08", mail)
+            with self.assertRaises(TypeError):
+                stage_snapshot(
+                    staging,
+                    "2026-01-03",
+                    {("master", "Directory Account"): [dict(effective_at="2026-01-01", value=set())]},
+                )
+            self.assertTrue(later.exists())
+            earlier = stage_snapshot(staging, "2026-01-03", master)
+            self.assertEqual(
+                [p.name for p in (earlier.parents[1] / "records").iterdir()], ["master__Directory_Account.json"]
+            )
+            self.assertFalse(later.exists())
+            self.assertEqual(checkpoint.read_text(), "keep")
+
 
 class TestReaders(unittest.TestCase):
     def test_mail_reader_multi_recipient(self):
@@ -160,6 +183,17 @@ class TestReaders(unittest.TestCase):
         sink = _FakeSink()
         self.assertEqual(scan_matrix([ev], sink=sink), 1)
         self.assertEqual(sink.calls[0][0], "matrix")
+
+    def test_matrix_advances_past_empty_page(self):
+        pages = [
+            {"chunk": [], "end": "next/cursor"},
+            {"chunk": [{"type": "m.room.message", "event_id": "$later"}]},
+        ]
+        responses = [BytesIO(json.dumps(page).encode()) for page in pages]
+        with patch("urllib.request.urlopen", side_effect=responses) as fetch:
+            messages = fetch_matrix_messages("https://matrix.test", "token", "!ops:matrix.test", limit=None)
+        self.assertEqual([message["event_id"] for message in messages], ["$later"])
+        self.assertIn("&from=next%2Fcursor", fetch.call_args.args[0].full_url)
 
     def test_master_reader(self):
         with self.assertRaises(ValueError):

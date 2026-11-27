@@ -5,6 +5,7 @@ import json
 import re
 from datetime import datetime, time, timezone
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 _COMPACT_DT = re.compile(r"^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$")
 _COMPACT_DATE = re.compile(r"^(\d{4})(\d{2})(\d{2})$")
@@ -187,16 +188,28 @@ def snapshot_at(root, day, *, rows_by_source=None):
 
 def stage_snapshot(staging_dir, day, rows_by_source, *, delta_versions=None):
     """Write an isolated, cutoff-filtered lake snapshot + manifest into `staging_dir` for Engine.fork()."""
-    lake_dir = Path(staging_dir) / "lake"
-    lake_dir.mkdir(parents=True, exist_ok=True)
-    manifest_path = write_manifest(lake_dir, day, rows_by_source, delta_versions=delta_versions)
-    records_dir = lake_dir / "records"
-    records_dir.mkdir(parents=True, exist_ok=True)
-    for (source, entity), rows in sorted(rows_by_source.items()):
-        filtered = state_at(rows, day)
-        safe_name = f"{source}__{entity}".replace("/", "_").replace(" ", "_")
-        (records_dir / f"{safe_name}.json").write_text(
-            json.dumps(filtered, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-    return manifest_path
+    staging_dir = Path(staging_dir)
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    lake_dir = staging_dir / "lake"
+    with TemporaryDirectory(dir=staging_dir) as tmp:
+        prepared = Path(tmp) / "lake"
+        manifest_path = write_manifest(prepared, day, rows_by_source, delta_versions=delta_versions)
+        records_dir = prepared / "records"
+        records_dir.mkdir()
+        for (source, entity), rows in sorted(rows_by_source.items()):
+            filtered = state_at(rows, day)
+            safe_name = f"{source}__{entity}".replace("/", "_").replace(" ", "_")
+            (records_dir / f"{safe_name}.json").write_text(
+                json.dumps(filtered, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        backup = Path(tmp) / "previous"
+        if lake_dir.exists():
+            lake_dir.rename(backup)
+        try:
+            prepared.rename(lake_dir)
+        except OSError:
+            if backup.exists():
+                backup.rename(lake_dir)
+            raise
+    return lake_dir / manifest_path.relative_to(prepared)
