@@ -1,5 +1,6 @@
 """Opening stock is usable before day-0 production, and any quality doubt withdraws that (#77)."""
 
+import json
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import Mock, patch
@@ -110,6 +111,63 @@ class OpeningStock(TestCase):
         actor = SimpleNamespace(e=engine, mes=site.client("planner"), cfg=dict(company_id=1, stock=8))
         stage(actor, work, inp, lot, 3, 1)
         self.assertEqual(site.staged(1), 2)
+
+    def test_dispatched_opening_stock_resumes_after_qms_release(self):
+        authority = quality()
+        erp = ledger(authority)
+        e = erp.e
+        e.company = "NV"
+        e.wh["wip"] = "WIP"
+        e.config["capacity_units"] = 100
+        e.recover_company_doc = Mock(return_value=None)
+        e.write = Mock(side_effect=lambda key, kind, body, *a, **kw: dict(body, name="WO-1"))
+        authority.work_center.return_value = "Mixer"
+        authority.dispatch.side_effect = lambda request, **kw: dict(id="1", version="1", request=request)
+        erp.equipment.available = Mock()
+        revision = dict(material_kind="intermediate", stock_uom="Nos", erp_bom="BOM")
+        erp.definition = lambda item: (revision, {"BULK": ("Nos", 1)})
+        work = erp.pin_work(dict(key="work", order=None, item="MIX", qty=100, revision=revision, equipment="Mixer"))
+        erp.dispatch(work)
+        self.assertIsNone(work["request"]["inputs"][0]["disposition"])
+
+        # An already queued operation and its parent are deserialized separately on resume.
+        work["production_operations"] = {"1": dict(inputs=work["inputs"])}
+        e.state = json.loads(json.dumps(e.state))
+        work = erp.state["work"]["work"]
+        operation = work["production_operations"]["1"]
+        actor = Demo.__new__(Demo)
+        actor.e = SimpleNamespace(company_erp=erp)
+        lot = erp.state["lots"]["NV-OPEN"]
+        rows = [dict(lot_id=7)]
+
+        authority.inspected.return_value = True
+        erp.sync(lot)
+        with self.assertRaisesRegex(Pending, "changed before MES execution"):
+            actor.released_inputs(operation, rows)
+        release = dict(
+            id="QI-1",
+            version="released",
+            approver="QA",
+            evidence="assay",
+            batch=lot["batch"],
+            item=lot["item"],
+            uom=lot["uom"],
+            status="released",
+            authorized=True,
+            qty=50,
+        )
+        authority.disposition.return_value = release
+        erp.sync(lot)
+        with self.assertRaisesRegex(Pending, "changed before MES execution"):
+            actor.released_inputs(operation, rows)
+
+        authority.disposition.return_value = dict(release, qty=100, version="full release")
+        erp.sync(lot)
+        self.assertEqual(actor.released_inputs(operation, rows), [7])
+        self.assertEqual(work["inputs"][0]["disposition"], authority.disposition.return_value)
+        self.assertIsNone(work["request"]["inputs"][0]["disposition"])
+        self.assertEqual(erp.reserved_inputs(), {"NV-OPEN": 100})
+        authority.dispatch.assert_called_once()
 
     def test_execution_stops_once_a_record_appears_on_stock_pinned_without_a_release(self):
         authority = quality()
