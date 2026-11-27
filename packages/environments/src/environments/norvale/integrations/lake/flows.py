@@ -48,8 +48,8 @@ FLOWS = {
         "Employee",
         "Warehouse",
         "Directory Account",
-        "Mail Message",
     ),
+    "communication": ("Mail Message", "Calendar Event", "Matrix Message"),
 }
 
 QMS_ENTITIES = (

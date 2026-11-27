@@ -2942,6 +2942,10 @@ class Engine:
             from environments.norvale.agents.expert_inbox import answer_pending
 
             answer_pending(self.run)
+        if self.config.get("company_operating") and (self.run / "env/secrets.json").is_file():
+            from environments.norvale.native import operations_round
+
+            operations_round.run(self)
         due = (self.day + 1) % self.config["report_every"] == 0
         binding = self.run / "env/planning-report.json"
         if binding.is_file():

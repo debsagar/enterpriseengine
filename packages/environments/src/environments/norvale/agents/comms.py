@@ -200,10 +200,11 @@ class Comms:
     def join(self, room_id):
         return self._mx("POST", f"/_matrix/client/v3/join/{urllib.parse.quote(room_id)}", {})
 
-    def send_chat(self, room_id, text):
+    def send_chat(self, room_id, text, *, transaction=None):
+        """A repeated `transaction` returns the first event instead of posting again."""
         return self._mx(
             "PUT",
-            f"/_matrix/client/v3/rooms/{urllib.parse.quote(room_id)}/send/m.room.message/{uuid.uuid4().hex}",
+            f"/_matrix/client/v3/rooms/{urllib.parse.quote(room_id)}/send/m.room.message/{transaction or uuid.uuid4().hex}",
             {"msgtype": "m.text", "body": text},
         )["event_id"]
 
