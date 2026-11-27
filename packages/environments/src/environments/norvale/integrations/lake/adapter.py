@@ -9,7 +9,7 @@ from pathlib import Path
 import pyarrow as pa
 from deltalake import DeltaTable, QueryBuilder, write_deltalake
 
-from .manifest import business_date
+from .manifest import business_date, row_day
 
 # (business date this pass observes, whether the source stamps records on the simulated clock).
 # Set by the company collector; standalone scans leave business_date empty.
@@ -49,18 +49,21 @@ class Lake:
         return {field.name for field in DeltaTable(self.path).schema().fields}
 
     def latest_dates(self, source, entity):
-        """The business date of each record's newest snapshot."""
-        if not Path(self.path, "_delta_log").exists() or "business_date" not in self._columns():
+        """The latest day any snapshot of each record counts from, including snapshots without a business date."""
+        if not Path(self.path, "_delta_log").exists():
             return {}
+        columns = "native_id, source_recorded_at, effective_at"
+        if "business_date" in self._columns():
+            columns += ", business_date"
         source_literal = source.replace("'", "''")
         entity_literal = entity.replace("'", "''")
-        query = (
-            "SELECT native_id, max(business_date) AS day "
-            f"FROM snapshots WHERE source = '{source_literal}' AND entity = '{entity_literal}' "
-            "GROUP BY native_id"
-        )
+        query = f"SELECT {columns} FROM snapshots WHERE source = '{source_literal}' AND entity = '{entity_literal}'"
         reader = QueryBuilder().register("snapshots", DeltaTable(self.path)).execute(query)
-        return {row["native_id"]: row["day"] for row in pa.table(reader.read_all()).to_pylist()}
+        dates = {}
+        for row in pa.table(reader.read_all()).to_pylist():
+            if day := row_day(row):
+                dates[row["native_id"]] = max(day, dates.get(row["native_id"], day))
+        return dates
 
     def ingest(self, source, entity, documents, effective_field=None, *, latest=None):
         """Append confirmed source readbacks. Caller must serialize writers and filter secrets."""
@@ -80,7 +83,9 @@ class Lake:
             day = ""
             if seen:
                 on, simulated = seen
-                stamps = [doc.get("modified"), doc.get("creation")] if simulated else []
+                # Calendar, mail and chat documents carry their own recorded stamp (a calendar event's DTSTAMP).
+                own = ("modified", "creation", "source_recorded_at")
+                stamps = [doc.get(field) for field in own] if simulated else []
                 if effective_field:
                     stamps.append(doc.get(effective_field))
                 if dates is None:
