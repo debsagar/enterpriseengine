@@ -254,6 +254,46 @@ def scan_staging(root, mes, *, product=None, company=None):
     return ingest(root, "stock.move", fetch, source=mes.source_id, projection=lambda entity, row: row, scope=scope)
 
 
+ORDER_FIELDS = (
+    "name state origin product_id product_qty product_uom_id bom_id company_id date_start date_finished "
+    "norvale_revision create_date write_date"
+).split()
+BOM_FIELDS = (
+    "code product_tmpl_id product_id product_qty product_uom_id bom_line_ids active company_id create_date write_date"
+).split()
+
+
+def scan_definitions(root, mes, *, product=None, company=None):
+    """Archive manufacturing orders in every state, and the BOMs the MES holds."""
+    if (product is None) != (company is None):
+        raise ValueError("A product scope requires its company")
+    scope = dict(product=product, company=company) if product is not None else None
+    count = 0
+    for entity, model, fields, domain in (
+        (
+            "MES Manufacturing Order",
+            "mrp.production",
+            ORDER_FIELDS,
+            [["product_id", "=", product], ["company_id", "=", company]] if scope else [],
+        ),
+        ("MES BOM", "mrp.bom", BOM_FIELDS, [["company_id", "=", company]] if scope else []),
+    ):
+
+        def fetch(model=model, fields=fields, domain=domain):
+            for row in mes.call(model, "search_read", domain, fields=fields, order="id"):
+                # The archive's name is the native ID; the order's own number moves to `reference`.
+                yield dict(
+                    row,
+                    name=str(row["id"]),
+                    reference=row.get("name") or row.get("code"),
+                    creation=row["create_date"],
+                    modified=row["write_date"],
+                )
+
+        count += ingest(root, entity, fetch, source=mes.source_id, projection=lambda _, row: row, scope=scope)
+    return count
+
+
 def scan_labor(root, mes, work_refs=None, *, product=None, company=None):
     """Read native productivity by its own durable ID through the reader account."""
     from environments.norvale.integrations.mes.client import EVENT, MO, WO

@@ -4,6 +4,7 @@
 
 ### Added
 
+- Newly commissioned operating runs also archive ERP items, customers, suppliers, employees, batches, warehouses, supplier quotations, journal entries and tasks, MES manufacturing orders in every state and MES BOMs, and maintenance tickets with comments. `integrations/lake/flows.py` lists the entities of each business chain.
 - Lake snapshots appended by the company collector carry a `business_date`: the record's own simulated-clock stamp when it advances, otherwise the day the collector observed it (QMS, MES and PLM stamp wall-clock time). Daily manifests select by that date and list each record's `content_hash`, so a day resolves to exact versions.
 - Decision questions name only the graded actions; a reply of `defer` or `investigate` is read as `request_info` instead of stopping the run.
 - Operating runs report daily behaviour numbers in `<run>/behaviour.json` and the heartbeat: approval rate by case type, standing policies proposed and rejected, approvals held by code and approvals that overrode a contradiction flag.

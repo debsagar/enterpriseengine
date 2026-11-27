@@ -215,20 +215,27 @@ def scan(source, cfg, root):
             raise ExceptionGroup("Native entity scans failed", errors)
     elif source == "mes":
         from environments.norvale.integrations.lake.mes_reader import scan as collect
-        from environments.norvale.integrations.lake.mes_reader import scan_labor, scan_staging
+        from environments.norvale.integrations.lake.mes_reader import scan_definitions, scan_labor, scan_staging
         from environments.norvale.integrations.mes.client import Mes
 
         client = Mes(**cfg["reader"])
         if "instance" in cfg or "reader_company" in cfg:
             check_mes_reader(client, cfg)
         errors = []
-        for reader in (collect, scan_labor, scan_staging):
+        for reader in (collect, scan_labor, scan_staging, scan_definitions):
             try:
                 reader(root, client, product=cfg.get("product"), company=cfg.get("company"))
             except Exception as exc:
                 errors.append(exc)
         if errors:
             raise ExceptionGroup("Native MES scans failed", errors)
+    elif source == "tickets":
+        from environments.norvale.integrations.lake.ticket_reader import scan as collect
+        from environments.norvale.native.systems_v2 import Tickets
+
+        run = Path(cfg["run"])
+        token = json.loads((run / "env/maintenance-tokens.json").read_text())["reader"]
+        collect(root, cfg["source"], Tickets(run, token=token))
     elif source == "publication":
         from environments.norvale.integrations.lake.plm_reader import scan_publications
         from environments.norvale.integrations.plm import PLM

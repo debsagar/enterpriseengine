@@ -528,8 +528,10 @@ class Engine:
                         "read_only": 1,
                     },
                 )
-        for dt in ["Stock Ledger Entry", "Bin"]:
-            for role in ["Purchase User", "Purchase Manager"]:
+        buyers = ["Purchase User", "Purchase Manager"]
+        # The lake collector reads the staff records through the IT administrator.
+        for dt, roles in [("Stock Ledger Entry", buyers), ("Bin", buyers), ("Employee", ["System Manager"])]:
+            for role in roles:
                 if not self.admin.list("Custom DocPerm", {"parent": dt, "role": role, "read": 1}):
                     result = self.stack.bench(
                         "execute",

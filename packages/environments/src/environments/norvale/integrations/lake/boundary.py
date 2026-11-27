@@ -138,6 +138,39 @@ EFFECTIVE.update(
 COMPLAINT_BINDING = ("custom_delivery_batch", "custom_delivery_qms_source", "custom_delivery_inspection")
 
 
+FIELDS.update(
+    {
+        entity: ["name", "creation", "modified", *fields.split()]
+        for entity, fields in {
+            "Item": "item_code item_name item_group stock_uom is_stock_item has_batch_no disabled valuation_rate",
+            "Customer": "customer_name customer_type customer_group territory disabled",
+            "Supplier": "supplier_name supplier_group supplier_type disabled",
+            # Personal demographics stay in the source.
+            "Employee": "employee_name user_id company company_email designation department reports_to date_of_joining status",
+            "Batch": "batch_id item batch_qty manufacturing_date expiry_date reference_doctype reference_name disabled",
+            "Warehouse": "warehouse_name company is_group parent_warehouse disabled",
+            "Supplier Quotation": "company docstatus status transaction_date valid_till supplier currency grand_total",
+            "Journal Entry": "company docstatus posting_date voucher_type total_debit total_credit user_remark",
+            "ToDo": "owner status priority date description allocated_to assigned_by reference_type reference_name",
+        }.items()
+    }
+)
+CHILD["reorder_levels"] = "warehouse warehouse_reorder_level warehouse_reorder_qty material_request_type".split()
+CHILD["credit_limits"] = "company credit_limit".split()
+CHILD["accounts"] = (
+    "account debit_in_account_currency credit_in_account_currency party_type party reference_type reference_name".split()
+)
+CHILD_FOR.update(
+    {
+        "Item": ("reorder_levels",),
+        "Customer": ("credit_limits",),
+        "Supplier Quotation": ("items",),
+        "Journal Entry": ("accounts",),
+    }
+)
+EFFECTIVE.update({"Supplier Quotation": "transaction_date", "Journal Entry": "posting_date"})
+
+
 def scalars(obj, keys):
     return {k: obj[k] for k in keys if type(obj.get(k)) in (str, int, float, bool)}
 
@@ -225,6 +258,7 @@ def project(entity, doc):
                 "Purchase Invoice",
                 "Sales Invoice",
                 "Delivery Note",
+                "Supplier Quotation",
             ):
                 fields = [*fields, "rate"]
             result[key] = [{k: row[k] for k in fields if k in row} for row in doc[key]]
