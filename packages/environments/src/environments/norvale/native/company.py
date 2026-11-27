@@ -44,6 +44,7 @@ ERP_ROLES = {
     "IT_ADMIN": ["System Manager", "Item Manager"],
     "CFO": ["Accounts Manager", "Purchase Manager"],
 }
+UNANSWERED_REVIEWS = 3  # reviews that decide nothing before a case is deferred and escalated
 
 
 def observable(value):
@@ -1928,9 +1929,12 @@ class Engine:
         self.review_supplier_delays(orders, stock, use, active)
 
         def build():
-            tracked = [self.get(key, "BUYER") for key, p in ops["purchases"].items() if not p.get("received")]
-            tracked_names = {d["name"] for d in tracked}
-            inbound = self.inbound_by_item(tracked + [po for name, po in orders.items() if name not in tracked_names])
+            tracked = [(p, self.get(key, "BUYER")) for key, p in ops["purchases"].items() if not p.get("received")]
+            tracked_names = {d["name"] for _, d in tracked}
+            inbound = self.inbound_by_item(
+                [d for p, d in tracked if not self.parked(p, d)]
+                + [po for name, po in orders.items() if name not in tracked_names]
+            )
             groups = {}
             for code, daily in use.items():
                 if daily <= 0 or code == "WATER":
@@ -2112,6 +2116,34 @@ class Engine:
             "SCM_MGR",
         )
 
+    def escalate_unanswered(self, case, review, doctype, name, result):
+        """Count a review that decided nothing. Nobody answers requests for information, so defer and escalate."""
+        reviews = case.setdefault("unanswered", [])
+        if review not in reviews:  # a replayed review counts once
+            reviews.append(review)
+        if len(reviews) < UNANSWERED_REVIEWS:
+            return
+        self.write(
+            "escalation:" + review,
+            "ToDo",
+            {
+                "description": f"{name} deferred: no decision after {len(reviews)} reviews. Last request: "
+                + (result.get("message") or result["reason"]),
+                "reference_type": doctype,
+                "reference_name": name,
+                "allocated_to": "cfo@norvale.test",
+                "date": self.dated(self.day),
+            },
+            "SCM_MGR",
+        )
+        case["deferred_day"] = self.day
+        self.log("case_deferred", record=name, reviews=reviews)
+
+    @staticmethod
+    def parked(purchase, po):
+        """A deferred order still in draft is not supply anyone can count on."""
+        return "deferred_day" in purchase and po["docstatus"] == 0
+
     def finish_purchase_decision(self, purchase, po):
         """Create the condition task and tell the buyer once the workflow outcome is readable."""
         key, result = purchase["unreported"]
@@ -2142,7 +2174,7 @@ class Engine:
                     self.schedule_supplier_arrival(key, p, po)
                     self.persist()
                 continue
-            if self.day <= p["day"] or self.day < p.get("review_after", 0):
+            if self.day <= p["day"] or self.day < p.get("review_after", 0) or "deferred_day" in p:
                 continue
             first = not any(k.startswith("po-review:") for k in self.state["decisions"])
             usage = self.observed_usage()
@@ -2206,7 +2238,9 @@ class Engine:
                         if b["item_code"] == row["item_code"] and b["warehouse"] == self.wh["hold"]
                     ),
                     "open_po_qty_excluding_this": self.open_po_qty(
-                        purchase_docs.values(), row["item_code"], excluding=po["name"]
+                        [d for k, d in purchase_docs.items() if not self.parked(ops["purchases"][k], d)],
+                        row["item_code"],
+                        excluding=po["name"],
                     ),
                 }
                 for row in po["items"]
@@ -2271,11 +2305,13 @@ class Engine:
                     confirmed = self.api["BUYER"].get("ToDo", task["name"])
                     if any(confirmed.get(field) != value for field, value in fields.items()):
                         raise RuntimeError("Purchase buyer follow-up differs from the pending review")
+                if decision.get("mode") != "provider-unavailable":  # an outage is not an unanswered question
+                    self.escalate_unanswered(p, decision_key, "Purchase Order", po["name"], result)
                 p["review_after"] = review_after
                 self.report_outcome(decision_key, "BUYER", po["name"], result)
             self.persist()
         for key, c in list(ops["changes"].items()):
-            if c.get("implemented") or "rejected_day" in c:
+            if c.get("implemented") or "rejected_day" in c or "deferred_day" in c:
                 continue
             if "approved_day" not in c:
                 if self.day <= c["requested_day"] or self.day < c.get("review_after", 0):
@@ -2300,7 +2336,10 @@ class Engine:
                             "current_reorder_level": self.reorder_level("SCM_MGR", c["item"]),
                             "released_qty": sum(r["actual_qty"] for r in stock),
                             "observed_daily_usage": self.observed_usage().get(c["item"], 0),
-                            "tracked_open_po_qty": self.open_po_qty(purchase_docs.values(), c["item"]),
+                            "tracked_open_po_qty": self.open_po_qty(
+                                [d for k, d in purchase_docs.items() if not self.parked(ops["purchases"][k], d)],
+                                c["item"],
+                            ),
                             "has_supplier": c["item"] in self.catalog.source_list,
                         },
                     },
@@ -2338,6 +2377,7 @@ class Engine:
                         },
                         "SCM_MGR",
                     )
+                    self.escalate_unanswered(c, decision_key, "ToDo", request["name"], result)
                     c["review_after"] = self.day + 7
                 self.report_outcome(decision_key, "BUYER", f"reorder request {request['name']}", result)
             elif self.day > c["approved_day"]:
