@@ -116,16 +116,16 @@ def scan_people(kind, cfg, root):
 def write_daily_manifest(root, on, failed_sources):
     """Save what the archive holds for business date `on`: the last version of each record dated by then.
 
-    Snapshots without a business date cannot be placed on a day; the manifest names their source and entity.
+    Collected snapshots carry a business date; older ones fall back to their own timestamps. Records
+    without a comparable date cannot be placed on a day; the manifest names their source and entity.
     """
     from environments.norvale.integrations.lake.adapter import Lake
-    from environments.norvale.integrations.lake.manifest import filter_rows_at, write_manifest
+    from environments.norvale.integrations.lake.manifest import filter_rows_at, is_dated, write_manifest
 
     index = Lake(root / "delta", {}).index()
-    undated = {f"{row['source']}/{row['entity']}" for row in index if not row.get("business_date")}
+    undated = {f"{row['source']}/{row['entity']}" for row in index if not is_dated(row)}
     latest = {}
-    dated = (row for row in index if row.get("business_date"))
-    for row in sorted(filter_rows_at(dated, on), key=lambda r: r["ingested_at"]):
+    for row in sorted(filter_rows_at(filter(is_dated, index), on), key=lambda r: r["ingested_at"]):
         latest[row["source"], row["entity"], row["native_id"]] = row
     rows = {}
     for (source, entity, _), row in latest.items():

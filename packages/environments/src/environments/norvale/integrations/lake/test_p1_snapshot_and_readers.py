@@ -71,6 +71,12 @@ class TestSnapshotManifest(unittest.TestCase):
                 loaded["sources"]["mail"]["Mail Message"]["digest"],
             )
 
+            # A row without a stored hash is pinned by the same digest its count uses.
+            rows_by_source[("mail", "Mail Message")][0]["native_id"] = "m1"
+            pinned = build_manifest("2026-01-03", rows_by_source)["sources"]["mail"]["Mail Message"]
+            self.assertEqual(list(pinned["records"]), ["m1"])
+            self.assertEqual(len(pinned["records"]["m1"]), 64)
+
             staging = Path(tmp) / "staging"
             staged_manifest = stage_snapshot(staging, "2026-01-03", rows_by_source)
             self.assertTrue(staged_manifest.exists())

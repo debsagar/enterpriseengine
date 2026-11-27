@@ -83,6 +83,19 @@ def _record_day(row):
     return None
 
 
+def is_dated(row):
+    """Whether the row carries a date a calendar cutoff can compare."""
+    try:
+        stamp = _parse_ts(_record_day(row))
+    except ValueError:
+        return False
+    return stamp is not None and stamp[0] == "dt"
+
+
+def _content_digest(row):
+    return str(row.get("content_hash") or hashlib.sha256(json.dumps(row, sort_keys=True).encode()).hexdigest())
+
+
 def filter_rows_at(rows, day):
     """Return only rows whose effective/recorded timestamp does not exceed `day`.
 
@@ -109,10 +122,7 @@ def build_manifest(day, rows_by_source, *, delta_versions=None, failed_sources=(
     sources = {}
     for (source, entity), rows in sorted(rows_by_source.items()):
         filtered = filter_rows_at(rows, day)
-        digests = sorted(
-            str(r.get("content_hash") or hashlib.sha256(json.dumps(r, sort_keys=True).encode()).hexdigest())
-            for r in filtered
-        )
+        digests = sorted(map(_content_digest, filtered))
         summary_hash = hashlib.sha256("\n".join(digests).encode()).hexdigest()
         sources.setdefault(source, {})[entity] = {
             "count": len(filtered),
@@ -121,7 +131,7 @@ def build_manifest(day, rows_by_source, *, delta_versions=None, failed_sources=(
         }
         # Names the exact version of every record, so a snapshot resolves to payloads in the archive.
         # ponytail: grows with records x days; move to a per-day side table if manifests get large.
-        if versions := {r["native_id"]: r["content_hash"] for r in filtered if "native_id" in r}:
+        if versions := {r["native_id"]: _content_digest(r) for r in filtered if "native_id" in r}:
             sources[source][entity]["records"] = versions
     manifest = {
         "day": day,

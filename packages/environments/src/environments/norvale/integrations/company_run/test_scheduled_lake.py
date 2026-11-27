@@ -8,7 +8,7 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 
 from environments.norvale import generate
-from environments.norvale.integrations.company_run.lake import scheduled_scan
+from environments.norvale.integrations.company_run.lake import scheduled_scan, write_daily_manifest
 from environments.norvale.integrations.company_run.timing import DEFAULT_TIMING
 from environments.norvale.integrations.lake.adapter import Lake
 from environments.norvale.integrations.lake.boundary import DISPOSITION_ENTITY, Frappe
@@ -176,6 +176,15 @@ class ScheduledLake(TestCase):
                     ("SO-1", "2027-01-03"),
                 ],
             )
+
+    def test_snapshots_archived_before_business_dates_keep_their_own_dates(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            doc = dict(name="DN-1", posting_date="2027-01-01")
+            Lake(root / "delta", {}).ingest("operations", "Delivery Note", [doc], "posting_date")
+            write_daily_manifest(root, "2027-01-01", ())
+            manifest = snapshot_at(root, "2027-01-01")
+            self.assertEqual(list(manifest["sources"]["operations"]["Delivery Note"]["records"]), ["DN-1"])
 
     def test_business_cutoffs_independent_failure_and_resume(self):
         with TemporaryDirectory() as temp:
