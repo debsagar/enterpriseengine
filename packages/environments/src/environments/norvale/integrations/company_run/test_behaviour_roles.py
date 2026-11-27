@@ -10,6 +10,8 @@ from unittest.mock import Mock, patch
 from environments.norvale.integrations.company_run.operating import offline_decision
 from environments.norvale.native import behaviour, behaviour_roles, judgment, operations_round
 from environments.norvale.native.behaviour_roles import BY_NAME, run
+from environments.norvale.native.company import Engine as Company
+from environments.norvale.walkthrough import ROLES
 
 
 class Fake:
@@ -269,3 +271,26 @@ class RoleContracts(TestCase):
         client.reset_mock()
         operations_round.case_messages(engine, done, lambda role: client)
         client.send_chat.assert_not_called()
+
+    def test_the_role_phase_is_runnable_on_the_real_engine_class(self):
+        engine = object.__new__(Company)
+        engine.roles = {"CFO": []}  # the ERP permission table set by __init__
+        engine.config = {"behaviour_roles": True, "days": 1}
+        engine.state = {"completed": []}
+        (action,) = [a for _, key, a in engine.recurring_events() if key == "d0000:role_cases"]
+        with patch.object(behaviour_roles, "run") as phase:
+            action()
+        phase.assert_called_once_with(engine)
+
+    def test_every_role_that_posts_a_case_is_invited_to_the_room(self):
+        with TemporaryDirectory() as temp:
+            (Path(temp) / "env").mkdir()
+            (Path(temp) / "env/secrets.json").write_text(json.dumps({r["role_id"]: {} for r in ROLES}))
+            engine = Fake()
+            engine.run, engine.eps, engine.state = Path(temp), {}, {}
+            with patch.object(operations_round, "Comms") as comms:
+                comms.return_value.create_room.return_value = "!room"
+                operations_round.run(engine)
+        invited = comms.return_value.create_room.call_args.args[1]
+        posters = {c["role"].lower() for c in behaviour_roles.CONTRACTS}
+        self.assertLessEqual(posters - {operations_round.CHAIR.lower()}, set(invited))

@@ -2849,7 +2849,7 @@ class Engine:
 
         BankReceipts(self.company_erp).import_statements()
 
-    def roles(self):
+    def role_cases(self):  # not "roles": self.roles is the ERP permission table
         from environments.norvale.native import behaviour_roles
 
         behaviour_roles.run(self)
@@ -3076,7 +3076,7 @@ class Engine:
                 "production",
                 "replenishment",
                 "approvals",
-                *(["roles"] if (getattr(self, "config", None) or {}).get("behaviour_roles") else []),
+                *(["role_cases"] if (getattr(self, "config", None) or {}).get("behaviour_roles") else []),
                 "settlements",
                 "management",
             ]:
@@ -3233,7 +3233,7 @@ class Engine:
         if name == "native-clock":
             return (day + 1) * DAY - 1, self.PRIORITY_BASE
         opens = COMPANY_OPEN if "company_timing" in self.config else 720
-        if name == "roles":  # after approvals, before the bank feed, so settlement sees finance's decision
+        if name == "role_cases":  # after approvals, before the bank feed, so settlement sees finance's decision
             return day * DAY + opens, self.PRIORITY_BASE + 10 * (1 + self.ORDER.index("approvals")) + 5
         return day * DAY + opens, self.PRIORITY_BASE + 10 * (
             1 + (self.ORDER.index(name) if name in self.ORDER else len(self.ORDER))

@@ -7,6 +7,7 @@ import hashlib
 import json
 
 from environments.norvale.agents.comms import Comms
+from environments.norvale.native import behaviour_roles
 from environments.norvale.walkthrough import ROLES
 
 CHAIR = "PLANNER"
@@ -66,14 +67,17 @@ def run(engine):
         return Comms({"mail": emails[identity], "chat": identity.lower()}, secrets[identity], engine.eps)
 
     chair = client(CHAIR)
+    roles_on = (getattr(engine, "config", None) or {}).get("behaviour_roles")
     invited = [identity for identity, *_ in POSTS if identity != CHAIR]
+    if roles_on:  # every role that can post a case message must be in the invite-only room
+        invited += sorted({c["role"] for c in behaviour_roles.CONTRACTS} - {CHAIR, *invited})
     if not done["room"]:
         done["room"] = chair.create_room("Daily operations", [identity.lower() for identity in invited])
         engine.persist()
     # Joining is repeatable, so a resumed day completes the membership of the saved room.
     for identity in invited:
         client(identity).join(done["room"])
-    if (getattr(engine, "config", None) or {}).get("behaviour_roles"):
+    if roles_on:
         case_messages(engine, done, client)
     else:
         for identity, role, doctype, filters, heading in POSTS:
