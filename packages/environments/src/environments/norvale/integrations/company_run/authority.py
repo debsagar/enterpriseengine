@@ -172,8 +172,7 @@ class Authority(MaintenanceAuthority):
     def inspected(self, lot):
         """Whether QMS holds any inspection of the batch: draft, held, failed and future-dated ones count."""
         cfg, _ = self.quality_route(lot)
-        if not lot_specification(cfg, lot):
-            return False
+        # No specification check: a record can exist for an item whose specification is not configured.
         return bool(QMS(**cfg["qms_reader"]).list(INSPECTION, {"batch_no": lot["batch"]}, limit=1))
 
     @handoff("QA", "PLANNER", "WAREHOUSE", "PRODUCTION")

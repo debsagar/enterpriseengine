@@ -71,10 +71,12 @@ class OpeningStock(TestCase):
         authority = Authority("/nonexistent")
         cfg = dict(specifications={"BULK": "SPEC"}, qms_reader={})
         authority.quality_route = lambda lot: (cfg, cfg)
+        unspecified = dict(LOT, item="OTHER")
         with patch("environments.norvale.integrations.company_run.authority.QMS") as qms:
             for rows, expected in (([], False), ([{"name": "QI-1"}], True)):
                 qms.return_value.list.return_value = rows
                 self.assertIs(authority.inspected(dict(LOT), role="PLANNER"), expected)
+                self.assertIs(authority.inspected(unspecified, role="PLANNER"), expected)
         with self.assertRaisesRegex(Pending, "not authorized"):
             authority.inspected(dict(LOT), role="CFO")
 
@@ -108,3 +110,14 @@ class OpeningStock(TestCase):
         actor = SimpleNamespace(e=engine, mes=site.client("planner"), cfg=dict(company_id=1, stock=8))
         stage(actor, work, inp, lot, 3, 1)
         self.assertEqual(site.staged(1), 2)
+
+    def test_execution_stops_once_a_record_appears_on_stock_pinned_without_a_release(self):
+        authority = quality()
+        erp = ledger(authority)
+        actor = Demo.__new__(Demo)
+        actor.e = SimpleNamespace(company_erp=erp)
+        work = dict(inputs=[dict(batch="NV-OPEN", disposition=None)])
+        self.assertEqual(actor.released_inputs(work, [dict(lot_id=7)]), [7])
+        authority.inspected.return_value = True  # a draft or future-dated record also reads as no disposition
+        with self.assertRaisesRegex(Pending, "changed before MES execution"):
+            actor.released_inputs(work, [dict(lot_id=7)])
