@@ -294,3 +294,26 @@ class RoleContracts(TestCase):
         invited = comms.return_value.create_room.call_args.args[1]
         posters = {c["role"].lower() for c in behaviour_roles.CONTRACTS}
         self.assertLessEqual(posters - {operations_round.CHAIR.lower()}, set(invited))
+
+    def test_an_escalated_case_is_retried_and_its_decision_gets_its_own_message(self):
+        engine = finance()
+        engine.compose = lambda key, sender, recipient, subject, template: template
+        working, engine.api["FINANCE"].get = engine.api["FINANCE"].get, Mock(side_effect=RuntimeError("down"))
+        run(engine)
+        engine.day = engine.cases("invoice")[0]["due"] + 1
+        run(engine)
+        client, done = Mock(), {"room": "!room"}
+        operations_round.case_messages(engine, done, lambda role: client)
+        engine.api["FINANCE"].get = working
+        run(engine)
+        operations_round.case_messages(engine, done, lambda role: client)
+        (case,) = engine.cases("invoice")
+        self.assertEqual((case["status"], case["action"], len(engine.mails)), ("decided", "approve", 1))
+        sent = {call.kwargs["transaction"] for call in client.send_chat.call_args_list}
+        self.assertEqual((client.send_chat.call_count, len(sent)), (2, 2))
+
+    def test_a_close_is_refused_while_an_engineering_review_is_pending(self):
+        evidence = dict(batch="B1", engineering_review_open=True)
+        with patch.object(behaviour_roles, "qa_actor") as actor, self.assertRaisesRegex(RuntimeError, "pending"):
+            behaviour_roles.qa_close(Fake(), dict(record="NC-1"), evidence, dict(reason="done"))
+        actor.assert_not_called()

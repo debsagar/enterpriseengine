@@ -107,13 +107,11 @@ def graded(sent, answer):
     answer["message"] = str(answer.get("message") or answer["reason"] or "No detail given.")
     if answer["action"] not in APPROVALS:
         return answer
-    unnamed = (
-        [f["flag"] for f in sent["facts"]["flags"] if f["flag"] not in answer["reason"]] if sent.get("actions") else []
-    )
-    if unnamed:
-        why = "The approval did not name the flag " + unnamed[0] + "."
-    elif any(f["flag"] == "over_role_approval_limit" for f in sent["facts"]["flags"]):
+    unnamed = [f["flag"] for f in sent["facts"]["flags"] if f["flag"] not in answer["reason"]]
+    if any(f["flag"] == "over_role_approval_limit" for f in sent["facts"]["flags"]):
         why = f"Amount exceeds your approval limit; escalate to {sent['role_card']['escalates_to']}."
+    elif unnamed:
+        why = "The approval did not name the flag " + unnamed[0] + "."
     elif not answer["cites"]:
         why = "The approval cited no evidence present in the decision input."
     elif answer["action"] == "approve_with_condition" and not str(answer.get("condition") or "").strip():

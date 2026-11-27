@@ -44,12 +44,11 @@ def case_messages(engine, done, client):
             continue
         sender = client(case["role"])
         sender.join(done["room"])
+        said = case["key"] + ":" + case["status"]  # escalated and later decided are two messages
         text = engine.compose(
-            "chat:" + case["key"], case["role"], "Daily operations", "Case " + case["record"], case["message"]
+            "chat:" + said, case["role"], "Daily operations", "Case " + case["record"], case["message"]
         )
-        sender.send_chat(
-            done["room"], text, transaction="case-" + hashlib.sha256(case["key"].encode()).hexdigest()[:32]
-        )
+        sender.send_chat(done["room"], text, transaction="case-" + hashlib.sha256(said.encode()).hexdigest()[:32])
         case["posted"] = engine.day
         engine.persist()
 

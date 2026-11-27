@@ -37,6 +37,7 @@
 - Correct source paths and commands in the Norvale integration guides.
 
 ### Fixed
+- Role cases (#120): QA no longer closes a non-conformance while an engineering review of the item is undecided, including an overdue one; an overdue case is escalated once and still retried. A purchase approval that does not name a code-checked flag is held, as role-case approvals already were. The offline purchasing rule defers an order over the role's approval limit, or one whose item stock plus other open orders already meets its reorder target.
 - Matrix lake ingestion follows advancing cursors across empty pages so later room messages reach the archive.
 
 - A rejected reorder-level request no longer blocks its item for the rest of a run: after 5 days a continuing shortage raises a new request.

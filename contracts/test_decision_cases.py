@@ -59,8 +59,8 @@ class DecisionCases(unittest.TestCase):
                     again = score_decisions.main(["--model", "stub", "--out", out])
         self.assertEqual((len(sent), result), (40, again))
         self.assertEqual((len(result["proposed"]["wrong_approvals"]), result["proposed"]["wrong_refusals"]), (23, []))
-        # Code holds only the over-authority approval; the other bad approvals are the model's to catch.
-        self.assertEqual(len(result["executed"]["wrong_approvals"]), 22)
+        # Code holds every approval that ignores a flag; the unflagged bad approvals are the model's to catch.
+        self.assertEqual(len(result["executed"]["wrong_approvals"]), 2)
         self.assertNotIn("trap-over-authority", result["executed"]["wrong_approvals"])
         self.assertEqual((result["cost"], result["cost_per_call"]), (0.04, 0.001))
 

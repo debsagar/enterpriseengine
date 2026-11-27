@@ -4,7 +4,7 @@ import json
 from datetime import date
 from functools import cached_property
 from hashlib import sha256
-from math import isfinite
+from math import inf, isfinite
 from xmlrpc.client import Fault, ProtocolError
 
 from components.qms import ACTION, CASE, INSPECTION, OP, QMS, STATES
@@ -13,6 +13,7 @@ from environments.norvale.integrations.plm import PLM, Blocked
 from environments.norvale.integrations.qms.rework import PH_LIMITS, proposed_salvage
 from environments.norvale.integrations.qms.sample_reference import INCOMING
 from environments.norvale.integrations.revisions import RevisionMismatch
+from environments.norvale.native import judgment
 from environments.norvale.native.company import save
 from environments.norvale.native.company_erp import Pending, digest
 from environments.norvale.native.production_profiles import ADAPTER, production_batch, registered
@@ -854,6 +855,14 @@ def offline_decision(engine, key, role, evidence, question):
             and lines(evidence) == lines(quote)
             and bool(lines(quote))
             and all(qty > 0 and rate > 0 for _, qty, rate, _ in lines(quote))
+            and evidence["grand_total"] <= judgment.limits(role).get("po_approval_eur", inf)
+            # A duplicate: other open orders already bring the item to its target. A smaller top-up may pass.
+            and not any(
+                row.get("open_po_qty_excluding_this", 0) > 0
+                and row.get("released_raw_materials_qty", 0) + row["open_po_qty_excluding_this"]
+                >= row.get("reorder_target_qty", 0)
+                for row in evidence.get("coverage", [])
+            )
         )
     elif role == "CFO" and key.startswith("review:"):
         approved = bool(evidence["native_balances"]) and not evidence["pending_requests"]
