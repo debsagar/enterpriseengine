@@ -527,8 +527,10 @@ class Engine:
                         "read_only": 1,
                     },
                 )
-        for dt in ["Stock Ledger Entry", "Bin"]:
-            for role in ["Purchase User", "Purchase Manager"]:
+        buyers = ["Purchase User", "Purchase Manager"]
+        # The lake collector reads the staff records through the IT administrator.
+        for dt, roles in [("Stock Ledger Entry", buyers), ("Bin", buyers), ("Employee", ["System Manager"])]:
+            for role in roles:
                 if not self.admin.list("Custom DocPerm", {"parent": dt, "role": role, "read": 1}):
                     result = self.stack.bench(
                         "execute",
@@ -2944,6 +2946,10 @@ class Engine:
             from environments.norvale.agents.expert_inbox import answer_pending
 
             answer_pending(self.run)
+        if self.config.get("company_operating") and (self.run / "env/secrets.json").is_file():
+            from environments.norvale.native import operations_round
+
+            operations_round.run(self)
         due = (self.day + 1) % self.config["report_every"] == 0
         binding = self.run / "env/planning-report.json"
         if binding.is_file():

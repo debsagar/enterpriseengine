@@ -113,7 +113,7 @@ def scan_people(kind, cfg, root):
     ingest(root, entity, lambda: list(fetch()), source=cfg["source"], projection=lambda _, doc: doc)
 
 
-def write_daily_manifest(root, on, failed_sources):
+def write_daily_manifest(root, on, failed_sources, read_sources=()):
     """Save what the archive holds for business date `on`: the last version of each record dated by then.
 
     Collected snapshots carry a business date; older ones fall back to their own timestamps. Records
@@ -130,7 +130,7 @@ def write_daily_manifest(root, on, failed_sources):
     rows = {}
     for (source, entity, _), row in latest.items():
         rows.setdefault((source, entity), []).append(row)
-    return write_manifest(root, on, rows, failed_sources=failed_sources, undated=undated)
+    return write_manifest(root, on, rows, failed_sources=failed_sources, undated=undated, read_sources=read_sources)
 
 
 def scan(source, cfg, root):
@@ -215,20 +215,27 @@ def scan(source, cfg, root):
             raise ExceptionGroup("Native entity scans failed", errors)
     elif source == "mes":
         from environments.norvale.integrations.lake.mes_reader import scan as collect
-        from environments.norvale.integrations.lake.mes_reader import scan_labor, scan_staging
+        from environments.norvale.integrations.lake.mes_reader import scan_definitions, scan_labor, scan_staging
         from environments.norvale.integrations.mes.client import Mes
 
         client = Mes(**cfg["reader"])
         if "instance" in cfg or "reader_company" in cfg:
             check_mes_reader(client, cfg)
         errors = []
-        for reader in (collect, scan_labor, scan_staging):
+        for reader in (collect, scan_labor, scan_staging, scan_definitions):
             try:
                 reader(root, client, product=cfg.get("product"), company=cfg.get("company"))
             except Exception as exc:
                 errors.append(exc)
         if errors:
             raise ExceptionGroup("Native MES scans failed", errors)
+    elif source == "tickets":
+        from environments.norvale.integrations.lake.ticket_reader import scan as collect
+        from environments.norvale.native.systems_v2 import Tickets
+
+        run = Path(cfg["run"])
+        token = json.loads((run / "env/maintenance-tokens.json").read_text())["reader"]
+        collect(root, cfg["source"], Tickets(run, token=token))
     elif source == "publication":
         from environments.norvale.integrations.lake.plm_reader import scan_publications
         from environments.norvale.integrations.plm import PLM
@@ -424,7 +431,8 @@ def scan_cycle(config, root, run=None, *, qms_sources=None, business_day=None, u
             },
         )
     try:
-        write_daily_manifest(root, on, {identity for identity, _ in errors})
+        failed = {identity for identity, _ in errors}
+        write_daily_manifest(root, on, failed, sources - failed)
     except Exception as exc:
         errors.append(("manifest", type(exc).__name__))
     return sources, errors

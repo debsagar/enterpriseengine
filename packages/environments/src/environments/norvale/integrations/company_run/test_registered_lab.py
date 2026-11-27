@@ -257,6 +257,7 @@ class RegisteredLabTest(TestCase):
                 patch("environments.norvale.integrations.lake.mes_reader.scan"),
                 patch("environments.norvale.integrations.lake.mes_reader.scan_labor"),
                 patch("environments.norvale.integrations.lake.mes_reader.scan_staging"),
+                patch("environments.norvale.integrations.lake.mes_reader.scan_definitions"),
                 patch("urllib.request.OpenerDirector.open", side_effect=AssertionError("Unexpected I/O")),
             ):
                 state = dict(day=0, docs={}, ops={"orders": {}, "purchases": {}})

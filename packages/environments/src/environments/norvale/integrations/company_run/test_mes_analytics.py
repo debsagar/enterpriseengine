@@ -7,7 +7,8 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-from environments.norvale.integrations.lake.erp_scope import ERP_ANALYTICS_ROLES
+from environments.norvale.integrations.lake.erp_scope import ERP_ENTITIES, ERP_ENTITY_ROLES
+from environments.norvale.integrations.lake.flows import QMS_ENTITIES
 from environments.norvale.native.production_profiles import ADAPTER, profile
 
 from .configure import configure
@@ -20,12 +21,13 @@ PRIMARY = dict(reader=READER, instance=INSTANCE, reader_company=1)
 
 
 class MesAnalyticsTests(TestCase):
-    def test_three_collectors_share_the_attested_account_and_fail_before_ingesting(self):
+    def test_collectors_share_the_attested_account_and_fail_before_ingesting(self):
         with (
             patch("environments.norvale.integrations.mes.client.Mes") as mes,
             patch("environments.norvale.integrations.lake.mes_reader.scan") as completion,
             patch("environments.norvale.integrations.lake.mes_reader.scan_labor") as labor,
             patch("environments.norvale.integrations.lake.mes_reader.scan_staging") as staging,
+            patch("environments.norvale.integrations.lake.mes_reader.scan_definitions") as definitions,
         ):
             client = mes.return_value
             client.call.return_value = "b" * 64
@@ -33,13 +35,13 @@ class MesAnalyticsTests(TestCase):
                 scan("mes", PRIMARY, "archive")
             mes.assert_called_once_with(**READER)
             client.call.assert_called_once_with("mrp.production", "norvale_analytics_identity", 1)
-            for collect in (completion, labor, staging):
+            for collect in (completion, labor, staging, definitions):
                 collect.assert_not_called()
 
             client.call.return_value = INSTANCE
             scoped = dict(PRIMARY, product=2, company=1)
             scan("mes", scoped, "archive")
-            for collect in (completion, labor, staging):
+            for collect in (completion, labor, staging, definitions):
                 collect.assert_called_once_with("archive", client, product=2, company=1)
 
     def test_registered_selection_keeps_legacy_and_rejects_commissioned_drift(self):
@@ -183,7 +185,7 @@ class MesAnalyticsTests(TestCase):
                 admin=object(),
                 config={},
                 eps={"erp": "http://erp", "site": "erp"},
-                tokens=dict.fromkeys(("QA", "PLANNER", *ERP_ANALYTICS_ROLES.values()), "key:secret"),
+                tokens=dict.fromkeys(("QA", *ERP_ENTITY_ROLES.values()), "key:secret"),
             )
             (root / "services.json").write_text(
                 json.dumps(dict(mes_url=READER["url"], mes_project="plant", plm_url="http://plm"))
@@ -232,6 +234,10 @@ class MesAnalyticsTests(TestCase):
             configure(root)
             expected = dict(PRIMARY, reader=dict(READER, db="norvale_mes"))
             self.assertEqual(json.loads(settings.read_text())["mes"], expected)
+            saved = json.loads(settings.read_text())
+            self.assertEqual(saved["erp"]["entities"], list(ERP_ENTITIES))
+            self.assertEqual(set(saved["erp"]["entity_readers"]), set(ERP_ENTITY_ROLES))
+            self.assertEqual(saved["qms"]["entities"], list(QMS_ENTITIES))
             self.assertEqual(json.loads(sources.read_text())["mes_analytics"], expected)
             configure(root)
             self.assertEqual(json.loads(settings.read_text())["mes"], expected)

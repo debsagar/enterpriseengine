@@ -16,6 +16,7 @@ from environments.norvale.integrations.qms.disposition_history import confirmed_
 from environments.norvale.integrations.qms.measurements import numeric_results
 from environments.norvale.native.company import Engine, save
 from environments.norvale.native.company_erp import digest
+from environments.norvale.paths import RUN_ARCHIVE
 
 from .consumption import STOCK_UNITS, amount, bundle_entry, index_issues, reconcile_inputs
 from .interrupted_acceptance import verified_interrupted
@@ -564,10 +565,14 @@ def verified_maintenance(engine):
 def verify(root):
     e = Engine(root / "business")
     settings = json.loads((root / "analytics.json").read_text())
-    archive = root / "lake/delta"
+    # The manual README flow archives into <root>/lake; commissioned runs use the run layout.
+    archive_root = root / RUN_ARCHIVE
+    if not (archive_root / "delta").exists():
+        archive_root = root / "lake"
+    archive = archive_root / "delta"
     before = DeltaTable(str(archive)).version()
     qms_sources = set()
-    expected, scan_errors = scan_cycle(settings, root / "lake", root / "business", qms_sources=qms_sources)
+    expected, scan_errors = scan_cycle(settings, archive_root, root / "business", qms_sources=qms_sources)
     if scan_errors:
         raise RuntimeError(f"Native reads failed: {scan_errors}")
     table = DeltaTable(str(archive))

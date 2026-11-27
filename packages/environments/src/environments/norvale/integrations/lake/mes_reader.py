@@ -254,6 +254,53 @@ def scan_staging(root, mes, *, product=None, company=None):
     return ingest(root, "stock.move", fetch, source=mes.source_id, projection=lambda entity, row: row, scope=scope)
 
 
+ORDER_FIELDS = (
+    "name state origin product_id product_qty product_uom_id bom_id company_id date_start date_finished "
+    "norvale_revision create_date write_date"
+).split()
+BOM_FIELDS = (
+    "code product_tmpl_id product_id product_qty product_uom_id active company_id create_date write_date".split()
+)
+BOM_LINE_FIELDS = "bom_id product_id product_qty product_uom_id".split()
+
+
+def scan_definitions(root, mes, *, product=None, company=None):
+    """Archive manufacturing orders in every state, and the MES BOMs with their component lines."""
+    if (product is None) != (company is None):
+        raise ValueError("A product scope requires its company")
+    scope = dict(product=product, company=company) if product is not None else None
+
+    def rows(model, fields, domain, **options):
+        return mes.call(model, "search_read", domain, fields=fields, order="id", **options)
+
+    def document(row):
+        # The archive's name is the native ID; the order's own number moves to `reference`.
+        return dict(
+            row,
+            name=str(row["id"]),
+            reference=row.get("name") or row.get("code"),
+            creation=row["create_date"],
+            modified=row["write_date"],
+        )
+
+    def orders():
+        domain = [["product_id", "=", product], ["company_id", "=", company]] if scope else []
+        return [document(row) for row in rows("mrp.production", ORDER_FIELDS, domain)]
+
+    def boms():
+        # Archived BOMs stay visible, so a snapshot records that one became inactive.
+        domain = [["company_id", "=", company]] if scope else []
+        found = rows("mrp.bom", BOM_FIELDS, domain, context={"active_test": False})
+        identifiers = [row["id"] for row in found]
+        lines = rows("mrp.bom.line", BOM_LINE_FIELDS, [["bom_id", "in", identifiers]]) if found else []
+        return [document(dict(row, components=[x for x in lines if x["bom_id"][0] == row["id"]])) for row in found]
+
+    return sum(
+        ingest(root, entity, fetch, source=mes.source_id, projection=lambda _, row: row, scope=scope)
+        for entity, fetch in (("MES Manufacturing Order", orders), ("MES BOM", boms))
+    )
+
+
 def scan_labor(root, mes, work_refs=None, *, product=None, company=None):
     """Read native productivity by its own durable ID through the reader account."""
     from environments.norvale.integrations.mes.client import EVENT, MO, WO

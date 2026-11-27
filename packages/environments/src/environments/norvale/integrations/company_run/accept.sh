@@ -8,7 +8,7 @@ export NORVALE_OFFLINE=1
 python="$run/release/.venv/bin/python"
 export RAYON_NUM_THREADS=1 TOKIO_WORKER_THREADS=1 ARROW_NUM_THREADS=1
 if [[ ! -f $run/analytics.json ]]; then "$python" -m environments.norvale.integrations.company_run.configure "$run"; fi
-"$python" -m environments.norvale.integrations.company_run.lake "$run/analytics.json" "$run/lake" --run "$run/business" --interval 60 >>"$run/lake.log" 2>&1 &
+"$python" -m environments.norvale.integrations.company_run.lake "$run/analytics.json" "$run/observable/lake" --run "$run/business" --interval 60 >>"$run/lake.log" 2>&1 &
 worker=$!
 trap 'kill "$worker" 2>/dev/null || true; wait "$worker" 2>/dev/null || true' EXIT
 if [[ ! -f $run/interruption-confirmed ]]; then
@@ -20,5 +20,5 @@ if [[ ! -f $run/interruption-confirmed ]]; then
     touch "$run/interruption-confirmed"
 fi
 "$python" -m environments.norvale.integrations.company_run "$run/business"
-"$python" -m environments.norvale.integrations.company_run.lake "$run/analytics.json" "$run/lake" --run "$run/business"
+"$python" -m environments.norvale.integrations.company_run.lake "$run/analytics.json" "$run/observable/lake" --run "$run/business"
 "$python" -m environments.norvale.integrations.company_run.verify "$run"

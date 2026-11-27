@@ -5,11 +5,13 @@ import json
 import os
 from pathlib import Path
 
+from environments.norvale.integrations.lake.flows import QMS_ENTITIES
 from environments.norvale.integrations.mes.client import Mes
 from environments.norvale.integrations.plm import PLM
 from environments.norvale.integrations.qms.sample_reference import ENTITY as SAMPLE_ENTITY
 from environments.norvale.integrations.revisions.receivers import ERPNext, erp_receiver_marker
 from environments.norvale.native.company import Engine, save
+from environments.norvale.paths import RUN_ARCHIVE
 from environments.norvale.walkthrough import ROLES
 
 from .authority import qms_target
@@ -158,10 +160,10 @@ def configure(root, *, scoped_receipts=False, sample_writer=False):
         cfg["lab"]["sample_writer"] = writer
     save(path, cfg)
     key, secret = e.tokens["QA"].split(":")
-    from environments.norvale.integrations.lake.erp_scope import ERP_ANALYTICS_ROLES
+    from environments.norvale.integrations.lake.erp_scope import ERP_ENTITIES, ERP_ENTITY_ROLES
 
     entity_readers = {}
-    for entity, role in {"BOM": "PLANNER", "Work Order": "PLANNER", **ERP_ANALYTICS_ROLES}.items():
+    for entity, role in ERP_ENTITY_ROLES.items():
         api_key, api_secret = e.tokens[role].split(":")
         entity_readers[entity] = dict(url=e.eps["erp"], site=e.eps["site"], api_key=api_key, api_secret=api_secret)
     scans = dict(
@@ -169,26 +171,13 @@ def configure(root, *, scoped_receipts=False, sample_writer=False):
             source=cfg["erp_source"],
             compose_origin=e.eps["erp"],
             reader=dict(url=e.eps["erp"], site=e.eps["site"], api_key=key, api_secret=secret),
-            entities=[
-                "BOM",
-                "Work Order",
-                "Stock Entry",
-                "Serial and Batch Bundle",
-                "Delivery Note",
-                *ERP_ANALYTICS_ROLES,
-            ],
+            entities=list(ERP_ENTITIES),
             entity_readers=entity_readers,
         ),
         qms=dict(
             source=root.name + "-qms",
             reader=qms("reader"),
-            entities=[
-                "Quality Inspection",
-                "Quality Inspection Workflow",
-                "Norvale Dispatch Lease",
-                "Quality Action",
-                "Non Conformance",
-            ],
+            entities=list(QMS_ENTITIES),
         ),
         mes=mes_scan,
         plm=dict(
@@ -221,6 +210,8 @@ def configure(root, *, scoped_receipts=False, sample_writer=False):
         )
         for kind in ("mail", "calendar", "matrix", "master"):
             scans[kind] = dict(source=root.name + "-" + kind, env=str(e.run / "env"), directory=str(directory))
+        # The reader token is provisioned below and read at scan time.
+        scans["tickets"] = dict(source=root.name + "-tickets", run=str(e.run))
     save(settings, scans)
     binding = e.run / "env/planning-report.json"
     if (e.config or {}).get("company_operating"):
@@ -228,7 +219,7 @@ def configure(root, *, scoped_receipts=False, sample_writer=False):
 
         provision(e.run)
         if not binding.exists():
-            save(binding, dict(settings=str(root / "analytics.json"), archive=str(root / "lake")))
+            save(binding, dict(settings=str(root / "analytics.json"), archive=str(root / RUN_ARCHIVE)))
 
 
 if __name__ == "__main__":

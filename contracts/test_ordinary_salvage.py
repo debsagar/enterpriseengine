@@ -215,6 +215,8 @@ class MesSite:
             return [deepcopy(self.docs[model, identifier]) for identifier in args[0]]
         if method == "fields_get":
             return {field: {} for field in args[0]} if model == MO else {}
+        if method == "search_read" and "fields" in kwargs and args in (([],), ([["company_id", "=", 4]],)):
+            return []  # the definitions scan: no manufacturing order or BOM rows in this fixture
         assert model == MO, (model, method)
         if method == "search":
             assert args == ([["norvale_revision", "!=", False], ["state", "=", "done"]],)

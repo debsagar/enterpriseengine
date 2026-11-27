@@ -35,6 +35,9 @@ def identities(engine, roster):
             "date_of_joining": "2027-01-01",
             "status": "Active",
         }
+        if r["role"] == "IT_ADMIN":
+            # ERPNext would otherwise let this user read only its own staff record; the lake reads all of them.
+            data["create_user_permission"] = 0
         if r.get("manager"):
             data["reports_to"] = result[r["manager"]]["employee"]
         employee = (

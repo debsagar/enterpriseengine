@@ -132,7 +132,7 @@ def state_at(rows, day):
     return list(state.values())
 
 
-def build_manifest(day, rows_by_source, *, delta_versions=None, failed_sources=(), undated=()):
+def build_manifest(day, rows_by_source, *, delta_versions=None, failed_sources=(), undated=(), read_sources=()):
     """Build a point-in-time manifest dict for `day` from `(source, entity) -> rows`."""
     sources = {}
     for (source, entity), rows in sorted(rows_by_source.items()):
@@ -159,6 +159,9 @@ def build_manifest(day, rows_by_source, *, delta_versions=None, failed_sources=(
         manifest["failed_sources"] = sorted(failed_sources)
     if undated:
         manifest["undated"] = sorted(undated)
+    if read_sources:
+        # Includes sources that were read and hold nothing dated by this day.
+        manifest["read_sources"] = sorted(read_sources)
     return manifest
 
 
