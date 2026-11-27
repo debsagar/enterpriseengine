@@ -31,7 +31,8 @@ class ScheduledLake(TestCase):
                 "qms": dict(source="quality", entities=["Quality Inspection"], reader=reader),
             }
             directory = env / "directory.json"
-            directory.write_text(json.dumps([dict(id="CEO", email="ceo@norvale.test", effective_at="2027-01-02")]))
+            account = dict(id="CEO", email="ceo@norvale.test", effective_at="2027-01-02")
+            today = [0]
             for kind in ("mail", "calendar", "matrix", "master"):
                 settings[kind] = dict(source=kind, env=str(env), directory=str(directory))
             settings["plm"] = dict(source="definitions", reader=reader, parts=[])
@@ -49,7 +50,7 @@ class ScheduledLake(TestCase):
             engine = SimpleNamespace(run=run, state={}, persist=Mock(), log=Mock())
 
             def documents(entity):
-                if entity in (DISPOSITION_ENTITY, "Norvale Dispatch Lease"):
+                if today[0] == 0 or entity in (DISPOSITION_ENTITY, "Norvale Dispatch Lease"):
                     return []
                 at = "2027-01-02 08:00:00"
                 rows = [dict(name=entity + "-1", modified=at, planned_start_date=at, report_date="2027-01-02")]
@@ -71,12 +72,14 @@ class ScheduledLake(TestCase):
                 patch.object(Frappe, "__init__", return_value=None),
                 patch("environments.norvale.integrations.plm.PLM"),
                 patch("environments.norvale.integrations.company_run.publications.collect"),
-                patch(module + "fetch_imap_messages", return_value=[mail]),
-                patch(module + "fetch_caldav_events", side_effect=lambda *a: parse_vevents(ics)),
+                patch(module + "fetch_imap_messages", side_effect=lambda *a: [mail] * today[0]),
+                patch(module + "fetch_caldav_events", side_effect=lambda *a: parse_vevents(ics) if today[0] else []),
                 patch(module + "joined_matrix_rooms", return_value=["!room"]),
-                patch(module + "fetch_matrix_messages", return_value=[chat]),
+                patch(module + "fetch_matrix_messages", side_effect=lambda *a, **k: [chat] * today[0]),
             ):
                 for day in (0, 1):
+                    today[0] = day
+                    directory.write_text(json.dumps([account] * day))
                     scheduled_scan(engine, day * 1440 + 1439)
                     self.assertEqual(engine.state["lake_scans"]["errors"], [])
             expected = {
@@ -87,13 +90,92 @@ class ScheduledLake(TestCase):
                 ("matrix", "Matrix Message"),
                 ("master", "Directory Account"),
             }
-            for date, count in (("2027-01-01", 0), ("2027-01-02", 1)):
+            # An impossible iCal date and a version string are dated by the day the collector first saw them.
+            both = dict.fromkeys(expected, 1) | dict.fromkeys(
+                [("calendar", "Calendar Event"), ("quality", "Quality Inspection")], 2
+            )
+            for date, counts in (("2027-01-01", {}), ("2027-01-02", both)):
                 sources = snapshot_at(archive, date)["sources"]
                 found = {(s, e): row["count"] for s, entities in sources.items() for e, row in entities.items()}
-                self.assertEqual(found, dict.fromkeys(expected, count) if count else {}, date)
-                self.assertEqual(
-                    snapshot_at(archive, date)["undated"], ["calendar/Calendar Event", "quality/Quality Inspection"]
-                )
+                self.assertEqual(found, counts, date)
+                self.assertNotIn("undated", snapshot_at(archive, date))
+
+    def test_each_day_snapshot_holds_the_version_current_that_day(self):
+        with TemporaryDirectory() as temp:
+            run = Path(temp)
+            env, archive = run / "env", run / "lake"
+            env.mkdir()
+            reader = dict(url="http://local", api_key="reader", api_secret="test")
+            settings = {
+                "erp": dict(source="operations", entities=["Sales Order"], reader=reader),
+                "qms": dict(source="quality", entities=["Quality Inspection"], reader=reader),
+                "plm": dict(source="definitions", reader=reader, parts=[]),
+            }
+            (env / "analytics.json").write_text(json.dumps(settings))
+            (env / "planning-report.json").write_text(
+                json.dumps(dict(settings=str(env / "analytics.json"), archive=str(archive)))
+            )
+            (env / "company-sources.json").write_text(
+                json.dumps(dict(plm_source="definitions", plm=reader, products={}))
+            )
+            engine = SimpleNamespace(run=run, state={}, persist=Mock(), log=Mock())
+            native = {}
+
+            def documents(entity):
+                return [dict(row) for row in native.get(entity, [])]
+
+            with (
+                patch.object(Frappe, "documents", side_effect=documents),
+                patch.object(Frappe, "__init__", return_value=None),
+                patch("environments.norvale.integrations.plm.PLM"),
+                patch("environments.norvale.integrations.company_run.publications.collect"),
+            ):
+                for day in range(4):
+                    if day == 0:
+                        # The posting date never changes; QMS stamps wall-clock time or nothing at all.
+                        native["Sales Order"] = [
+                            dict(
+                                name="SO-1", modified="2027-01-01 09:00:00", transaction_date="2027-01-01", status="v1"
+                            )
+                        ]
+                        native["Quality Inspection"] = [
+                            dict(name="QI-1", modified="2026-11-26 18:00:00", report_date="2027-01-01", status="v1"),
+                            dict(name="QI-2", status="v1"),
+                        ]
+                    if day == 2:
+                        native["Sales Order"][0].update(modified="2027-01-03 10:00:00", status="v2")
+                        native["Quality Inspection"][0].update(modified="2026-11-26 18:05:00", status="v2")
+                    scheduled_scan(engine, day * 1440 + 1439)
+                    self.assertEqual(engine.state["lake_scans"]["errors"], [])
+
+            rows = Lake(archive / "delta", {})._rows()
+            self.assertTrue(all(row["business_date"] for row in rows))
+            payload = {(r["native_id"], r["content_hash"]): json.loads(r["payload"]) for r in rows}
+
+            def state(date):
+                manifest = snapshot_at(archive, date)
+                self.assertNotIn("undated", manifest)
+                return {
+                    name: (payload[name, digest]["status"], manifest["sources"][source][entity]["count"])
+                    for source, entities in manifest["sources"].items()
+                    for entity, summary in entities.items()
+                    for name, digest in summary["records"].items()
+                }
+
+            v1 = {"SO-1": ("v1", 1), "QI-1": ("v1", 2), "QI-2": ("v1", 2)}
+            v2 = v1 | {"SO-1": ("v2", 1), "QI-1": ("v2", 2)}
+            for date, expected in (("01", v1), ("02", v1), ("03", v2), ("04", v2)):
+                self.assertEqual(state("2027-01-" + date), expected, date)
+            self.assertEqual(
+                sorted((r["native_id"], r["business_date"]) for r in rows),
+                [
+                    ("QI-1", "2027-01-01"),
+                    ("QI-1", "2027-01-03"),
+                    ("QI-2", "2027-01-01"),
+                    ("SO-1", "2027-01-01"),
+                    ("SO-1", "2027-01-03"),
+                ],
+            )
 
     def test_business_cutoffs_independent_failure_and_resume(self):
         with TemporaryDirectory() as temp:
@@ -163,39 +245,3 @@ class ScheduledLake(TestCase):
                 rows = Lake(archive / "delta", {})._rows()
                 self.assertCountEqual([r["source"] for r in rows], ["operations", "quality"])
                 self.assertTrue(all(c.kwargs["on"] == "2027-01-01" for c in publications.call_args_list))
-
-
-def test_write_daily_manifest_includes_undated_by_first_seen(tmp_path, monkeypatch):
-    from environments.norvale.integrations.company_run.lake import write_daily_manifest
-    from environments.norvale.integrations.lake import adapter
-
-    rows = [
-        {
-            "source": "mes",
-            "entity": "work_order",
-            "native_id": "WO-1",
-            "ingested_at": "2027-01-02T08:00:00Z",
-            "payload": {},
-        },
-        {
-            "source": "plm",
-            "entity": "part",
-            "native_id": "PART-1",
-            "ingested_at": "2027-01-02T08:00:00Z",
-            "payload": {},
-        },
-    ]
-
-    class FakeLake:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        def index(self):
-            return rows
-
-    monkeypatch.setattr(adapter, "Lake", FakeLake)
-    m2 = write_daily_manifest(tmp_path, "2027-01-02", ())
-    assert m2["counts"]["mes/work_order"] == 1
-    assert m2["counts"]["plm/part"] == 1
-    m1 = write_daily_manifest(tmp_path, "2027-01-01", ())
-    assert m1["counts"] == {}

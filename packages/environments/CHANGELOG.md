@@ -4,7 +4,7 @@
 
 ### Added
 
-- Daily lake manifests now include undated MES, PLM, and other records stamped with the run day they were first seen.
+- Lake snapshots appended by the company collector carry a `business_date`: the record's own simulated-clock stamp when it advances, otherwise the day the collector observed it (QMS, MES and PLM stamp wall-clock time). Daily manifests select by that date and list each record's `content_hash`, so a day resolves to exact versions.
 - Decision questions name only the graded actions; a reply of `defer` or `investigate` is read as `request_info` instead of stopping the run.
 - Operating runs report daily behaviour numbers in `<run>/behaviour.json` and the heartbeat: approval rate by case type, standing policies proposed and rejected, approvals held by code and approvals that overrode a contradiction flag.
 - Set `NORVALE_COMMS_MODEL` to have a small model word the operating run's employee emails (unset keeps the templates). The decision headline stays code-written; a draft that drops or invents a record name, item code, date or number is discarded for the template.

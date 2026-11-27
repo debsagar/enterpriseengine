@@ -2,11 +2,18 @@
 
 import hashlib
 import json
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pyarrow as pa
 from deltalake import DeltaTable, QueryBuilder, write_deltalake
+
+from .manifest import business_date
+
+# (business date this pass observes, whether the source stamps records on the simulated clock).
+# Set by the company collector; standalone scans leave business_date empty.
+observation = ContextVar("lake_observation", default=None)
 
 
 def now():
@@ -38,10 +45,29 @@ class Lake:
             latest = {row["native_id"]: row["digest"] for row in pa.table(reader.read_all()).to_pylist()}
         return latest
 
+    def _columns(self):
+        return {field.name for field in DeltaTable(self.path).schema().fields}
+
+    def latest_dates(self, source, entity):
+        """The business date of each record's newest snapshot."""
+        if not Path(self.path, "_delta_log").exists() or "business_date" not in self._columns():
+            return {}
+        source_literal = source.replace("'", "''")
+        entity_literal = entity.replace("'", "''")
+        query = (
+            "SELECT native_id, max(business_date) AS day "
+            f"FROM snapshots WHERE source = '{source_literal}' AND entity = '{entity_literal}' "
+            "GROUP BY native_id"
+        )
+        reader = QueryBuilder().register("snapshots", DeltaTable(self.path)).execute(query)
+        return {row["native_id"]: row["day"] for row in pa.table(reader.read_all()).to_pylist()}
+
     def ingest(self, source, entity, documents, effective_field=None, *, latest=None):
         """Append confirmed source readbacks. Caller must serialize writers and filter secrets."""
         if latest is None:
             latest = self.latest_hashes(source, entity)
+        seen = observation.get()
+        dates = None
         pending = {}
         new = []
         for doc in documents:
@@ -51,6 +77,15 @@ class Lake:
             if pending.get(key, latest.get(key)) == digest:
                 continue
             pending[key] = digest
+            day = ""
+            if seen:
+                on, simulated = seen
+                stamps = [doc.get("modified"), doc.get("creation")] if simulated else []
+                if effective_field:
+                    stamps.append(doc.get(effective_field))
+                if dates is None:
+                    dates = self.latest_dates(source, entity)
+                day = dates[key] = business_date(stamps, on, dates.get(key))
             new.append(
                 dict(
                     source=source,
@@ -60,11 +95,12 @@ class Lake:
                     source_recorded_at=str(doc.get("modified") or ""),
                     effective_at=str(doc.get(effective_field) or "") if effective_field else "",
                     ingested_at=now(),
+                    business_date=day,
                     payload=payload,
                 )
             )
         if new:
-            write_deltalake(self.path, pa.Table.from_pylist(new), mode="append")
+            write_deltalake(self.path, pa.Table.from_pylist(new), mode="append", schema_mode="merge")
             latest.update(pending)
         return len(new)
 
@@ -84,6 +120,8 @@ class Lake:
         if not Path(self.path, "_delta_log").exists():
             return []
         columns = "source, entity, native_id, content_hash, source_recorded_at, effective_at, ingested_at"
+        if "business_date" in self._columns():
+            columns += ", business_date"
         query = f"SELECT {columns} FROM snapshots"
         batches = QueryBuilder().register("snapshots", DeltaTable(self.path)).execute(query)
         return pa.table(batches.read_all()).to_pylist()

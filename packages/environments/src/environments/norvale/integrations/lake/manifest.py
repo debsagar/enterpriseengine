@@ -51,24 +51,36 @@ def _parse_ts(value, *, end_of_day=False):
         return ("str", text)
 
 
+RUN_START = "2027-01-01"
+
+
+def business_date(stamps, observed, previous=None):
+    """The business date from which a snapshot is part of the company's state.
+
+    The first of the record's own `stamps` that falls between the run start and the `observed` date and,
+    for a later version, after the previous version's date. Otherwise the observed date. This rejects
+    wall-clock stamps, future effective dates, and a posting date that an update left unchanged.
+    """
+    for stamp in stamps:
+        try:
+            parsed = _parse_ts(stamp)
+        except ValueError:
+            continue
+        if parsed is None or parsed[0] != "dt":
+            continue
+        day = parsed[1].astimezone(timezone.utc).date().isoformat()
+        if RUN_START <= day <= observed and (previous is None or day > previous):
+            return day
+    return observed
+
+
 def _record_day(row):
-    """Extract the business-effective day/timestamp from a lake row."""
-    eff = row.get("effective_at")
-    if eff is not None and eff != "":
-        return eff
-    rec = row.get("source_recorded_at")
-    if rec is not None and rec != "":
-        return rec
+    """Extract the business day/timestamp from a lake row."""
+    for field in ("business_date", "effective_at", "source_recorded_at"):
+        value = row.get(field)
+        if value is not None and value != "":
+            return value
     return None
-
-
-def is_dated(row):
-    """Whether the row carries a date a calendar cutoff can compare."""
-    try:
-        stamp = _parse_ts(_record_day(row))
-    except ValueError:
-        return False
-    return stamp is not None and stamp[0] == "dt"
 
 
 def filter_rows_at(rows, day):
@@ -107,6 +119,10 @@ def build_manifest(day, rows_by_source, *, delta_versions=None, failed_sources=(
             "digest": summary_hash,
             "latest_effective_at": max((str(_record_day(r)) for r in filtered), default=""),
         }
+        # Names the exact version of every record, so a snapshot resolves to payloads in the archive.
+        # ponytail: grows with records x days; move to a per-day side table if manifests get large.
+        if versions := {r["native_id"]: r["content_hash"] for r in filtered if "native_id" in r}:
+            sources[source][entity]["records"] = versions
     manifest = {
         "day": day,
         "day_key": _day_key(day),
