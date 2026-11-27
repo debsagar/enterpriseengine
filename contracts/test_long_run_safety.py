@@ -46,7 +46,7 @@ class Spending(unittest.TestCase):
         with environment(OPENAI_API_KEY="openai-key", OPENROUTER_API_KEY="router-key"), provider(sent, None):
             judge().decision("po", "SCM_MGR", {}, "Approve?")
         self.assertEqual(sent[0].full_url, "https://openrouter.ai/api/v1/chat/completions")
-        self.assertEqual(sent[0].headers["Authorization"], "Bearer router-key")
+        self.assertEqual(sent[0].get_header("Authorization"), "Bearer router-key")
         self.assertEqual(json.loads(sent[0].data)["model"], "openai/gpt-4.1-mini")
         with environment(OPENAI_API_KEY="openai-key"):
             self.assertEqual(long_run.model_endpoint(), ("openai-key", "https://api.openai.com/v1", "gpt-4.1-mini"))
@@ -109,15 +109,31 @@ class Watching(unittest.TestCase):
             engine.docs = {}
             engine.events = lambda: iter([(2, "d0002:service", lambda: None)])
             engine.run_phase = lambda day, key, action: None
+            engine.state["decisions"]["po-review:a:2"] = {
+                "mode": "model",
+                "input": {"role": "SCM_MGR", "as_of": "2027-01-03", "facts": {"flags": []}},
+                "output": {"action": "approve"},
+            }
+            engine.state["completed"] += ["seed", "d0000:service"]
             engine.run_stage("d0002:service")
             beat = json.loads((Path(tmp) / "heartbeat.json").read_text())
             self.assertEqual((beat["business_day"], beat["stage"]), (2, "d0002:service"))
+            self.assertEqual(beat["behaviour"]["case_types"]["purchase"]["approval_rate"], 1.0)
+            saved = json.loads((Path(tmp) / "behaviour.json").read_text())
+            self.assertEqual(saved["2027-01-03"], beat["behaviour"])
+            self.assertEqual((list(saved), saved["2027-01-01"]["decisions"]), (["2027-01-01", "2027-01-03"], 0))
             self.assertEqual(beat["spend"]["usd"], 0)
             with patch.object(engine, "step", side_effect=SpendCeilingExceeded("reached")):
                 with self.assertRaises(SpendCeilingExceeded):
                     engine.run_all()
             beat = json.loads((Path(tmp) / "heartbeat.json").read_text())
             self.assertEqual(beat["stopped"], "SpendCeilingExceeded: reached")
+            self.assertEqual(beat["behaviour"], saved["2027-01-03"])
+            with patch.object(engine, "step", side_effect=SpendCeilingExceeded("again")):
+                with patch.object(engine, "save_behaviour", side_effect=KeyError("report")):
+                    with self.assertRaisesRegex(SpendCeilingExceeded, "again"):
+                        engine.run_all()
+            self.assertIn("again", json.loads((Path(tmp) / "heartbeat.json").read_text())["stopped"])
 
     def test_stall_guard_interrupts_only_a_silent_run(self):
         with TemporaryDirectory() as tmp:

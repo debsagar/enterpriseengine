@@ -6,6 +6,7 @@ import json
 import math
 import os
 import random
+import re
 import sys
 import time
 from contextlib import suppress
@@ -23,7 +24,7 @@ from engine.versions import artifact_versions, load_artifact
 
 from environments.norvale.environment import compose as compose_mod
 from environments.norvale.environment.stack import Stack
-from environments.norvale.native import company_state, long_run
+from environments.norvale.native import behaviour, company_state, judgment, long_run
 from environments.norvale.paths import CHECKOUT
 from environments.norvale.walkthrough import ROLES, EnterpriseSimV4
 
@@ -484,44 +485,17 @@ class Engine:
     def decision(self, key, role, evidence, question):
         if key in self.state["decisions"]:
             return self.state["decisions"][key]
-        prompt = {
-            "role": role,
-            "as_of": self.date(),
-            "question": question,
-            "evidence": evidence,
-            "instruction": "Return JSON with action, reason, message. Do not assume unseen facts. Prior decisions may be mistaken: reassess using current native evidence and explicit operating policies; do not perpetuate unsupported concerns. Action may be approve, defer, reject, investigate. Approval is not implementation. You may propose standing_policy with effective_date, review_date, nonnegative numeric approval_limit and reorder_target, nonempty exact suppliers and items lists. Only SCM_MGR/CFO may authorize it. Ground all values in observed evidence; omit if insufficient.",
-        }
-        endpoint = None if os.environ.get("NORVALE_OFFLINE") == "1" else long_run.model_endpoint()
-        if endpoint:
-            import urllib.request
-
-            keyenv, base, model = endpoint
-            long_run.check_spend(self.state)
-            payload = {
-                "model": model,
-                "messages": [{"role": "user", "content": json.dumps(prompt)}],
-                "response_format": {"type": "json_object"},
-                "max_tokens": 1600,
-            }
-            self.log("model_request", model=model, input=prompt)
-            req = urllib.request.Request(
-                base + "/chat/completions",
-                json.dumps(payload).encode(),
-                headers={"Authorization": "Bearer " + keyenv, "Content-Type": "application/json"},
-            )
-            from environments.norvale.native.router import provider_json
-
-            raw = provider_json("Model", req, lambda attempt: self.log("model_http_attempt", attempt=attempt))
-            self.log("model_response", response=raw)
-            long_run.record_spend(self, "model", raw)
-            if raw["choices"][0].get("finish_reason") != "stop":
-                raise RuntimeError("Incomplete model response; raw response retained for diagnosis")
-            answer = json.loads(raw["choices"][0]["message"]["content"])
-            mode = "model"
-        else:
-            raise RuntimeError("LLM judgment requires credentials; no approval fallback")
-        if answer.get("action") not in ["approve", "defer", "reject", "investigate"]:
-            raise ValueError("Invalid decision action")
+        prompt = judgment.prompt(role, self.date(), evidence, question, self.effective_policies(role))
+        answer = judgment.complete(
+            prompt,
+            self.log,
+            before=lambda: long_run.check_spend(self.state),
+            after=lambda raw: long_run.record_spend(self, "model", raw),
+        )
+        mode = "model"
+        answer = judgment.graded(prompt, answer)
+        if "held_from" in answer:
+            self.log("approval_held", role=role, proposed=answer["held_from"], reason=answer["reason"])
         if answer.get("standing_policy") is not None:
             try:
                 self.adopt_policy(role, answer["standing_policy"], evidence, key)
@@ -642,6 +616,35 @@ class Engine:
                 ],
             },
         )
+
+    def compose(self, key, sender, recipient, subject, template):
+        """The body to send: the template, or NORVALE_COMMS_MODEL's rewording of it that keeps its record names.
+
+        The decision is already taken; the drafting model only words it. The first text is kept for retries.
+        """
+        kept = (self.state or {}).get("drafts", {}).get(key)
+        if kept and kept[0] == template:
+            return kept[1]
+        model = os.environ.get("NORVALE_COMMS_MODEL")
+        if not model or os.environ.get("NORVALE_OFFLINE") == "1" or key in self.state.get("mail_operations", {}):
+            return template
+        try:
+            reply = judgment.complete(
+                dict(task=judgment.DRAFTING, sender=sender, recipient=recipient, subject=subject, template=template),
+                self.log,
+                model=model,
+                before=lambda: long_run.check_spend(self.state),
+                after=lambda raw: long_run.record_spend(self, "model", raw),
+            )
+            body = judgment.check_draft(subject, template, reply.get("body"))
+        except long_run.SpendCeilingExceeded:
+            raise
+        except (RuntimeError, ValueError, KeyError, TypeError, AttributeError) as exc:
+            self.log("comms_draft_rejected", mail_key=key, reason=str(exc))
+            body = template
+        self.state.setdefault("drafts", {})[key] = [template, body]
+        self.persist()
+        return body
 
     def mail(self, key, sender, recipient, subject, body):
         from environments.norvale.agents.comms import Comms
@@ -775,9 +778,9 @@ class Engine:
             "purchase",
             "SCM_MGR",
             [{k: po.get(k) for k in ["name", "supplier", "grand_total", "schedule_date", "items"]}],
-            "Approve this replenishment purchase or defer/reject/investigate?",
+            "Decide this replenishment purchase.",
         )
-        if answer["output"]["action"] == "approve":
+        if answer["output"]["action"] in judgment.APPROVALS:
             self.log(
                 "request",
                 role="SCM_MGR",
@@ -1049,7 +1052,7 @@ class Engine:
             {"purchase": self.get("po", "SCM_MGR")["name"]},
         ]
         decision = self.decision("master-change", "SCM_MGR", evidence, "Approve the proposed reorder level change?")
-        if decision["output"]["action"] == "approve":
+        if decision["output"]["action"] in judgment.APPROVALS:
             self.write(
                 "change-approval",
                 "ToDo",
@@ -1181,14 +1184,14 @@ class Engine:
             "finance-review",
             "CFO",
             evidence,
-            "Review these account balances. Approve the report, investigate discrepancies by assigning Finance, defer for more evidence, or reject it. Do not infer unobserved plant facts.",
+            "Review these account balances and decide the report. Name any discrepancy Finance must investigate. Do not infer unobserved plant facts.",
         )
-        if outcome["output"]["action"] in ("investigate", "reject", "defer"):
+        if outcome["output"]["action"] != "approve":
             self.write(
                 "finance-followup",
                 "ToDo",
                 {
-                    "description": outcome["output"]["reason"],
+                    "description": outcome["output"].get("condition") or outcome["output"]["reason"],
                     "allocated_to": "finance@norvale.test",
                     "date": "2027-02-03",
                     "status": "Open",
@@ -1285,6 +1288,8 @@ class Engine:
         end = datetime.fromisoformat(p["review_date"]).date().isoformat()
         if not self.date() <= start < end:
             raise ValueError("Invalid policy dates")
+        if p["approval_limit"] > judgment.limits(role).get("po_approval_eur", math.inf):
+            raise ValueError("Policy limit exceeds role authority")
         self.write(
             "policy:" + key,
             "Note",
@@ -1368,6 +1373,7 @@ class Engine:
             )
         ]
         policy = matches[-1] if matches else None
+        checked = judgment.facts(role, evidence, self.date(), policies)
 
         def comparable_evidence(value):
             normalized = dict(value)
@@ -1405,6 +1411,7 @@ class Engine:
                 },
             }
             route_cases = [c for c in cases if c["as_of"] >= policy["effective_date"]]
+        route_evidence["code_checked_contradictions"] = checked["flags"]
         if not cached:
             long_run.check_spend(self.state)
         routed = (
@@ -1427,7 +1434,7 @@ class Engine:
         if not policy:
             result = {
                 "mode": "pending-policy",
-                "input": {"role": role, "as_of": self.date(), "evidence": evidence},
+                "input": {"role": role, "as_of": self.date(), "evidence": evidence, "facts": checked},
                 "output": {
                     "action": "defer",
                     "reason": "Router classified routine, but no authorized rule can execute this case. Request an applicable policy or revised classification.",
@@ -1442,7 +1449,7 @@ class Engine:
         verb = {"approve": "approved", "defer": "deferred", "reject": "rejected"}[action]
         result = {
             "mode": "standing-policy",
-            "input": {"role": role, "as_of": self.date(), "evidence": evidence},
+            "input": {"role": role, "as_of": self.date(), "evidence": evidence, "facts": checked},
             "policy": policy,
             "classification": False,
             "output": {"action": action, "reason": reason, "message": f"Purchase {verb} under standing policy."},
@@ -1573,11 +1580,7 @@ class Engine:
                     {
                         "effective_date": "2027-01-01",
                         "review_date": "2027-05-01",
-                        "SCM_MGR": "Approve or reject supplier purchases and item reorder changes using observed evidence; issue scoped purchasing policies.",
-                        "CFO": "Review finances and revise purchasing policies; no configured spending ceiling.",
-                        "BUYER": "Observe materials, request purchases; cannot approve own purchase or book stock.",
-                        "IT_ADMIN": "Implement separately approved item changes after approval date.",
-                        "PRODUCTION": "Execute authorized operations within available stock and shift capacity.",
+                        **judgment.MANDATES,
                     }
                 ),
             },
@@ -1935,17 +1938,8 @@ class Engine:
                     continue
                 vendor = self.catalog.source_list[code]
                 cost, (lead, sd), _ = self.catalog.vendors[vendor]["supplies"][code]
-                master = self.api["BUYER"].get("Item", code)
-                configured = next(
-                    (
-                        r["warehouse_reorder_level"]
-                        for r in master.get("reorder_levels", [])
-                        if r["warehouse"] == self.wh["rm"]
-                    ),
-                    0,
-                )
-                targets = [p["reorder_target"] for p in self.effective_policies("SCM_MGR") if code in p["items"]]
-                threshold = max([daily * (lead + self.catalog.safety_days[code]), configured] + targets)
+                configured = self.reorder_level("BUYER", code)
+                threshold = self.reorder_threshold(code, vendor, daily, configured)
                 coverage_end = self.dated(self.day + math.ceil(lead + self.catalog.safety_days[code]))
                 # Overdue open commitments still need receipt or buyer resolution. Counting
                 # them avoids issuing a duplicate order solely because a promised date passed.
@@ -2009,12 +2003,10 @@ class Engine:
             )
             ops["purchases"].setdefault(p["key"], p)
             self.persist()
+            subject = "Replenishment approval requested"
+            template = f"Native purchase {self.get(p['key'])['name']} replenishes released inventory below lead-time plus safety coverage."
             self.mail(
-                p["key"],
-                "BUYER",
-                "SCM_MGR",
-                "Replenishment approval requested",
-                f"Native purchase {self.get(p['key'])['name']} replenishes released inventory below lead-time plus safety coverage.",
+                p["key"], "BUYER", "SCM_MGR", subject, self.compose(p["key"], "BUYER", "SCM_MGR", subject, template)
             )
 
     def schedule_supplier_arrival(self, key, purchase, submitted):
@@ -2039,6 +2031,27 @@ class Engine:
         purchase["arrival_due"] = max(self.day + 1, promised + delay + rng.choice([-1, 0, 0, 2]))
         purchase["approved_day"] = self.day
 
+    def reorder_threshold(self, code, vendor, daily, configured):
+        lead = self.catalog.vendors[vendor]["supplies"][code][1][0]
+        targets = [p["reorder_target"] for p in self.effective_policies("SCM_MGR") if code in p["items"]]
+        return max([daily * (lead + self.catalog.safety_days[code]), configured] + targets)
+
+    def reorder_level(self, role, code):
+        master = self.api[role].get("Item", code)
+        return next(
+            (r["warehouse_reorder_level"] for r in master.get("reorder_levels", []) if r["warehouse"] == self.wh["rm"]),
+            0,
+        )
+
+    def open_po_qty(self, orders, code, excluding=None):
+        return sum(
+            self.purchase_balance(r) * (r.get("conversion_factor") or 1)
+            for other in orders
+            if other["name"] != excluding and other["docstatus"] in (0, 1) and not self.purchase_unavailable(other)
+            for r in other["items"]
+            if r["item_code"] == code
+        )
+
     def purchase_decision(self, key, role, evidence, question, **options):
         from environments.norvale.native.router import ProviderUnavailable
 
@@ -2058,13 +2071,68 @@ class Engine:
             self.log("purchase_review_unavailable", decision=key, role=role, reason=str(exc))
             return result
 
+    def notify(self, key, sender, recipient, subject, headline, detail, tail=""):
+        """Queue an outcome message with the checkpoint, so a failed send is retried."""
+        self.state.setdefault("outbox", {})[key] = [sender, recipient, subject, headline, detail, tail]
+        self.persist()
+        self.send_outbox()
+
+    def send_outbox(self):
+        for key, (sender, recipient, subject, *text) in list(self.state.get("outbox", {}).items()):
+            if len(text) == 3:  # only the detail is drafted; a single body was queued earlier and is sent as is
+                headline, detail, tail = text
+                detail = self.compose(key, sender, recipient, subject, detail)
+                text = [" ".join(filter(None, [headline, detail, tail]))]
+            self.mail(key, sender, recipient, subject, text[0])
+            del self.state["outbox"][key]
+            self.persist()
+
+    def report_outcome(self, key, recipient, record, output):
+        """Tell the requester what was decided, naming the native record and any condition."""
+        action = output["action"].replace("_", " ")
+        # Template bytes must not change: a replay of an already sent outcome has to match its delivery record.
+        condition = f"Condition: {output['condition']}" if output["action"] == "approve_with_condition" else ""
+        detail = output.get("message") or output.get("reason", "")
+        subject = f"Decision on {record}: {action}"
+        self.notify("outcome:" + key, "SCM_MGR", recipient, subject, f"{record}: {action}.", detail, condition)
+
+    def condition_task(self, key, doctype, name, condition):
+        self.write(
+            "condition:" + key,
+            "ToDo",
+            {
+                "description": f"Condition of approval for {name}: {condition}",
+                "reference_type": doctype,
+                "reference_name": name,
+                "allocated_to": "buyer@norvale.test",
+                "date": self.dated(self.day + 2),
+            },
+            "SCM_MGR",
+        )
+
+    def finish_purchase_decision(self, purchase, po):
+        """Create the condition task and tell the buyer once the workflow outcome is readable."""
+        key, result = purchase["unreported"]
+        order, rejected = po["name"], po.get("workflow_state") == "Rejected"
+        if rejected == (result["action"] in judgment.APPROVALS):  # ERP recorded the opposite: report ERP
+            note = "ERP records this outcome from another approver; the saved decision was not applied."
+            result = dict(action="reject" if rejected else "approve", reason=note, message=note)
+        if result["action"] == "approve_with_condition":
+            self.condition_task(key, "Purchase Order", order, result["condition"])
+        self.report_outcome(key, "BUYER", order, result)
+        del purchase["unreported"]
+        self.persist()
+
     def approvals(self):
+        self.send_outbox()
         ops = self.state["ops"]
         purchase_docs = {key: self.get(key, "SCM_MGR") for key, p in ops["purchases"].items() if not p.get("received")}
         for key, p in list(ops["purchases"].items()):
             if p.get("received"):
                 continue
             po = purchase_docs[key]
+            if "unreported" in p and (po["docstatus"] == 1 or po.get("workflow_state") == "Rejected"):
+                self.finish_purchase_decision(p, po)
             if self.purchase_unavailable(po):
                 continue
             if po["docstatus"] == 1:
@@ -2083,6 +2151,8 @@ class Engine:
                 ["item_code", "warehouse", "actual_qty"],
             )
             evidence = {k: po.get(k) for k in ["name", "supplier", "grand_total"]}
+            if po.get("net_total") is not None:
+                evidence["net_total"] = po["net_total"]
             evidence["items"] = [
                 {k: r.get(k) for k in ["item_code", "item_name", "qty", "uom", "rate", "amount", "schedule_date"]}
                 for r in po["items"]
@@ -2133,18 +2203,20 @@ class Engine:
                         for b in coverage
                         if b["item_code"] == row["item_code"] and b["warehouse"] == self.wh["hold"]
                     ),
-                    "open_po_qty_excluding_this": sum(
-                        max(0, r["qty"] - r.get("received_qty", 0))
-                        for other in purchase_docs.values()
-                        if other["name"] != po["name"]
-                        and other["docstatus"] in (0, 1)
-                        and other.get("workflow_state") != "Rejected"
-                        for r in other["items"]
-                        if r["item_code"] == row["item_code"]
+                    "open_po_qty_excluding_this": self.open_po_qty(
+                        purchase_docs.values(), row["item_code"], excluding=po["name"]
                     ),
                 }
                 for row in po["items"]
             ]
+            vendor = p.get("vendor")
+            for row in coverage:
+                code = row["item_code"]
+                if vendor and code in self.catalog.vendors[vendor]["supplies"]:
+                    row["reorder_target_qty"] = round(
+                        self.reorder_threshold(code, vendor, usage.get(code, 0), self.reorder_level("SCM_MGR", code)),
+                        2,
+                    )
             evidence.update(
                 coverage=coverage,
                 observed_daily_usage={r["item_code"]: usage.get(r["item_code"], 0) for r in po["items"]},
@@ -2164,22 +2236,27 @@ class Engine:
                 decision_key,
                 "SCM_MGR",
                 evidence,
-                "Decide this PO on its own current evidence: approve, defer, reject or investigate. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to defer this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+                "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
                 model=first,
             )
-            if result["action"] in ("approve", "reject"):
-                action = "Approve" if result["action"] == "approve" else "Reject"
+            if result["action"] in (*judgment.APPROVALS, "reject"):
+                action = "Reject" if result["action"] == "reject" else "Approve"
+                p["unreported"] = [decision_key, result]
+                self.persist()
                 self.api["SCM_MGR"].call(
                     "frappe.model.workflow.apply_workflow", {"doc": json.dumps(po), "action": action}
                 )
-                updated = self.get(key, "SCM_MGR")
+                updated = purchase_docs[key] = self.get(key, "SCM_MGR")
                 self.log("workflow_readback", role="SCM_MGR", doc=updated)
                 if action == "Approve":
                     self.schedule_supplier_arrival(key, p, updated)
+                self.finish_purchase_decision(p, updated)
             else:
                 review_after = self.day + 2
                 fields = dict(
-                    description=result["reason"] + "; review " + self.dated(review_after),
+                    description=result["message" if result["action"] == "request_info" else "reason"]
+                    + "; review "
+                    + self.dated(review_after),
                     reference_type="Purchase Order",
                     reference_name=po["name"],
                     allocated_to="buyer@norvale.test",
@@ -2193,30 +2270,42 @@ class Engine:
                     if any(confirmed.get(field) != value for field, value in fields.items()):
                         raise RuntimeError("Purchase buyer follow-up differs from the pending review")
                 p["review_after"] = review_after
+                self.report_outcome(decision_key, "BUYER", po["name"], result)
             self.persist()
         for key, c in list(ops["changes"].items()):
-            if c.get("implemented"):
+            if c.get("implemented") or "rejected_day" in c:
                 continue
             if "approved_day" not in c:
                 if self.day <= c["requested_day"] or self.day < c.get("review_after", 0):
                     continue
                 request = self.get(key, "SCM_MGR")
+                stock = self.observe(
+                    "SCM_MGR",
+                    "Bin",
+                    {"item_code": c["item"], "warehouse": self.wh["rm"]},
+                    ["item_code", "actual_qty"],
+                )
+                decision_key = "change-review:" + key + ":" + str(self.day)
                 result = self.choose(
-                    "change-review:" + key + ":" + str(self.day),
+                    decision_key,
                     "SCM_MGR",
                     {
                         "request": request,
-                        "stock": self.observe(
-                            "SCM_MGR",
-                            "Bin",
-                            {"item_code": c["item"], "warehouse": self.wh["rm"]},
-                            ["item_code", "actual_qty"],
-                        ),
+                        "stock": stock,
+                        "requested_change": {
+                            "item_code": c["item"],
+                            "requested_reorder_level": c["level"],
+                            "current_reorder_level": self.reorder_level("SCM_MGR", c["item"]),
+                            "released_qty": sum(r["actual_qty"] for r in stock),
+                            "observed_daily_usage": self.observed_usage().get(c["item"], 0),
+                            "tracked_open_po_qty": self.open_po_qty(purchase_docs.values(), c["item"]),
+                            "has_supplier": c["item"] in self.catalog.source_list,
+                        },
                     },
-                    "Approve this evidence-grounded reorder-level change, or defer/reject/investigate.",
+                    "Decide this evidence-grounded reorder-level change.",
                     model=True,
                 )
-                if result["action"] == "approve":
+                if result["action"] in judgment.APPROVALS:
                     self.write(
                         "approval:" + key,
                         "ToDo",
@@ -2228,9 +2317,27 @@ class Engine:
                         },
                         "SCM_MGR",
                     )
+                    if result["action"] == "approve_with_condition":
+                        self.condition_task(decision_key, "ToDo", request["name"], result["condition"])
                     c["approved_day"] = self.day
+                elif result["action"] == "reject":
+                    self.api["SCM_MGR"].update("ToDo", request["name"], {"status": "Cancelled"})
+                    c["rejected_day"] = self.day
                 else:
+                    self.write(
+                        "info:" + decision_key,
+                        "ToDo",
+                        {
+                            "description": result.get("message") or result["reason"],
+                            "reference_type": "ToDo",
+                            "reference_name": request["name"],
+                            "allocated_to": "buyer@norvale.test",
+                            "date": self.dated(self.day + 2),
+                        },
+                        "SCM_MGR",
+                    )
                     c["review_after"] = self.day + 7
+                self.report_outcome(decision_key, "BUYER", f"reorder request {request['name']}", result)
             elif self.day > c["approved_day"]:
                 approval = self.get("approval:" + key, "IT_ADMIN")
                 request = self.get(key, "IT_ADMIN")
@@ -2503,13 +2610,9 @@ class Engine:
                     "BUYER",
                 )
                 ops["changes"][change] = {"item": item, "level": level, "requested_day": self.day}
-                self.mail(
-                    change,
-                    "BUYER",
-                    "SCM_MGR",
-                    "Repeated shortage: master data request",
-                    self.get(change)["description"],
-                )
+                # Queued with the change itself, so a failed draft or send is retried.
+                subject = "Repeated shortage: master data request"
+                self.notify(change, "BUYER", "SCM_MGR", subject, "", self.get(change)["description"])
             self.persist()
         if lot_flow:
             lot_flow.production(plan)
@@ -2778,7 +2881,9 @@ class Engine:
             issue_body = task["description"] + " ERP task " + task["name"] + "; reported " + self.date()
             ticket = tickets.open(key, title, issue_body)
             self.log("ticket_readback", record=ticket)
-            self.mail(key, "MAINTENANCE", "PLANT_MGR", "Filler unavailable for service", self.get(key)["description"])
+            subject = "Filler unavailable for service"
+            body = self.compose(key, "MAINTENANCE", "PLANT_MGR", subject, self.get(key)["description"])
+            self.mail(key, "MAINTENANCE", "PLANT_MGR", subject, body)
             ops["maintenance"][key] = {
                 "day": self.day,
                 "due": self.day + self.config["maintenance_days"],
@@ -2862,7 +2967,7 @@ class Engine:
             review_key,
             "CFO",
             {"report": self.get(key, "CFO")["name"], "native_balances": totals, "pending_requests": pending},
-            "Review current financial records and pending requests. Approve the review or investigate/defer/reject with a concrete next request. Do not assume unseen production facts.",
+            "Review current financial records and pending requests. Decide the review; unless approving, name a concrete next request. Do not assume unseen production facts.",
             action="investigate",
             model=True,
         )
@@ -2871,13 +2976,20 @@ class Engine:
                 "followup:" + key,
                 "ToDo",
                 {
-                    "description": result["reason"],
+                    "description": result.get("condition") or result["reason"],
                     "allocated_to": "finance@norvale.test",
                     "date": self.dated(self.day + 3),
                 },
                 "CFO",
             )
-        self.mail(key, "CFO", "CEO", "Periodic operating review", result["message"])
+        subject = "Periodic operating review"
+        body = self.compose(key, "CFO", "CEO", subject, result["message"])
+        if body != result["message"]:  # a drafted explanation never carries the decision alone
+            headline = "Review outcome: " + result["action"].replace("_", " ") + "."
+            if result["action"] == "approve_with_condition":
+                headline += f" Condition: {result['condition']}."
+            body = headline + " " + body
+        self.mail(key, "CFO", "CEO", subject, body)
         # The stage persists the checkpoint and completion together.
         self.state["management_quarter"] = quarter
 
@@ -3134,7 +3246,13 @@ class Engine:
         }
         self.log("completed", **{"result": self.result})
         if self.config and self.config.get("company_operating"):
-            long_run.heartbeat(self)
+            long_run.heartbeat(self, behaviour=self.save_behaviour())
+
+    def save_behaviour(self):
+        """Rewrite the run's behaviour report and return today's numbers."""
+        stages = (re.match(r"d(\d+):", done) for done in self.state["completed"])
+        worked = sorted({self.dated(int(stage[1])) for stage in stages if stage})
+        return behaviour.save(self.run, self.state.get("decisions", {}), self.date(), worked)
 
     def run_phase(self, day, key, action):
         from environments.norvale.native.recurring_extensions import DAY, MIDNIGHT
@@ -3219,8 +3337,11 @@ class Engine:
             with long_run.stall_guard(self.run, self.config.get("stall_minutes", long_run.STALL_MINUTES)):
                 self._run_all()
         except BaseException as exc:
+            stopped = {"stopped": f"{type(exc).__name__}: {exc}"[:300]}
+            with suppress(Exception):  # reporting must not hide why the run stopped
+                stopped["behaviour"] = self.save_behaviour()
             with suppress(OSError):  # a full disk must not hide why the run stopped
-                long_run.heartbeat(self, stopped=f"{type(exc).__name__}: {exc}"[:300])
+                long_run.heartbeat(self, **stopped)
             raise
 
     def _run_all(self):

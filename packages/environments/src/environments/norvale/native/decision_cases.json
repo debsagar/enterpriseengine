@@ -1,0 +1,3109 @@
+{
+ "about": "Labelled role decisions for Norvale. Labels were written before any model was run on these cases.",
+ "sources": "probe-*: observations from /data/runs/probe-3d/business/trace.jsonl, with reorder_target_qty and requested_change derived by the same rules the company code uses. rule-* and trap-*: made from those observations by rule.",
+ "excluded": "Probe orders 1, 4 and 5 (some lines needed, some not) and reorder requests CARB, FRG-ALO, FRG-OCN, LAS (stock exactly at the requested level) have no single defensible label.",
+ "scoring": "label is the preferred action; acceptable lists every action counted correct. Wrong approval: approve* on a non-approval label. Wrong refusal: non-approval on an approve label.",
+ "cases": [
+  {
+   "id": "probe-po-2",
+   "source": "probe-3d d0001:approvals PUR-ORD-2027-00002",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00002",
+    "supplier": "Salinor SA",
+    "grand_total": 1.08,
+    "items": [
+     {
+      "item_code": "NACL",
+      "item_name": "Sodium chloride, technical",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 0.09,
+      "amount": 1.08,
+      "schedule_date": "2027-01-05"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00002",
+     "supplier": "Salinor SA",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 1.08,
+     "items": [
+      {
+       "item_code": "NACL",
+       "qty": 12.0,
+       "rate": 0.09,
+       "amount": 1.08
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "NACL",
+      "released_raw_materials_qty": 9.0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 6.01
+     }
+    ],
+    "observed_daily_usage": {
+     "NACL": 0.7508571428571429
+    },
+    "other_open_orders": [
+     {
+      "name": "PUR-ORD-2027-00001",
+      "supplier": "Brenner Tensid AG",
+      "grand_total": 119.4
+     }
+    ]
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "NACL has 9 released against a reorder target of 6.01 and nothing explains ordering more."
+  },
+  {
+   "id": "probe-po-3",
+   "source": "probe-3d d0001:approvals PUR-ORD-2027-00003",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00003",
+    "supplier": "Polymer Specialties Ltd",
+    "grand_total": 238.8,
+    "items": [
+     {
+      "item_code": "PRES",
+      "item_name": "Phenoxyethanol",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 4.6,
+      "amount": 55.2,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "OIL",
+      "item_name": "Caprylic/capric triglyceride",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 3.1,
+      "amount": 37.2,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "EMU",
+      "item_name": "Cetearyl alcohol",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 2.4,
+      "amount": 28.8,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "CARB",
+      "item_name": "Carbomer 940",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 9.8,
+      "amount": 117.6,
+      "schedule_date": "2027-01-11"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00003",
+     "supplier": "Polymer Specialties Ltd",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 238.8,
+     "items": [
+      {
+       "item_code": "PRES",
+       "qty": 12.0,
+       "rate": 4.6,
+       "amount": 55.2
+      },
+      {
+       "item_code": "OIL",
+       "qty": 12.0,
+       "rate": 3.1,
+       "amount": 37.2
+      },
+      {
+       "item_code": "EMU",
+       "qty": 12.0,
+       "rate": 2.4,
+       "amount": 28.8
+      },
+      {
+       "item_code": "CARB",
+       "qty": 12.0,
+       "rate": 9.8,
+       "amount": 117.6
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "PRES",
+      "released_raw_materials_qty": 4.0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.87
+     },
+     {
+      "item_code": "OIL",
+      "released_raw_materials_qty": 19.0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 4.8
+     },
+     {
+      "item_code": "EMU",
+      "released_raw_materials_qty": 10.0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.4
+     },
+     {
+      "item_code": "CARB",
+      "released_raw_materials_qty": 1.0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.24
+     }
+    ],
+    "observed_daily_usage": {
+     "PRES": 0.2052857142857143,
+     "OIL": 0.34285714285714286,
+     "EMU": 0.17142857142857143,
+     "CARB": 0.017142857142857144
+    },
+    "other_open_orders": [
+     {
+      "name": "PUR-ORD-2027-00001",
+      "supplier": "Brenner Tensid AG",
+      "grand_total": 119.4
+     },
+     {
+      "name": "PUR-ORD-2027-00002",
+      "supplier": "Salinor SA",
+      "grand_total": 1.08
+     }
+    ]
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "All four items are already at or above their reorder targets."
+  },
+  {
+   "id": "rule-po-all-covered",
+   "source": "rule: probe PO 5 with BOT750 released stock raised from 131 to 300, above its target",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00005",
+    "supplier": "PackRight Containers GmbH",
+    "grand_total": 149.16,
+    "items": [
+     {
+      "item_code": "BOT250",
+      "item_name": "Bottle 250 ml PET",
+      "qty": 468.0,
+      "uom": "Nos",
+      "rate": 0.11,
+      "amount": 51.48,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "CAP28",
+      "item_name": "Cap 28mm Flip-Top",
+      "qty": 1056.0,
+      "uom": "Nos",
+      "rate": 0.03,
+      "amount": 31.68,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "BOT750",
+      "item_name": "Bottle 750 ml PET",
+      "qty": 240.0,
+      "uom": "Nos",
+      "rate": 0.11,
+      "amount": 26.4,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "BOT400",
+      "item_name": "Bottle 400 ml PET",
+      "qty": 360.0,
+      "uom": "Nos",
+      "rate": 0.11,
+      "amount": 39.6,
+      "schedule_date": "2027-01-06"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00005",
+     "supplier": "PackRight Containers GmbH",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 149.16,
+     "items": [
+      {
+       "item_code": "BOT250",
+       "qty": 468.0,
+       "rate": 0.11,
+       "amount": 51.48
+      },
+      {
+       "item_code": "CAP28",
+       "qty": 1056.0,
+       "rate": 0.03,
+       "amount": 31.68
+      },
+      {
+       "item_code": "BOT750",
+       "qty": 240.0,
+       "rate": 0.11,
+       "amount": 26.4
+      },
+      {
+       "item_code": "BOT400",
+       "qty": 360.0,
+       "rate": 0.11,
+       "amount": 39.6
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "BOT250",
+      "released_raw_materials_qty": 901.0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 462.86
+     },
+     {
+      "item_code": "CAP28",
+      "released_raw_materials_qty": 1650.0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 1049.14
+     },
+     {
+      "item_code": "BOT750",
+      "released_raw_materials_qty": 300.0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 231.43
+     },
+     {
+      "item_code": "BOT400",
+      "released_raw_materials_qty": 619.0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 354.86
+     }
+    ],
+    "observed_daily_usage": {
+     "BOT250": 51.42857142857143,
+     "CAP28": 116.57142857142857,
+     "BOT750": 25.714285714285715,
+     "BOT400": 39.42857142857143
+    },
+    "other_open_orders": [
+     {
+      "name": "PUR-ORD-2027-00001",
+      "supplier": "Brenner Tensid AG",
+      "grand_total": 119.4
+     },
+     {
+      "name": "PUR-ORD-2027-00002",
+      "supplier": "Salinor SA",
+      "grand_total": 1.08
+     },
+     {
+      "name": "PUR-ORD-2027-00003",
+      "supplier": "Polymer Specialties Ltd",
+      "grand_total": 238.8
+     },
+     {
+      "name": "PUR-ORD-2027-00004",
+      "supplier": "Aromatica Fine Fragrances BV",
+      "grand_total": 666.0
+     }
+    ]
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "All four items are at or above their reorder targets."
+  },
+  {
+   "id": "probe-reorder-BOT250",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kpkdo1cthr",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:00:56.471386",
+     "modified": "2027-01-02 08:00:56.471386",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for BOT250, observed days [0, 1]. Request reorder level 618. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "BOT250",
+      "actual_qty": 901.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "BOT250",
+     "requested_reorder_level": 618,
+     "current_reorder_level": 0,
+     "released_qty": 901.0,
+     "observed_daily_usage": 51.42857142857143,
+     "has_supplier": true,
+     "tracked_open_po_qty": 468.0
+    }
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "Shortage is claimed but released stock 901 already exceeds the requested level 618."
+  },
+  {
+   "id": "probe-reorder-BOT400",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kpsd1bd07j",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:00:57.289904",
+     "modified": "2027-01-02 08:00:57.289904",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for BOT400, observed days [0, 1]. Request reorder level 474. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "BOT400",
+      "actual_qty": 619.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "BOT400",
+     "requested_reorder_level": 474,
+     "current_reorder_level": 0,
+     "released_qty": 619.0,
+     "observed_daily_usage": 39.42857142857143,
+     "has_supplier": true,
+     "tracked_open_po_qty": 360.0
+    }
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "Shortage is claimed but released stock 619 already exceeds the requested level 474."
+  },
+  {
+   "id": "probe-reorder-CAP28",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kqedflbhok",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:00:59.052767",
+     "modified": "2027-01-02 08:00:59.052767",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for CAP28, observed days [0, 1]. Request reorder level 1399. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "CAP28",
+      "actual_qty": 1650.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "CAP28",
+     "requested_reorder_level": 1399,
+     "current_reorder_level": 0,
+     "released_qty": 1650.0,
+     "observed_daily_usage": 116.57142857142857,
+     "has_supplier": true,
+     "tracked_open_po_qty": 1056.0
+    }
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "Shortage is claimed but released stock 1650 already exceeds the requested level 1399."
+  },
+  {
+   "id": "probe-reorder-EMU",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kr5aqs1etv",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:01:01.334933",
+     "modified": "2027-01-02 08:01:01.334933",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for EMU, observed days [0, 1]. Request reorder level 3. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "EMU",
+      "actual_qty": 10.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "EMU",
+     "requested_reorder_level": 3,
+     "current_reorder_level": 0,
+     "released_qty": 10.0,
+     "observed_daily_usage": 0.17142857142857143,
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
+    }
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "Shortage is claimed but released stock 10 already exceeds the requested level 3."
+  },
+  {
+   "id": "probe-reorder-OIL",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kshp4tekvj",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:01:05.704632",
+     "modified": "2027-01-02 08:01:05.704632",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for OIL, observed days [0, 1]. Request reorder level 5. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "OIL",
+      "actual_qty": 19.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "OIL",
+     "requested_reorder_level": 5,
+     "current_reorder_level": 0,
+     "released_qty": 19.0,
+     "observed_daily_usage": 0.34285714285714286,
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
+    }
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "Shortage is claimed but released stock 19 already exceeds the requested level 5."
+  },
+  {
+   "id": "probe-reorder-PRES",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "ksq9rnrrhs",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:01:06.652355",
+     "modified": "2027-01-02 08:01:06.652355",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for PRES, observed days [0, 1]. Request reorder level 3. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "PRES",
+      "actual_qty": 4.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "PRES",
+     "requested_reorder_level": 3,
+     "current_reorder_level": 0,
+     "released_qty": 4.0,
+     "observed_daily_usage": 0.2052857142857143,
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
+    }
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "Shortage is claimed but released stock 4 already exceeds the requested level 3."
+  },
+  {
+   "id": "probe-reorder-WATER",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kt8v4n4d5e",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:01:08.068875",
+     "modified": "2027-01-02 08:01:08.068875",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for WATER, observed days [0, 1]. Request reorder level 470. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "WATER",
+      "actual_qty": 100000.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "WATER",
+     "requested_reorder_level": 470,
+     "current_reorder_level": 0,
+     "released_qty": 100000.0,
+     "observed_daily_usage": 39.152828571428564,
+     "has_supplier": false,
+     "tracked_open_po_qty": 0
+    }
+   },
+   "label": "reject",
+   "acceptable": [
+    "reject",
+    "request_info"
+   ],
+   "rationale": "Water is an unconstrained utility with no supplier and 100000 on hand."
+  },
+  {
+   "id": "probe-reorder-BOT750",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kq8n18uvcq",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:00:58.403617",
+     "modified": "2027-01-02 08:00:58.403617",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for BOT750, observed days [0, 1]. Request reorder level 309. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "BOT750",
+      "actual_qty": 131.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "BOT750",
+     "requested_reorder_level": 309,
+     "current_reorder_level": 0,
+     "released_qty": 131.0,
+     "observed_daily_usage": 25.714285714285715,
+     "has_supplier": true,
+     "tracked_open_po_qty": 240.0
+    }
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Released stock 131 is below the requested level 309, which is about 12 days of usage."
+  },
+  {
+   "id": "probe-reorder-CAPB",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kqmrquorvk",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:00:59.842087",
+     "modified": "2027-01-02 08:00:59.842087",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for CAPB, observed days [0, 1]. Request reorder level 12. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "CAPB",
+      "actual_qty": 10.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "CAPB",
+     "requested_reorder_level": 12,
+     "current_reorder_level": 0,
+     "released_qty": 10.0,
+     "observed_daily_usage": 0.9737142857142856,
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
+    }
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Released stock 10 is below the requested level 12, which is about 12 days of usage."
+  },
+  {
+   "id": "probe-reorder-FRG-CIT",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "krj2gvh2ru",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:01:02.766224",
+     "modified": "2027-01-02 08:01:02.766224",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for FRG-CIT, observed days [0, 1]. Request reorder level 3. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "FRG-CIT",
+      "actual_qty": 2.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "FRG-CIT",
+     "requested_reorder_level": 3,
+     "current_reorder_level": 0,
+     "released_qty": 2.0,
+     "observed_daily_usage": 0.20331428571428573,
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
+    }
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Released stock 2 is below the requested level 3, which is about 12 days of usage."
+  },
+  {
+   "id": "probe-reorder-NACL",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "ks9b81fv3h",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:01:04.928190",
+     "modified": "2027-01-02 08:01:04.928190",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for NACL, observed days [0, 1]. Request reorder level 10. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "NACL",
+      "actual_qty": 9.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "NACL",
+     "requested_reorder_level": 10,
+     "current_reorder_level": 0,
+     "released_qty": 9.0,
+     "observed_daily_usage": 0.7508571428571429,
+     "has_supplier": true,
+     "tracked_open_po_qty": 12.0
+    }
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Released stock 9 is below the requested level 10, which is about 12 days of usage."
+  },
+  {
+   "id": "probe-reorder-SLES",
+   "source": "probe-3d d0002:approvals",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kt1g1dej1s",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:01:07.321475",
+     "modified": "2027-01-02 08:01:07.321475",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for SLES, observed days [0, 1]. Request reorder level 49. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "SLES",
+      "actual_qty": 42.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "SLES",
+     "requested_reorder_level": 49,
+     "current_reorder_level": 0,
+     "released_qty": 42.0,
+     "observed_daily_usage": 4.078285714285714,
+     "has_supplier": true,
+     "tracked_open_po_qty": 48.0
+    }
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Released stock 42 is below the requested level 49, which is about 12 days of usage."
+  },
+  {
+   "id": "rule-po-clean-1",
+   "source": "rule: probe PO 1 with stock set to zero",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00001",
+    "supplier": "Brenner Tensid AG",
+    "grand_total": 119.4,
+    "items": [
+     {
+      "item_code": "SLES",
+      "item_name": "Sodium laureth sulfate 70%",
+      "qty": 48.0,
+      "uom": "Kg",
+      "rate": 1.42,
+      "amount": 68.16,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "CAPB",
+      "item_name": "Cocamidopropyl betaine 30%",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 1.65,
+      "amount": 19.8,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "LAS",
+      "item_name": "Linear alkylbenzene sulfonic acid 96%",
+      "qty": 24.0,
+      "uom": "Kg",
+      "rate": 1.31,
+      "amount": 31.44,
+      "schedule_date": "2027-01-06"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00001",
+     "supplier": "Brenner Tensid AG",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 119.4,
+     "items": [
+      {
+       "item_code": "SLES",
+       "qty": 48.0,
+       "rate": 1.42,
+       "amount": 68.16
+      },
+      {
+       "item_code": "CAPB",
+       "qty": 12.0,
+       "rate": 1.65,
+       "amount": 19.8
+      },
+      {
+       "item_code": "LAS",
+       "qty": 24.0,
+       "rate": 1.31,
+       "amount": 31.44
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "SLES",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 36.7
+     },
+     {
+      "item_code": "CAPB",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 8.76
+     },
+     {
+      "item_code": "LAS",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 17.36
+     }
+    ],
+    "observed_daily_usage": {
+     "SLES": 4.078285714285714,
+     "CAPB": 0.9737142857142856,
+     "LAS": 1.9285714285714286
+    },
+    "other_open_orders": []
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Quote matches, no released or open stock covers the items, total is within authority."
+  },
+  {
+   "id": "rule-po-clean-2",
+   "source": "rule: probe PO 2 with stock set to zero",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00002",
+    "supplier": "Salinor SA",
+    "grand_total": 1.08,
+    "items": [
+     {
+      "item_code": "NACL",
+      "item_name": "Sodium chloride, technical",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 0.09,
+      "amount": 1.08,
+      "schedule_date": "2027-01-05"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00002",
+     "supplier": "Salinor SA",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 1.08,
+     "items": [
+      {
+       "item_code": "NACL",
+       "qty": 12.0,
+       "rate": 0.09,
+       "amount": 1.08
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "NACL",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 6.01
+     }
+    ],
+    "observed_daily_usage": {
+     "NACL": 0.7508571428571429
+    },
+    "other_open_orders": []
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Quote matches, no released or open stock covers the items, total is within authority."
+  },
+  {
+   "id": "rule-po-clean-3",
+   "source": "rule: probe PO 3 with stock set to zero",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00003",
+    "supplier": "Polymer Specialties Ltd",
+    "grand_total": 238.8,
+    "items": [
+     {
+      "item_code": "PRES",
+      "item_name": "Phenoxyethanol",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 4.6,
+      "amount": 55.2,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "OIL",
+      "item_name": "Caprylic/capric triglyceride",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 3.1,
+      "amount": 37.2,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "EMU",
+      "item_name": "Cetearyl alcohol",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 2.4,
+      "amount": 28.8,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "CARB",
+      "item_name": "Carbomer 940",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 9.8,
+      "amount": 117.6,
+      "schedule_date": "2027-01-11"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00003",
+     "supplier": "Polymer Specialties Ltd",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 238.8,
+     "items": [
+      {
+       "item_code": "PRES",
+       "qty": 12.0,
+       "rate": 4.6,
+       "amount": 55.2
+      },
+      {
+       "item_code": "OIL",
+       "qty": 12.0,
+       "rate": 3.1,
+       "amount": 37.2
+      },
+      {
+       "item_code": "EMU",
+       "qty": 12.0,
+       "rate": 2.4,
+       "amount": 28.8
+      },
+      {
+       "item_code": "CARB",
+       "qty": 12.0,
+       "rate": 9.8,
+       "amount": 117.6
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "PRES",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.87
+     },
+     {
+      "item_code": "OIL",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 4.8
+     },
+     {
+      "item_code": "EMU",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.4
+     },
+     {
+      "item_code": "CARB",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.24
+     }
+    ],
+    "observed_daily_usage": {
+     "PRES": 0.2052857142857143,
+     "OIL": 0.34285714285714286,
+     "EMU": 0.17142857142857143,
+     "CARB": 0.017142857142857144
+    },
+    "other_open_orders": []
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Quote matches, no released or open stock covers the items, total is within authority."
+  },
+  {
+   "id": "rule-po-clean-4",
+   "source": "rule: probe PO 4 with stock set to zero",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00004",
+    "supplier": "Aromatica Fine Fragrances BV",
+    "grand_total": 666.0,
+    "items": [
+     {
+      "item_code": "FRG-ALO",
+      "item_name": "Fragrance Aloe Fresh",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": 222.0,
+      "schedule_date": "2027-01-10"
+     },
+     {
+      "item_code": "FRG-CIT",
+      "item_name": "Fragrance Citrus Burst",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": 222.0,
+      "schedule_date": "2027-01-10"
+     },
+     {
+      "item_code": "FRG-OCN",
+      "item_name": "Fragrance Ocean Mist",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": 222.0,
+      "schedule_date": "2027-01-10"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00004",
+     "supplier": "Aromatica Fine Fragrances BV",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 666.0,
+     "items": [
+      {
+       "item_code": "FRG-ALO",
+       "qty": 12.0,
+       "rate": 18.5,
+       "amount": 222.0
+      },
+      {
+       "item_code": "FRG-CIT",
+       "qty": 12.0,
+       "rate": 18.5,
+       "amount": 222.0
+      },
+      {
+       "item_code": "FRG-OCN",
+       "qty": 12.0,
+       "rate": 18.5,
+       "amount": 222.0
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "FRG-ALO",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.89
+     },
+     {
+      "item_code": "FRG-CIT",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.64
+     },
+     {
+      "item_code": "FRG-OCN",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.28
+     }
+    ],
+    "observed_daily_usage": {
+     "FRG-ALO": 0.06857142857142857,
+     "FRG-CIT": 0.20331428571428573,
+     "FRG-OCN": 0.02142857142857143
+    },
+    "other_open_orders": []
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Quote matches, no released or open stock covers the items, total is within authority."
+  },
+  {
+   "id": "rule-po-within-policy",
+   "source": "rule: clean PO 1 under a standing policy",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00001",
+    "supplier": "Brenner Tensid AG",
+    "grand_total": 119.4,
+    "items": [
+     {
+      "item_code": "SLES",
+      "item_name": "Sodium laureth sulfate 70%",
+      "qty": 48.0,
+      "uom": "Kg",
+      "rate": 1.42,
+      "amount": 68.16,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "CAPB",
+      "item_name": "Cocamidopropyl betaine 30%",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 1.65,
+      "amount": 19.8,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "LAS",
+      "item_name": "Linear alkylbenzene sulfonic acid 96%",
+      "qty": 24.0,
+      "uom": "Kg",
+      "rate": 1.31,
+      "amount": 31.44,
+      "schedule_date": "2027-01-06"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00001",
+     "supplier": "Brenner Tensid AG",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 119.4,
+     "items": [
+      {
+       "item_code": "SLES",
+       "qty": 48.0,
+       "rate": 1.42,
+       "amount": 68.16
+      },
+      {
+       "item_code": "CAPB",
+       "qty": 12.0,
+       "rate": 1.65,
+       "amount": 19.8
+      },
+      {
+       "item_code": "LAS",
+       "qty": 24.0,
+       "rate": 1.31,
+       "amount": 31.44
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "SLES",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 36.7
+     },
+     {
+      "item_code": "CAPB",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 8.76
+     },
+     {
+      "item_code": "LAS",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 17.36
+     }
+    ],
+    "observed_daily_usage": {
+     "SLES": 4.078285714285714,
+     "CAPB": 0.9737142857142856,
+     "LAS": 1.9285714285714286
+    },
+    "other_open_orders": []
+   },
+   "policies": [
+    {
+     "role": "SCM_MGR",
+     "effective_date": "2027-01-02",
+     "review_date": "2027-01-16",
+     "approval_limit": 500,
+     "reorder_target": 0,
+     "suppliers": [
+      "Brenner Tensid AG"
+     ],
+     "items": [
+      "SLES",
+      "CAPB",
+      "LAS"
+     ]
+    }
+   ],
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Clean order inside an effective standing policy."
+  },
+  {
+   "id": "rule-po-above-policy",
+   "source": "rule: clean PO 3 above a standing policy limit",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00003",
+    "supplier": "Polymer Specialties Ltd",
+    "grand_total": 238.8,
+    "items": [
+     {
+      "item_code": "PRES",
+      "item_name": "Phenoxyethanol",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 4.6,
+      "amount": 55.2,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "OIL",
+      "item_name": "Caprylic/capric triglyceride",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 3.1,
+      "amount": 37.2,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "EMU",
+      "item_name": "Cetearyl alcohol",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 2.4,
+      "amount": 28.8,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "CARB",
+      "item_name": "Carbomer 940",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 9.8,
+      "amount": 117.6,
+      "schedule_date": "2027-01-11"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00003",
+     "supplier": "Polymer Specialties Ltd",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 238.8,
+     "items": [
+      {
+       "item_code": "PRES",
+       "qty": 12.0,
+       "rate": 4.6,
+       "amount": 55.2
+      },
+      {
+       "item_code": "OIL",
+       "qty": 12.0,
+       "rate": 3.1,
+       "amount": 37.2
+      },
+      {
+       "item_code": "EMU",
+       "qty": 12.0,
+       "rate": 2.4,
+       "amount": 28.8
+      },
+      {
+       "item_code": "CARB",
+       "qty": 12.0,
+       "rate": 9.8,
+       "amount": 117.6
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "PRES",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.87
+     },
+     {
+      "item_code": "OIL",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 4.8
+     },
+     {
+      "item_code": "EMU",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.4
+     },
+     {
+      "item_code": "CARB",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.24
+     }
+    ],
+    "observed_daily_usage": {
+     "PRES": 0.2052857142857143,
+     "OIL": 0.34285714285714286,
+     "EMU": 0.17142857142857143,
+     "CARB": 0.017142857142857144
+    },
+    "other_open_orders": []
+   },
+   "policies": [
+    {
+     "role": "SCM_MGR",
+     "effective_date": "2027-01-02",
+     "review_date": "2027-01-16",
+     "approval_limit": 100,
+     "reorder_target": 0,
+     "suppliers": [
+      "Polymer Specialties Ltd"
+     ],
+     "items": [
+      "PRES",
+      "OIL",
+      "EMU",
+      "CARB"
+     ]
+    }
+   ],
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Above the pre-approval limit of 100 but clean and far inside the role limit, so judgment may approve it."
+  },
+  {
+   "id": "rule-po-known-supplier",
+   "source": "rule: clean PO 2 with an earlier receipt",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00002",
+    "supplier": "Salinor SA",
+    "grand_total": 1.08,
+    "items": [
+     {
+      "item_code": "NACL",
+      "item_name": "Sodium chloride, technical",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 0.09,
+      "amount": 1.08,
+      "schedule_date": "2027-01-05"
+     }
+    ],
+    "supplier_receipts": [
+     {
+      "name": "MAT-PRE-2027-00001",
+      "posting_date": "2027-01-02",
+      "supplier": "Salinor SA"
+     }
+    ],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00002",
+     "supplier": "Salinor SA",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 1.08,
+     "items": [
+      {
+       "item_code": "NACL",
+       "qty": 12.0,
+       "rate": 0.09,
+       "amount": 1.08
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "NACL",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 6.01
+     }
+    ],
+    "observed_daily_usage": {
+     "NACL": 0.7508571428571429
+    },
+    "other_open_orders": []
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Clean order from a supplier with a prior receipt."
+  },
+  {
+   "id": "rule-po-small-quarantine",
+   "source": "rule: clean PO 4 with a little stock in quarantine",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00004",
+    "supplier": "Aromatica Fine Fragrances BV",
+    "grand_total": 666.0,
+    "items": [
+     {
+      "item_code": "FRG-ALO",
+      "item_name": "Fragrance Aloe Fresh",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": 222.0,
+      "schedule_date": "2027-01-10"
+     },
+     {
+      "item_code": "FRG-CIT",
+      "item_name": "Fragrance Citrus Burst",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": 222.0,
+      "schedule_date": "2027-01-10"
+     },
+     {
+      "item_code": "FRG-OCN",
+      "item_name": "Fragrance Ocean Mist",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": 222.0,
+      "schedule_date": "2027-01-10"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00004",
+     "supplier": "Aromatica Fine Fragrances BV",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 666.0,
+     "items": [
+      {
+       "item_code": "FRG-ALO",
+       "qty": 12.0,
+       "rate": 18.5,
+       "amount": 222.0
+      },
+      {
+       "item_code": "FRG-CIT",
+       "qty": 12.0,
+       "rate": 18.5,
+       "amount": 222.0
+      },
+      {
+       "item_code": "FRG-OCN",
+       "qty": 12.0,
+       "rate": 18.5,
+       "amount": 222.0
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "FRG-ALO",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.09,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.89
+     },
+     {
+      "item_code": "FRG-CIT",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.26,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.64
+     },
+     {
+      "item_code": "FRG-OCN",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.03,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.28
+     }
+    ],
+    "observed_daily_usage": {
+     "FRG-ALO": 0.06857142857142857,
+     "FRG-CIT": 0.20331428571428573,
+     "FRG-OCN": 0.02142857142857143
+    },
+    "other_open_orders": []
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Quarantine holds only a tenth of each target, so the order is still needed."
+  },
+  {
+   "id": "rule-cfo-clean",
+   "source": "rule: balanced ledger, nothing pending",
+   "role": "CFO",
+   "as_of": "2027-01-15",
+   "question": "Review current financial records and pending requests. Decide the review; unless approving, name a concrete next request. Do not assume unseen production facts.",
+   "evidence": {
+    "report": "NOTE-REVIEW-1",
+    "native_balances": {
+     "Cash - NCC": 46200.0,
+     "Capital Stock - NCC": -50000.0,
+     "Salary - NCC": 3392.86,
+     "Utility Expenses - NCC": 407.14
+    },
+    "pending_requests": []
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Balances sum to zero and nothing is pending."
+  },
+  {
+   "id": "rule-cfo-routine-pending",
+   "source": "rule: balanced ledger, routine task pending",
+   "role": "CFO",
+   "as_of": "2027-01-15",
+   "question": "Review current financial records and pending requests. Decide the review; unless approving, name a concrete next request. Do not assume unseen production facts.",
+   "evidence": {
+    "report": "NOTE-REVIEW-2",
+    "native_balances": {
+     "Cash - NCC": 46200.0,
+     "Capital Stock - NCC": -50000.0,
+     "Salary - NCC": 3392.86,
+     "Utility Expenses - NCC": 407.14
+    },
+    "pending_requests": [
+     {
+      "name": "TODO-11",
+      "description": "Planner observed missing released SLES for pending sales orders. Replenishment review required.",
+      "allocated_to": "scm_mgr@norvale.test"
+     }
+    ]
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Balances sum to zero; the open task is routine replenishment owned by another role."
+  },
+  {
+   "id": "rule-reorder-empty-bin",
+   "source": "rule: BOT250 request with an empty bin",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kpkdo1cthr",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:00:56.471386",
+     "modified": "2027-01-02 08:00:56.471386",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for BOT250, observed days [0, 1]. Request reorder level 618. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "BOT250",
+      "actual_qty": 0.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "BOT250",
+     "requested_reorder_level": 618,
+     "current_reorder_level": 0,
+     "released_qty": 0.0,
+     "observed_daily_usage": 51.42857142857143,
+     "has_supplier": true,
+     "tracked_open_po_qty": 0
+    }
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Nothing is on hand or on order and the level is about 12 days of usage."
+  },
+  {
+   "id": "rule-reorder-low-bin",
+   "source": "rule: SLES request with under a day of stock",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kt1g1dej1s",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:01:07.321475",
+     "modified": "2027-01-02 08:01:07.321475",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for SLES, observed days [0, 1]. Request reorder level 49. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "SLES",
+      "actual_qty": 3.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "SLES",
+     "requested_reorder_level": 49,
+     "current_reorder_level": 0,
+     "released_qty": 3.0,
+     "observed_daily_usage": 4.078285714285714,
+     "has_supplier": true,
+     "tracked_open_po_qty": 0
+    }
+   },
+   "label": "approve",
+   "acceptable": [
+    "approve",
+    "approve_with_condition"
+   ],
+   "rationale": "Under one day of released stock and nothing on order."
+  },
+  {
+   "id": "trap-rate-above-quote",
+   "source": "rule trap on clean PO 1",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00001",
+    "supplier": "Brenner Tensid AG",
+    "grand_total": 143.4,
+    "items": [
+     {
+      "item_code": "SLES",
+      "item_name": "Sodium laureth sulfate 70%",
+      "qty": 48.0,
+      "uom": "Kg",
+      "rate": 1.92,
+      "amount": 92.16,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "CAPB",
+      "item_name": "Cocamidopropyl betaine 30%",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 1.65,
+      "amount": 19.8,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "LAS",
+      "item_name": "Linear alkylbenzene sulfonic acid 96%",
+      "qty": 24.0,
+      "uom": "Kg",
+      "rate": 1.31,
+      "amount": 31.44,
+      "schedule_date": "2027-01-06"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00001",
+     "supplier": "Brenner Tensid AG",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 119.4,
+     "items": [
+      {
+       "item_code": "SLES",
+       "qty": 48.0,
+       "rate": 1.42,
+       "amount": 68.16
+      },
+      {
+       "item_code": "CAPB",
+       "qty": 12.0,
+       "rate": 1.65,
+       "amount": 19.8
+      },
+      {
+       "item_code": "LAS",
+       "qty": 24.0,
+       "rate": 1.31,
+       "amount": 31.44
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "SLES",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 36.7
+     },
+     {
+      "item_code": "CAPB",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 8.76
+     },
+     {
+      "item_code": "LAS",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 17.36
+     }
+    ],
+    "observed_daily_usage": {
+     "SLES": 4.078285714285714,
+     "CAPB": 0.9737142857142856,
+     "LAS": 1.9285714285714286
+    },
+    "other_open_orders": []
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "One PO rate is above the quoted rate."
+  },
+  {
+   "id": "trap-qty-above-quote",
+   "source": "rule trap on clean PO 2",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00002",
+    "supplier": "Salinor SA",
+    "grand_total": 10.8,
+    "items": [
+     {
+      "item_code": "NACL",
+      "item_name": "Sodium chloride, technical",
+      "qty": 120.0,
+      "uom": "Kg",
+      "rate": 0.09,
+      "amount": 10.8,
+      "schedule_date": "2027-01-05"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00002",
+     "supplier": "Salinor SA",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 1.08,
+     "items": [
+      {
+       "item_code": "NACL",
+       "qty": 12.0,
+       "rate": 0.09,
+       "amount": 1.08
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "NACL",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 6.01
+     }
+    ],
+    "observed_daily_usage": {
+     "NACL": 0.7508571428571429
+    },
+    "other_open_orders": []
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "The PO orders ten times the quoted quantity."
+  },
+  {
+   "id": "trap-quote-expired",
+   "source": "rule trap on clean PO 3",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00003",
+    "supplier": "Polymer Specialties Ltd",
+    "grand_total": 238.8,
+    "items": [
+     {
+      "item_code": "PRES",
+      "item_name": "Phenoxyethanol",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 4.6,
+      "amount": 55.2,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "OIL",
+      "item_name": "Caprylic/capric triglyceride",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 3.1,
+      "amount": 37.2,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "EMU",
+      "item_name": "Cetearyl alcohol",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 2.4,
+      "amount": 28.8,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "CARB",
+      "item_name": "Carbomer 940",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 9.8,
+      "amount": 117.6,
+      "schedule_date": "2027-01-11"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00003",
+     "supplier": "Polymer Specialties Ltd",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-01",
+     "grand_total": 238.8,
+     "items": [
+      {
+       "item_code": "PRES",
+       "qty": 12.0,
+       "rate": 4.6,
+       "amount": 55.2
+      },
+      {
+       "item_code": "OIL",
+       "qty": 12.0,
+       "rate": 3.1,
+       "amount": 37.2
+      },
+      {
+       "item_code": "EMU",
+       "qty": 12.0,
+       "rate": 2.4,
+       "amount": 28.8
+      },
+      {
+       "item_code": "CARB",
+       "qty": 12.0,
+       "rate": 9.8,
+       "amount": 117.6
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "PRES",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.87
+     },
+     {
+      "item_code": "OIL",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 4.8
+     },
+     {
+      "item_code": "EMU",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.4
+     },
+     {
+      "item_code": "CARB",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.24
+     }
+    ],
+    "observed_daily_usage": {
+     "PRES": 0.2052857142857143,
+     "OIL": 0.34285714285714286,
+     "EMU": 0.17142857142857143,
+     "CARB": 0.017142857142857144
+    },
+    "other_open_orders": []
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "The quote expired before the review date."
+  },
+  {
+   "id": "trap-quote-other-supplier",
+   "source": "rule trap on clean PO 4",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00004",
+    "supplier": "Aromatica Fine Fragrances BV",
+    "grand_total": 666.0,
+    "items": [
+     {
+      "item_code": "FRG-ALO",
+      "item_name": "Fragrance Aloe Fresh",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": 222.0,
+      "schedule_date": "2027-01-10"
+     },
+     {
+      "item_code": "FRG-CIT",
+      "item_name": "Fragrance Citrus Burst",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": 222.0,
+      "schedule_date": "2027-01-10"
+     },
+     {
+      "item_code": "FRG-OCN",
+      "item_name": "Fragrance Ocean Mist",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": 222.0,
+      "schedule_date": "2027-01-10"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00004",
+     "supplier": "Kemix Trading BV",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 666.0,
+     "items": [
+      {
+       "item_code": "FRG-ALO",
+       "qty": 12.0,
+       "rate": 18.5,
+       "amount": 222.0
+      },
+      {
+       "item_code": "FRG-CIT",
+       "qty": 12.0,
+       "rate": 18.5,
+       "amount": 222.0
+      },
+      {
+       "item_code": "FRG-OCN",
+       "qty": 12.0,
+       "rate": 18.5,
+       "amount": 222.0
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "FRG-ALO",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.89
+     },
+     {
+      "item_code": "FRG-CIT",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.64
+     },
+     {
+      "item_code": "FRG-OCN",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.28
+     }
+    ],
+    "observed_daily_usage": {
+     "FRG-ALO": 0.06857142857142857,
+     "FRG-CIT": 0.20331428571428573,
+     "FRG-OCN": 0.02142857142857143
+    },
+    "other_open_orders": []
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "The quote comes from a different supplier than the PO."
+  },
+  {
+   "id": "trap-unquoted-line",
+   "source": "rule trap on clean PO 5",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00005",
+    "supplier": "PackRight Containers GmbH",
+    "grand_total": 194.16,
+    "items": [
+     {
+      "item_code": "BOT250",
+      "item_name": "Bottle 250 ml PET",
+      "qty": 468.0,
+      "uom": "Nos",
+      "rate": 0.11,
+      "amount": 51.48,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "CAP28",
+      "item_name": "Cap 28mm Flip-Top",
+      "qty": 1056.0,
+      "uom": "Nos",
+      "rate": 0.03,
+      "amount": 31.68,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "BOT750",
+      "item_name": "Bottle 750 ml PET",
+      "qty": 240.0,
+      "uom": "Nos",
+      "rate": 0.11,
+      "amount": 26.4,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "BOT400",
+      "item_name": "Bottle 400 ml PET",
+      "qty": 360.0,
+      "uom": "Nos",
+      "rate": 0.11,
+      "amount": 39.6,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "NACL",
+      "item_name": "Sodium chloride",
+      "qty": 500.0,
+      "uom": "Kg",
+      "rate": 0.09,
+      "amount": 45.0,
+      "schedule_date": "2027-01-06"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00005",
+     "supplier": "PackRight Containers GmbH",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 149.16,
+     "items": [
+      {
+       "item_code": "BOT250",
+       "qty": 468.0,
+       "rate": 0.11,
+       "amount": 51.48
+      },
+      {
+       "item_code": "CAP28",
+       "qty": 1056.0,
+       "rate": 0.03,
+       "amount": 31.68
+      },
+      {
+       "item_code": "BOT750",
+       "qty": 240.0,
+       "rate": 0.11,
+       "amount": 26.4
+      },
+      {
+       "item_code": "BOT400",
+       "qty": 360.0,
+       "rate": 0.11,
+       "amount": 39.6
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "BOT250",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 462.86
+     },
+     {
+      "item_code": "CAP28",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 1049.14
+     },
+     {
+      "item_code": "BOT750",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 231.43
+     },
+     {
+      "item_code": "BOT400",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 354.86
+     }
+    ],
+    "observed_daily_usage": {
+     "BOT250": 51.42857142857143,
+     "CAP28": 116.57142857142857,
+     "BOT750": 25.714285714285715,
+     "BOT400": 39.42857142857143
+    },
+    "other_open_orders": []
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "The PO carries a line the supplier never quoted."
+  },
+  {
+   "id": "trap-total-padded",
+   "source": "rule trap on clean PO 1",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00001",
+    "supplier": "Brenner Tensid AG",
+    "grand_total": 369.4,
+    "items": [
+     {
+      "item_code": "SLES",
+      "item_name": "Sodium laureth sulfate 70%",
+      "qty": 48.0,
+      "uom": "Kg",
+      "rate": 1.42,
+      "amount": 68.16,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "CAPB",
+      "item_name": "Cocamidopropyl betaine 30%",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 1.65,
+      "amount": 19.8,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "LAS",
+      "item_name": "Linear alkylbenzene sulfonic acid 96%",
+      "qty": 24.0,
+      "uom": "Kg",
+      "rate": 1.31,
+      "amount": 31.44,
+      "schedule_date": "2027-01-06"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00001",
+     "supplier": "Brenner Tensid AG",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 119.4,
+     "items": [
+      {
+       "item_code": "SLES",
+       "qty": 48.0,
+       "rate": 1.42,
+       "amount": 68.16
+      },
+      {
+       "item_code": "CAPB",
+       "qty": 12.0,
+       "rate": 1.65,
+       "amount": 19.8
+      },
+      {
+       "item_code": "LAS",
+       "qty": 24.0,
+       "rate": 1.31,
+       "amount": 31.44
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "SLES",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 36.7
+     },
+     {
+      "item_code": "CAPB",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 8.76
+     },
+     {
+      "item_code": "LAS",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 17.36
+     }
+    ],
+    "observed_daily_usage": {
+     "SLES": 4.078285714285714,
+     "CAPB": 0.9737142857142856,
+     "LAS": 1.9285714285714286
+    },
+    "other_open_orders": []
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "The PO total is higher than its lines and its quote."
+  },
+  {
+   "id": "trap-duplicate-order",
+   "source": "rule trap on clean PO 3",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00003",
+    "supplier": "Polymer Specialties Ltd",
+    "grand_total": 238.8,
+    "items": [
+     {
+      "item_code": "PRES",
+      "item_name": "Phenoxyethanol",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 4.6,
+      "amount": 55.2,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "OIL",
+      "item_name": "Caprylic/capric triglyceride",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 3.1,
+      "amount": 37.2,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "EMU",
+      "item_name": "Cetearyl alcohol",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 2.4,
+      "amount": 28.8,
+      "schedule_date": "2027-01-11"
+     },
+     {
+      "item_code": "CARB",
+      "item_name": "Carbomer 940",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 9.8,
+      "amount": 117.6,
+      "schedule_date": "2027-01-11"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00003",
+     "supplier": "Polymer Specialties Ltd",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 238.8,
+     "items": [
+      {
+       "item_code": "PRES",
+       "qty": 12.0,
+       "rate": 4.6,
+       "amount": 55.2
+      },
+      {
+       "item_code": "OIL",
+       "qty": 12.0,
+       "rate": 3.1,
+       "amount": 37.2
+      },
+      {
+       "item_code": "EMU",
+       "qty": 12.0,
+       "rate": 2.4,
+       "amount": 28.8
+      },
+      {
+       "item_code": "CARB",
+       "qty": 12.0,
+       "rate": 9.8,
+       "amount": 117.6
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "PRES",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 12.0,
+      "reorder_target_qty": 2.87
+     },
+     {
+      "item_code": "OIL",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 12.0,
+      "reorder_target_qty": 4.8
+     },
+     {
+      "item_code": "EMU",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 12.0,
+      "reorder_target_qty": 2.4
+     },
+     {
+      "item_code": "CARB",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 12.0,
+      "reorder_target_qty": 0.24
+     }
+    ],
+    "observed_daily_usage": {
+     "PRES": 0.2052857142857143,
+     "OIL": 0.34285714285714286,
+     "EMU": 0.17142857142857143,
+     "CARB": 0.017142857142857144
+    },
+    "other_open_orders": [
+     {
+      "name": "PUR-ORD-2027-00009",
+      "supplier": "Polymer Specialties Ltd",
+      "grand_total": 238.8
+     }
+    ]
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "An identical order is already open and covers every target."
+  },
+  {
+   "id": "trap-negative-quantity",
+   "source": "rule trap on clean PO 4",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00004",
+    "supplier": "Aromatica Fine Fragrances BV",
+    "grand_total": 222.0,
+    "items": [
+     {
+      "item_code": "FRG-ALO",
+      "item_name": "Fragrance Aloe Fresh",
+      "qty": -12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": -222.0,
+      "schedule_date": "2027-01-10"
+     },
+     {
+      "item_code": "FRG-CIT",
+      "item_name": "Fragrance Citrus Burst",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": 222.0,
+      "schedule_date": "2027-01-10"
+     },
+     {
+      "item_code": "FRG-OCN",
+      "item_name": "Fragrance Ocean Mist",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 18.5,
+      "amount": 222.0,
+      "schedule_date": "2027-01-10"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00004",
+     "supplier": "Aromatica Fine Fragrances BV",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 222.0,
+     "items": [
+      {
+       "item_code": "FRG-ALO",
+       "qty": -12.0,
+       "rate": 18.5,
+       "amount": -222.0
+      },
+      {
+       "item_code": "FRG-CIT",
+       "qty": 12.0,
+       "rate": 18.5,
+       "amount": 222.0
+      },
+      {
+       "item_code": "FRG-OCN",
+       "qty": 12.0,
+       "rate": 18.5,
+       "amount": 222.0
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "FRG-ALO",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.89
+     },
+     {
+      "item_code": "FRG-CIT",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 2.64
+     },
+     {
+      "item_code": "FRG-OCN",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 0.28
+     }
+    ],
+    "observed_daily_usage": {
+     "FRG-ALO": 0.06857142857142857,
+     "FRG-CIT": 0.20331428571428573,
+     "FRG-OCN": 0.02142857142857143
+    },
+    "other_open_orders": []
+   },
+   "label": "reject",
+   "acceptable": [
+    "reject",
+    "request_info"
+   ],
+   "rationale": "A line has a negative quantity, even though the quote repeats it."
+  },
+  {
+   "id": "trap-over-authority",
+   "source": "rule trap on clean PO 1",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00001",
+    "supplier": "Brenner Tensid AG",
+    "grand_total": 31291.24,
+    "items": [
+     {
+      "item_code": "SLES",
+      "item_name": "Sodium laureth sulfate 70%",
+      "qty": 22000.0,
+      "uom": "Kg",
+      "rate": 1.42,
+      "amount": 31240.0,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "CAPB",
+      "item_name": "Cocamidopropyl betaine 30%",
+      "qty": 12.0,
+      "uom": "Kg",
+      "rate": 1.65,
+      "amount": 19.8,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "LAS",
+      "item_name": "Linear alkylbenzene sulfonic acid 96%",
+      "qty": 24.0,
+      "uom": "Kg",
+      "rate": 1.31,
+      "amount": 31.44,
+      "schedule_date": "2027-01-06"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00001",
+     "supplier": "Brenner Tensid AG",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 31291.24,
+     "items": [
+      {
+       "item_code": "SLES",
+       "qty": 22000.0,
+       "rate": 1.42,
+       "amount": 31240.0
+      },
+      {
+       "item_code": "CAPB",
+       "qty": 12.0,
+       "rate": 1.65,
+       "amount": 19.8
+      },
+      {
+       "item_code": "LAS",
+       "qty": 24.0,
+       "rate": 1.31,
+       "amount": 31.44
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "SLES",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 36.7
+     },
+     {
+      "item_code": "CAPB",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 8.76
+     },
+     {
+      "item_code": "LAS",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 17.36
+     }
+    ],
+    "observed_daily_usage": {
+     "SLES": 4.078285714285714,
+     "CAPB": 0.9737142857142856,
+     "LAS": 1.9285714285714286
+    },
+    "other_open_orders": []
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info"
+   ],
+   "rationale": "A matching order above the 25000 EUR role limit must be escalated, not approved."
+  },
+  {
+   "id": "trap-repeated-line",
+   "source": "rule trap on clean PO 5",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-02",
+   "question": "Decide this PO on its own current evidence. Separately and optionally propose a scoped standing_policy effective tomorrow and reviewed in 14 days. Not having grounds for a policy is not a reason to withhold approval of this PO. The approval_limit applies per future PO; other_open_orders show observed supplier totals. Assess current observations rather than copying earlier reasons. Quarantine is the established receiving/inspection path, not a location conflict.",
+   "evidence": {
+    "name": "PUR-ORD-2027-00005",
+    "supplier": "PackRight Containers GmbH",
+    "grand_total": 200.64,
+    "items": [
+     {
+      "item_code": "BOT250",
+      "item_name": "Bottle 250 ml PET",
+      "qty": 468.0,
+      "uom": "Nos",
+      "rate": 0.11,
+      "amount": 51.48,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "CAP28",
+      "item_name": "Cap 28mm Flip-Top",
+      "qty": 1056.0,
+      "uom": "Nos",
+      "rate": 0.03,
+      "amount": 31.68,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "BOT750",
+      "item_name": "Bottle 750 ml PET",
+      "qty": 240.0,
+      "uom": "Nos",
+      "rate": 0.11,
+      "amount": 26.4,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "BOT400",
+      "item_name": "Bottle 400 ml PET",
+      "qty": 360.0,
+      "uom": "Nos",
+      "rate": 0.11,
+      "amount": 39.6,
+      "schedule_date": "2027-01-06"
+     },
+     {
+      "item_code": "BOT250",
+      "item_name": "Bottle 250 ml PET",
+      "qty": 468.0,
+      "uom": "Nos",
+      "rate": 0.11,
+      "amount": 51.48,
+      "schedule_date": "2027-01-06"
+     }
+    ],
+    "supplier_receipts": [],
+    "supplier_quote": {
+     "name": "PUR-SQTN-2027-00005",
+     "supplier": "PackRight Containers GmbH",
+     "transaction_date": "2027-01-01",
+     "valid_till": "2027-01-08",
+     "grand_total": 149.16,
+     "items": [
+      {
+       "item_code": "BOT250",
+       "qty": 468.0,
+       "rate": 0.11,
+       "amount": 51.48
+      },
+      {
+       "item_code": "CAP28",
+       "qty": 1056.0,
+       "rate": 0.03,
+       "amount": 31.68
+      },
+      {
+       "item_code": "BOT750",
+       "qty": 240.0,
+       "rate": 0.11,
+       "amount": 26.4
+      },
+      {
+       "item_code": "BOT400",
+       "qty": 360.0,
+       "rate": 0.11,
+       "amount": 39.6
+      }
+     ]
+    },
+    "receiving_policy": "Purchased materials are received into Quarantine, inspected by QA, then transferred to Raw Materials. Zero optional historical price fields indicate no previous purchase, not a conflicting quote.",
+    "coverage": [
+     {
+      "item_code": "BOT250",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 462.86
+     },
+     {
+      "item_code": "CAP28",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 1049.14
+     },
+     {
+      "item_code": "BOT750",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 231.43
+     },
+     {
+      "item_code": "BOT400",
+      "released_raw_materials_qty": 0,
+      "quarantine_qty": 0.0,
+      "open_po_qty_excluding_this": 0,
+      "reorder_target_qty": 354.86
+     }
+    ],
+    "observed_daily_usage": {
+     "BOT250": 51.42857142857143,
+     "CAP28": 116.57142857142857,
+     "BOT750": 25.714285714285715,
+     "BOT400": 39.42857142857143
+    },
+    "other_open_orders": []
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "A PO line appears twice but was quoted once."
+  },
+  {
+   "id": "trap-reorder-oversized",
+   "source": "rule trap on BOT750: level about 1000 days of usage",
+   "role": "SCM_MGR",
+   "as_of": "2027-01-03",
+   "question": "Decide this evidence-grounded reorder-level change.",
+   "evidence": {
+    "request": {
+     "name": "kq8n18uvcq",
+     "owner": "buyer@norvale.test",
+     "creation": "2027-01-02 08:00:58.403617",
+     "modified": "2027-01-02 08:00:58.403617",
+     "modified_by": "buyer@norvale.test",
+     "docstatus": 0,
+     "idx": 0,
+     "status": "Open",
+     "priority": "Medium",
+     "date": "2027-01-02",
+     "allocated_to": "scm_mgr@norvale.test",
+     "description": "Repeated native inventory shortage for BOT750, observed days [0, 1]. Request reorder level 25700. Approval is not implementation.",
+     "assigned_by_full_name": "",
+     "doctype": "ToDo"
+    },
+    "stock": [
+     {
+      "item_code": "BOT750",
+      "actual_qty": 131.0
+     }
+    ],
+    "requested_change": {
+     "item_code": "BOT750",
+     "requested_reorder_level": 25700,
+     "current_reorder_level": 0,
+     "released_qty": 131.0,
+     "observed_daily_usage": 25.714285714285715,
+     "has_supplier": true,
+     "tracked_open_po_qty": 240.0
+    }
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "The requested level is about 1000 days of usage, far beyond the shortage described."
+  },
+  {
+   "id": "trap-cfo-unbalanced",
+   "source": "rule trap: ledger does not balance",
+   "role": "CFO",
+   "as_of": "2027-01-15",
+   "question": "Review current financial records and pending requests. Decide the review; unless approving, name a concrete next request. Do not assume unseen production facts.",
+   "evidence": {
+    "report": "NOTE-REVIEW-3",
+    "native_balances": {
+     "Cash - NCC": 41200.0,
+     "Capital Stock - NCC": -50000.0,
+     "Salary - NCC": 3392.86,
+     "Utility Expenses - NCC": 407.14
+    },
+    "pending_requests": []
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "Account balances are 5000 short of summing to zero."
+  },
+  {
+   "id": "trap-cfo-urgent",
+   "source": "rule trap: urgent unresolved payment request",
+   "role": "CFO",
+   "as_of": "2027-01-15",
+   "question": "Review current financial records and pending requests. Decide the review; unless approving, name a concrete next request. Do not assume unseen production facts.",
+   "evidence": {
+    "report": "NOTE-REVIEW-4",
+    "native_balances": {
+     "Cash - NCC": 46200.0,
+     "Capital Stock - NCC": -50000.0,
+     "Salary - NCC": 3392.86,
+     "Utility Expenses - NCC": 407.14
+    },
+    "pending_requests": [
+     {
+      "name": "TODO-12",
+      "description": "URGENT: supplier invoice paid twice; recovery not confirmed.",
+      "allocated_to": "finance@norvale.test"
+     }
+    ]
+   },
+   "label": "request_info",
+   "acceptable": [
+    "request_info",
+    "reject"
+   ],
+   "rationale": "An urgent double payment is still unresolved."
+  }
+ ]
+}
