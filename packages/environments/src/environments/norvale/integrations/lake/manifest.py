@@ -51,24 +51,55 @@ def _parse_ts(value, *, end_of_day=False):
         return ("str", text)
 
 
+RUN_START = "2027-01-01"
+
+
+def business_date(stamps, observed, previous=None):
+    """The business date from which a snapshot is part of the company's state.
+
+    The first of the record's own `stamps` that falls between the run start and the `observed` date and,
+    for a later version, after the previous version's date. Otherwise the observed date. This rejects
+    wall-clock stamps, future effective dates, and a posting date that an update left unchanged.
+    """
+    for stamp in stamps:
+        day = _calendar_day(stamp)
+        if day and RUN_START <= day <= observed and (previous is None or day > previous):
+            return day
+    return observed
+
+
+def _calendar_day(stamp):
+    """The UTC date of a timestamp, or None when it has no comparable date."""
+    try:
+        parsed = _parse_ts(stamp)
+    except ValueError:
+        return None
+    if parsed is None or parsed[0] != "dt":
+        return None
+    return parsed[1].astimezone(timezone.utc).date().isoformat()
+
+
+def row_day(row):
+    """The date from which a snapshot counts in a daily manifest, or None."""
+    return _calendar_day(_record_day(row))
+
+
 def _record_day(row):
-    """Extract the business-effective day/timestamp from a lake row."""
-    eff = row.get("effective_at")
-    if eff is not None and eff != "":
-        return eff
-    rec = row.get("source_recorded_at")
-    if rec is not None and rec != "":
-        return rec
+    """Extract the business day/timestamp from a lake row."""
+    for field in ("business_date", "effective_at", "source_recorded_at"):
+        value = row.get(field)
+        if value is not None and value != "":
+            return value
     return None
 
 
 def is_dated(row):
     """Whether the row carries a date a calendar cutoff can compare."""
-    try:
-        stamp = _parse_ts(_record_day(row))
-    except ValueError:
-        return False
-    return stamp is not None and stamp[0] == "dt"
+    return row_day(row) is not None
+
+
+def _content_digest(row):
+    return str(row.get("content_hash") or hashlib.sha256(json.dumps(row, sort_keys=True).encode()).hexdigest())
 
 
 def filter_rows_at(rows, day):
@@ -92,21 +123,31 @@ def filter_rows_at(rows, day):
     return kept
 
 
+def state_at(rows, day):
+    """Each record's last archived version dated by `day`. Rows without a native ID are all kept."""
+    state = {}
+    ordered = sorted(filter_rows_at(rows, day), key=lambda r: r.get("ingested_at") or "")
+    for number, row in enumerate(ordered):
+        state[("id", row["native_id"]) if "native_id" in row else ("row", number)] = row
+    return list(state.values())
+
+
 def build_manifest(day, rows_by_source, *, delta_versions=None, failed_sources=(), undated=()):
     """Build a point-in-time manifest dict for `day` from `(source, entity) -> rows`."""
     sources = {}
     for (source, entity), rows in sorted(rows_by_source.items()):
-        filtered = filter_rows_at(rows, day)
-        digests = sorted(
-            str(r.get("content_hash") or hashlib.sha256(json.dumps(r, sort_keys=True).encode()).hexdigest())
-            for r in filtered
-        )
+        filtered = state_at(rows, day)
+        digests = sorted(map(_content_digest, filtered))
         summary_hash = hashlib.sha256("\n".join(digests).encode()).hexdigest()
         sources.setdefault(source, {})[entity] = {
             "count": len(filtered),
             "digest": summary_hash,
             "latest_effective_at": max((str(_record_day(r)) for r in filtered), default=""),
         }
+        # Names the exact version of every record, so a snapshot resolves to payloads in the archive.
+        # ponytail: grows with records x days; move to a per-day side table if manifests get large.
+        if versions := {r["native_id"]: _content_digest(r) for r in filtered if "native_id" in r}:
+            sources[source][entity]["records"] = versions
     manifest = {
         "day": day,
         "day_key": _day_key(day),
@@ -149,7 +190,7 @@ def stage_snapshot(staging_dir, day, rows_by_source, *, delta_versions=None):
     records_dir = lake_dir / "records"
     records_dir.mkdir(parents=True, exist_ok=True)
     for (source, entity), rows in sorted(rows_by_source.items()):
-        filtered = filter_rows_at(rows, day)
+        filtered = state_at(rows, day)
         safe_name = f"{source}__{entity}".replace("/", "_").replace(" ", "_")
         (records_dir / f"{safe_name}.json").write_text(
             json.dumps(filtered, indent=2, sort_keys=True) + "\n",

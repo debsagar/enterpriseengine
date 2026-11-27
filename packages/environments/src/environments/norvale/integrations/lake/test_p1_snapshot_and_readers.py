@@ -71,6 +71,20 @@ class TestSnapshotManifest(unittest.TestCase):
                 loaded["sources"]["mail"]["Mail Message"]["digest"],
             )
 
+            # A row without a stored hash is pinned by the same digest its count uses.
+            rows_by_source[("mail", "Mail Message")][0]["native_id"] = "m1"
+            pinned = build_manifest("2026-01-03", rows_by_source)["sources"]["mail"]["Mail Message"]
+            self.assertEqual(list(pinned["records"]), ["m1"])
+            self.assertEqual(len(pinned["records"]["m1"]), 64)
+
+            # History passed newest first still pins one version per record: the last archived one.
+            versions = [
+                dict(native_id="m2", content_hash=name, effective_at="2026-01-02", ingested_at=name)
+                for name in ("b", "a")
+            ]
+            state = build_manifest("2026-01-03", {("mail", "Mail Message"): versions})["sources"]["mail"]
+            self.assertEqual((state["Mail Message"]["count"], state["Mail Message"]["records"]), (1, {"m2": "b"}))
+
             staging = Path(tmp) / "staging"
             staged_manifest = stage_snapshot(staging, "2026-01-03", rows_by_source)
             self.assertTrue(staged_manifest.exists())

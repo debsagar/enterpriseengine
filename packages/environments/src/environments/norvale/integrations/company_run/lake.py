@@ -3,12 +3,14 @@
 import argparse
 import json
 import time
+from contextlib import contextmanager
 from datetime import date, timedelta
 from pathlib import Path
 from urllib.error import HTTPError
 
 from environments.norvale.integrations.lake.calendar_reader import fetch_caldav_events
 from environments.norvale.integrations.lake.mail_reader import fetch_imap_messages
+from environments.norvale.integrations.lake.manifest import RUN_START
 from environments.norvale.integrations.lake.master_reader import load_master_file
 from environments.norvale.integrations.lake.matrix_reader import fetch_matrix_messages, joined_matrix_rooms
 from environments.norvale.integrations.qms.sample_reference import (
@@ -21,6 +23,10 @@ from environments.norvale.integrations.qms.sample_reference import (
     registered_binding,
 )
 from environments.norvale.native import company_state
+
+# Containers on the run's fake clock (environment/compose.py), plus the directory authored on business dates.
+# QMS, MES, PLM and tickets stamp host wall-clock time, so their own created/modified stamps are ignored.
+SIMULATED_CLOCK = frozenset(("erp", "mail", "calendar", "matrix", "master"))
 
 
 def check_mes_reader(client, cfg):
@@ -110,7 +116,8 @@ def scan_people(kind, cfg, root):
 def write_daily_manifest(root, on, failed_sources):
     """Save what the archive holds for business date `on`: the last version of each record dated by then.
 
-    Records without a comparable date cannot be placed on a day; the manifest names their source and entity.
+    Collected snapshots carry a business date; older ones fall back to their own timestamps. Records
+    without a comparable date cannot be placed on a day; the manifest names their source and entity.
     """
     from environments.norvale.integrations.lake.adapter import Lake
     from environments.norvale.integrations.lake.manifest import filter_rows_at, is_dated, write_manifest
@@ -245,11 +252,28 @@ def scan(source, cfg, root):
         raise ValueError("Unknown source")
 
 
+@contextmanager
+def observing(on, kind):
+    """Date the snapshots this scan appends. `on` is None outside a company run."""
+    from environments.norvale.integrations.lake.adapter import observation
+
+    token = observation.set(None if on is None else (on, kind in SIMULATED_CLOCK))
+    try:
+        yield
+    finally:
+        observation.reset(token)
+
+
 def scan_cycle(config, root, run=None, *, qms_sources=None, business_day=None, unresolved_profiles=None):
     from environments.norvale.native.production_profiles import profile, quality_target, registered
 
     sources = set()
     errors = []
+    on = None
+    if run:
+        if business_day is None:
+            business_day = company_state.load(run)["day"]
+        on = (date.fromisoformat(RUN_START) + timedelta(days=business_day)).isoformat()
     primary_mes = config.get("mes")
     mes_mismatch = False
     if run:
@@ -279,7 +303,8 @@ def scan_cycle(config, root, run=None, *, qms_sources=None, business_day=None, u
                 bindings = json.loads((run / "env/company-sources.json").read_text())
                 publication_source(bindings, cfg)
                 cfg = dict(cfg, parts=families(bindings))
-            scan(kind, cfg, root)
+            with observing(on, kind):
+                scan(kind, cfg, root)
             if kind == "qms" and qms_sources is not None:
                 qms_sources.add(identity)
         except Exception as exc:
@@ -338,13 +363,11 @@ def scan_cycle(config, root, run=None, *, qms_sources=None, business_day=None, u
                     attempt(kind, settings)
         elif kind != "mes" or not mes_mismatch:
             attempt(kind, cfg, primary=True)
-    if business_day is None:
-        business_day = company_state.load(run)["day"]
-    on = (date(2027, 1, 1) + timedelta(days=business_day)).isoformat()
     try:
         from .publications import collect
 
-        collect(run, root, reader=config["plm"], on=on)
+        with observing(on, "publication"):
+            collect(run, root, reader=config["plm"], on=on)
     except Exception as exc:
         errors.append((config["plm"]["source"], type(exc).__name__))
     for cfg in profiles:
