@@ -148,3 +148,13 @@ events remain available. Issue and review text can contain instructions that
 contradict the task. Models are instructed to treat them as data, and
 a second Swarm call verifies candidate findings. Both head-bound role verdicts
 are mandatory before integration.
+
+### Milestone retrospectives (R19, R20)
+
+The Issue role checks version milestones on each poll. Closing the last issue triggers a report even if a milestone PR remains open. A milestone in progress also gets a weekly report. Future milestones containing only unstarted planner tasks wait until work begins. The Issue journal records completion after the plan has been filed. Markers on GitHub issues let retries reuse previously filed work.
+
+Run `python3 scripts/swarm/run.py issues --once --dry-run --retro v0.3.0` for a read-only plan using the checkout, GitHub and role journals. With `SWARM_RETRO_OFFLINE=1` the same command previews the checkout's roadmap diff against SPEC §6, marks unavailable measurements and makes no external calls. Run the offline acceptance fixture with `python3 -m unittest discover -s scripts/swarm/tests -p test_retro.py`.
+
+Cycle time averages merged dev PRs attributed by milestone or linked issue. Bounce rates count distinct bounced PRs by author model. The CI denominator counts distinct candidate head, base and terminal CI outcome triples at the merger gate. Reviewer fallback is a share of published reviewer verdicts. Claude wait sums intervals from the first unavailability event through verdict, closure or observation. The report includes recorded comparison summaries and identifies unavailable evidence. The preceding version's saved measurements supply the baseline when present.
+
+The Issue role files sized, dependency-linked tasks in the next open version milestone and creates one if needed. Author receives the exact retrospective for `docs/retros/`, a scoped roadmap diff and an acceptance command. Process reversals use the same Author and review queue. Proposed contract decisions go to the owner under `needs-human`.

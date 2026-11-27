@@ -321,7 +321,9 @@ class Swarm(Role):
                                         f"against dev `{base}`.\n\n{details}", acceptance=acceptance)
         if not passed and self.dev() == base:
             self.report_regression(required, ran, details)
-        self.event("verdict", head=head, base=base, passed=passed)
+        comparisons = [item for item in acceptance["commands"] if
+                       "norvale_dry_run.py" in item["command"] or "autotwin" in item["command"].lower()]
+        self.event("verdict", head=head, base=base, passed=passed, acceptance={"commands": comparisons})
 
     def report_regression(self, commands, ran, details):
         # Group by failed check so a moving dev head does not create duplicate reports.
@@ -862,6 +864,8 @@ class Issues(Role):
         self.login = self.api("user")["login"]
         self.fetch(0, base, base)
         with self.snapshot(base) as path:
+            from retro import poll as retrospectives
+            retrospectives(self, path)
             for _, item in sorted(items.items()):
                 if item["state"] == "open":
                     self.analyze(item, items, base, path)

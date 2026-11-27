@@ -11,6 +11,15 @@ import provenance
 from run import CLONE, Journal, REPO, STATE, WORKTREES, Client, ToolError, safe_evidence
 
 
+def failure_causes(events):
+    """Public diagnoses recorded at the merger gate, omitting repeated polls."""
+    return list(dict.fromkeys(
+        safe_evidence(e["reason"], 300).replace("\n", " ").replace("<!--", "&lt;!--")
+        for e in events if e.get("reason") and (e["event"] == "bounce" or
+        (e["event"] == "decision" and e.get("status") in {"failure", "infra-failure"}))
+    ))
+
+
 def timeline(api, target, state):
     repo = f"repos/{REPO}"
     if re.fullmatch(r"#?[1-9][0-9]*", target) and (target.startswith("#") or len(target) < 7):
