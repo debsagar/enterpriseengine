@@ -216,7 +216,7 @@ class Operating(Demo):
                 operation = flow.state["rework"][lot["rework_key"]]
                 if operation.get("retest"):
                     lots[batch] = lot
-            elif batch not in rework_inputs and systems:
+            elif batch not in rework_inputs and systems and not lot.get("go_live"):
                 manufactured = lot["kind"] in ("finished", "intermediate")
                 if manufactured and "production-" + lot["item"] not in systems:
                     continue

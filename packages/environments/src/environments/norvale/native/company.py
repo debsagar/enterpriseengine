@@ -44,6 +44,7 @@ ERP_ROLES = {
     "IT_ADMIN": ["System Manager", "Item Manager"],
     "CFO": ["Accounts Manager", "Purchase Manager"],
 }
+REORDER_BLOCK_DAYS = 5  # how long a rejected or deferred reorder-level request holds back the next one
 UNANSWERED_REVIEWS = 3  # reviews that decide nothing before a case is deferred and escalated
 
 
@@ -477,8 +478,6 @@ class Engine:
                 items[-1]["qty"] = 100000  # process water is supplied by an unconstrained utility tank
             doc = {"stock_entry_type": "Material Receipt", "company": self.company, "items": items}
             if lot_flow:
-                for row in items:
-                    row["t_warehouse"] = self.wh["hold"]
                 actual = lot_flow.prepare_receipt("opening", "Stock Entry", doc, "WAREHOUSE")
                 lot_flow.receive(actual, "opening", "WAREHOUSE")
             else:
@@ -2641,8 +2640,13 @@ class Engine:
                 },
                 "PLANNER",
             )
-            if len(ops["shortage_days"][item]) >= 2 and not any(c["item"] == item for c in ops["changes"].values()):
-                change = "change:" + item
+            prior = [c for c in ops["changes"].values() if c["item"] == item]
+            # An open or approved request blocks a duplicate; a closed one only for a few days.
+            blocked = any(
+                self.day < c.get("rejected_day", c.get("deferred_day", math.inf)) + REORDER_BLOCK_DAYS for c in prior
+            )
+            if len(ops["shortage_days"][item]) >= 2 and not blocked:
+                change = "change:" + item + (f":{self.day}" if prior else "")  # each request has its own record
                 level = math.ceil(self.observed_usage().get(item, 1) * 12)
                 self.write(
                     change,
