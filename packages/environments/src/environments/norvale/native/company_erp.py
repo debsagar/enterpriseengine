@@ -748,9 +748,8 @@ class CompanyERP:
         hold = self.e.wh["hold"]
         current = self.balance(lot, eligible, "QA")
         held = self.balance(lot, hold, "QA")
-        desired = min(
-            current + max(0, held - self.return_reservation(lot)), max(0, (d["qty"] if d else 0) - self.used(lot))
-        )
+        released = max(0, (d["qty"] if d else 0) - self.used(lot))
+        desired = min(current + max(0, held - self.return_reservation(lot)), released)
         if lot["kind"] != "finished":
             # Issued allocations stay physically available for posting reported MES usage.
             issued = sum(
@@ -795,6 +794,8 @@ class CompanyERP:
                 self.confirm_move(move, doc)
         lot_sync = self.state.setdefault("synced", {})
         lot_sync[lot["batch"]] = d
+        if lot.get("go_live") and d and d["status"] == "released":
+            self.repin_opening_inputs(lot["batch"], d, min(desired, released))
         self.e.persist()
         if delta:
             self.e.log(
@@ -807,6 +808,24 @@ class CompanyERP:
                 target=target,
             )
         return True
+
+    def repin_opening_inputs(self, batch, release, available):
+        reserved = self.reserved_inputs().get(batch, 0)
+        if not reserved or available + 1e-8 < reserved:
+            return
+        for work in self.state["work"].values():
+            if work.get("produced", 0) + work.get("rejected_remainder", 0) >= work["qty"] - 1e-8:
+                continue
+            operations = work.get("production_operations", {}).values()
+            for execution in [
+                work,
+                *(op for op in operations if "completed_day" not in op and not op.get("definitive_stop")),
+            ]:
+                # Replace rows so the original dispatch request keeps its original quality evidence.
+                if any(row["batch"] == batch and row["disposition"] != release for row in execution["inputs"]):
+                    execution["inputs"] = [
+                        dict(row, disposition=release) if row["batch"] == batch else row for row in execution["inputs"]
+                    ]
 
     def inspections(self):
         # Resolve unknown submits before calculating a cumulative release budget.
