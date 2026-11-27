@@ -2633,7 +2633,7 @@ class Engine:
             ops["shortage_days"].setdefault(item, [])
             if self.day not in ops["shortage_days"][item]:
                 ops["shortage_days"][item].append(self.day)
-            if self.config.get("behaviour_roles"):
+            if (getattr(self, "config", None) or {}).get("behaviour_roles"):
                 # The PLANNER role case decides what to do (native/behaviour_roles.py); no code-written task.
                 ops.setdefault("shortage_context", {})[item] = {"day": self.day, "work_planned": len(plan["work"])}
             else:
@@ -2863,7 +2863,9 @@ class Engine:
             for key, invoice in self.state["ops"]["invoices"].items():
                 if invoice.get("paid") is not None:
                     continue
-                if self.config.get("behaviour_roles") and not behaviour_roles.invoice_cleared(self, key):
+                if (getattr(self, "config", None) or {}).get("behaviour_roles") and not behaviour_roles.invoice_cleared(
+                    self, key
+                ):
                     continue  # a supplier invoice is paid only after finance approved it
                 # Look for prepayments too, but only flag absent evidence once due.
                 result = self.company_erp.attempt(
@@ -3074,7 +3076,7 @@ class Engine:
                 "production",
                 "replenishment",
                 "approvals",
-                *(["roles"] if self.config.get("behaviour_roles") else []),
+                *(["roles"] if (getattr(self, "config", None) or {}).get("behaviour_roles") else []),
                 "settlements",
                 "management",
             ]:
@@ -3324,7 +3326,11 @@ class Engine:
         """Rewrite the run's behaviour report and return today's numbers."""
         stages = (re.match(r"d(\d+):", done) for done in self.state["completed"])
         worked = sorted({self.dated(int(stage[1])) for stage in stages if stage})
-        run_targets = behaviour.targets(self.run, self.state, self.day) if self.config.get("behaviour_roles") else None
+        run_targets = (
+            behaviour.targets(self.run, self.state, self.day)
+            if (getattr(self, "config", None) or {}).get("behaviour_roles")
+            else None
+        )
         return behaviour.save(self.run, self.state.get("decisions", {}), self.date(), worked, run_targets)
 
     def run_phase(self, day, key, action):
