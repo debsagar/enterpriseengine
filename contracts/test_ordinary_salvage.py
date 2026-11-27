@@ -177,6 +177,7 @@ class MesSite:
             company_id=[4, "Plant"],
             workorder_ids=[],
             date_finished=recorded,
+            write_date=recorded,
             lot_producing_id=[output_lot, f"Lot {output_lot}"],
             location_dest_id=[20, "Hold"],
             procurement_group_id=False,
@@ -222,6 +223,11 @@ class MesSite:
             assert args == ([["norvale_revision", "!=", False], ["state", "=", "done"]],)
             return sorted(identifier for entity, identifier in self.docs if entity == MO)
         if method == "search_read":
+            if args == ([["norvale_revision", "!=", False], ["state", "=", "done"]],):
+                assert kwargs["fields"] == ["write_date"]
+                return [
+                    dict(id=i, write_date=doc["write_date"]) for (entity, i), doc in self.docs.items() if entity == MO
+                ]
             assert args == ([["norvale_rework_of", "=", 1]],)
             return [deepcopy(self.execution)] if self.execution else []
         assert method == "norvale_rework"

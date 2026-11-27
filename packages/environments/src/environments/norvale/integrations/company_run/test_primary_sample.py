@@ -188,7 +188,7 @@ class PrimarySampleTest(TestCase):
             def names(_, entity):
                 return ["RETEST", dart["name"]] if entity == INSPECTION else []
 
-            def list_rows(client, entity, fields):
+            def list_rows(client, entity, fields, *, page_size=100):
                 for name in names(client, entity):
                     yield {key: (retest if name == "RETEST" else dart)[key] for key in fields}
 
