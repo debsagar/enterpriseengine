@@ -477,8 +477,6 @@ class Engine:
                 items[-1]["qty"] = 100000  # process water is supplied by an unconstrained utility tank
             doc = {"stock_entry_type": "Material Receipt", "company": self.company, "items": items}
             if lot_flow:
-                for row in items:
-                    row["t_warehouse"] = self.wh["hold"]
                 actual = lot_flow.prepare_receipt("opening", "Stock Entry", doc, "WAREHOUSE")
                 lot_flow.receive(actual, "opening", "WAREHOUSE")
             else:
