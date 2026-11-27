@@ -3560,6 +3560,9 @@ def main(argv=None):
                     company_timing=DEFAULT_TIMING,
                     company_authority="integrations.company_run.authority:Authority",
                 )
+                # ponytail: one opt-in switch, read only at provision and kept in config.json for resumes.
+                if os.environ.get("NORVALE_BEHAVIOUR_ROLES") == "1":
+                    config["behaviour_roles"] = True
             initialize(a.run, config)
             return
         if a.demand_scale is not None and a.days is None:
