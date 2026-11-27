@@ -565,10 +565,14 @@ def verified_maintenance(engine):
 def verify(root):
     e = Engine(root / "business")
     settings = json.loads((root / "analytics.json").read_text())
-    archive = root / RUN_ARCHIVE / "delta"
+    # The manual README flow archives into <root>/lake; commissioned runs use the run layout.
+    archive_root = root / RUN_ARCHIVE
+    if not (archive_root / "delta").exists():
+        archive_root = root / "lake"
+    archive = archive_root / "delta"
     before = DeltaTable(str(archive)).version()
     qms_sources = set()
-    expected, scan_errors = scan_cycle(settings, root / RUN_ARCHIVE, root / "business", qms_sources=qms_sources)
+    expected, scan_errors = scan_cycle(settings, archive_root, root / "business", qms_sources=qms_sources)
     if scan_errors:
         raise RuntimeError(f"Native reads failed: {scan_errors}")
     table = DeltaTable(str(archive))

@@ -71,18 +71,22 @@ def chains(state):
     bills = following("Purchase Invoice", receipts, "purchase_receipt")
     paid = following("Payment Entry", bills, "reference_name", "references")
 
+    # Each step keeps only records that follow from the step before it.
     work = get("Work Order")
     mes_orders = {
         name: doc for name, doc in state.get("MES Manufacturing Order", {}).items() if doc.get("origin") in work
     }
     completions = {
-        name: doc for name, doc in state.get("mrp.production", {}).items() if doc.get("erp_work_ref") in work
+        name: doc
+        for name, doc in state.get("mrp.production", {}).items()
+        if name in mes_orders and doc.get("erp_work_ref") == mes_orders[name].get("origin")
     }
+    completed = {doc["erp_work_ref"] for doc in completions.values()}
     # The output receipt that carries each completion, then the lot's inspection, disposition and release.
     outputs = {
         name: doc
         for name, doc in get("Stock Entry").items()
-        if doc.get("work_order") in work and doc.get("purpose") == "Manufacture"
+        if doc.get("work_order") in completed and doc.get("purpose") == "Manufacture"
     }
     batches = {row.get("batch_no") for doc in outputs.values() for row in lines(doc)} - {None, ""}
     bundles = state.get("Serial and Batch Bundle", {})
@@ -156,6 +160,13 @@ def software(run, rows, report):
     failures = []
     config = json.loads((run / "run.json").read_text())["scenario"]
     days = business_days(config)
+    sources = defaultdict(set)
+    for row in rows:
+        sources[row["entity"], row["native_id"]].add(row["source"])
+    shared = [key for key, found in sources.items() if len(found) > 1 and system_of(min(found)) != "mes"]
+    if shared:
+        # The chain checks join records by native ID, which is only sound for one deployment per system.
+        failures.append(f"{len(shared)} record IDs come from more than one source, e.g. {shared[0]}")
     undated = [row for row in rows if not row.get("business_date")]
     if undated:
         failures.append(f"{len(undated)} lake rows have no business date")
@@ -235,9 +246,13 @@ def behaviour(run, rows, report):
         missing = sorted(cited - known)
         if not cited or missing:
             untraced.append(dict(event=event.get("event"), role=sent["role"], missing=missing[:5], cited=len(cited)))
-        order = state.get("Purchase Order", {}).get(sent.get("evidence", {}).get("name"))
-        if order and out["action"] in ("approve", "approve_with_condition") and order.get("docstatus") != 1:
-            unexecuted.append(order["name"])
+        evidence = sent.get("evidence", {})
+        evidence = evidence.get("observations", evidence)
+        name = evidence.get("name")
+        if "supplier" in evidence:
+            if out["action"] in ("approve", "approve_with_condition"):
+                if (state.get("Purchase Order", {}).get(name) or {}).get("docstatus") != 1:
+                    unexecuted.append(str(name))
     mails = state.get("Mail Message", {})
     if not decisions:
         failures.append("no decisions were made")

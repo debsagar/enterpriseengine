@@ -36,6 +36,7 @@ class OperationsRound(TestCase):
             self.assertEqual(len(posts), 6)
             self.assertEqual(posts[0].args, ("!room", "2027-01-01 Open work orders: Work Order-1"))
             self.assertEqual(len({call.kwargs["transaction"] for call in posts}), 6)
+            self.assertEqual(client.put_event.call_count, 6)
             (event,) = parse_vevents(client.put_event.call_args_list[0].args[1])
             self.assertEqual((event["dtstamp"], event["dtstart"]), ("20270101T120000Z", "20270102T083000Z"))
             self.assertEqual(len(event["attendees"]), 3)

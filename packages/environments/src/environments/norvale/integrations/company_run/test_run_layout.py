@@ -20,7 +20,7 @@ CHAIN = sorted({entity for chain in FLOWS.values() for entity in chain})
 DAYS = ("2027-01-01", "2027-01-02")
 
 
-def generate(run, *, entities=CHAIN, dated=True, failed=(), scans=(1439, 2879), manifests=DAYS):
+def generate(run, *, entities=CHAIN, dated=True, failed=(), scans=(1439, 2879), manifests=DAYS, read=("source",)):
     """Write what a finished generator leaves behind, through the real archive writer."""
     from environments.norvale.integrations.company_run.lake import write_daily_manifest
 
@@ -36,7 +36,8 @@ def generate(run, *, entities=CHAIN, dated=True, failed=(), scans=(1439, 2879), 
         json.dumps({entity: dict(entity=entity, last_success="2027-01-01") for entity in entities})
     )
     for day in manifests:
-        write_daily_manifest(archive, day, set(failed))
+        write_daily_manifest(archive, day, set(failed), read)
+    (run / "analytics.json").write_text(json.dumps(dict(erp=dict(source="source"), calendar=dict(source="calendar"))))
     events = [dict(kind="lake_scan", business_minute=minute, errors=[]) for minute in scans]
     (business / "trace.jsonl").write_text("".join(json.dumps(event) + "\n" for event in events))
     (business / "behaviour.json").write_text("{}\n")
@@ -83,7 +84,7 @@ class RunLayout(TestCase):
 
     def test_complete_run_passes_and_keeps_private_records_outside_observable(self):
         self.assertTrue((PACKAGE / "scenarios/norvale-q1.json").is_file())
-        code, report, env, error = self.simulate()
+        code, report, env, error = self.simulate(read=("source", "calendar"))
         self.assertEqual((code, report["ok"]), (0, True), report)
         self.assertEqual(env["NORVALE_OFFLINE"], "1")
         self.assertFalse(set(simulate.PROVIDER_SETTINGS) & set(env))
@@ -117,6 +118,7 @@ class RunLayout(TestCase):
         self.assertFalse(report["ok"])
         self.assertEqual(report["missing_days"], ["2027-01-02"])
         self.assertEqual(report["failed_sources"], {"2027-01-01": ["plant"]})
+        self.assertEqual(report["unreported_sources"], {"2027-01-01": ["calendar"]})
         self.assertEqual(report["end_of_day_scan_problems"], {"2027-01-02": "no end-of-day scan"})
         self.assertEqual(len(report["undated_rows"]), len(CHAIN) - 1)
         self.assertEqual(report["missing_flow_entities"]["order_to_cash"], {"Payment Entry": "never read"})
@@ -124,6 +126,16 @@ class RunLayout(TestCase):
     def test_interrupted_generator_is_reported(self):
         code, report, _, _ = self.simulate(crash=True)
         self.assertEqual((code, report["ok"], report["run_completed"]), (1, False, False))
+
+    def test_truncated_trace_line_is_reported(self):
+        from environments.norvale.verify_layout import finish_run
+
+        generate(self.run_dir, read=("source", "calendar"))
+        with (self.run_dir / "business/trace.jsonl").open("a") as trace:
+            trace.write('{"kind": "lake_scan", "busi')
+        report = finish_run(self.run_dir, SCENARIO, completed=True)
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["end_of_day_scan_problems"], {"trace": "damaged line in the run trace"})
 
     def test_offline_run_cannot_resume_live(self):
         code, report, env, error = self.simulate(flags=())

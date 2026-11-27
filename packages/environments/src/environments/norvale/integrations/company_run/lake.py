@@ -113,7 +113,7 @@ def scan_people(kind, cfg, root):
     ingest(root, entity, lambda: list(fetch()), source=cfg["source"], projection=lambda _, doc: doc)
 
 
-def write_daily_manifest(root, on, failed_sources):
+def write_daily_manifest(root, on, failed_sources, read_sources=()):
     """Save what the archive holds for business date `on`: the last version of each record dated by then.
 
     Collected snapshots carry a business date; older ones fall back to their own timestamps. Records
@@ -130,7 +130,7 @@ def write_daily_manifest(root, on, failed_sources):
     rows = {}
     for (source, entity, _), row in latest.items():
         rows.setdefault((source, entity), []).append(row)
-    return write_manifest(root, on, rows, failed_sources=failed_sources, undated=undated)
+    return write_manifest(root, on, rows, failed_sources=failed_sources, undated=undated, read_sources=read_sources)
 
 
 def scan(source, cfg, root):
@@ -431,7 +431,8 @@ def scan_cycle(config, root, run=None, *, qms_sources=None, business_day=None, u
             },
         )
     try:
-        write_daily_manifest(root, on, {identity for identity, _ in errors})
+        failed = {identity for identity, _ in errors}
+        write_daily_manifest(root, on, failed, sources - failed)
     except Exception as exc:
         errors.append(("manifest", type(exc).__name__))
     return sources, errors

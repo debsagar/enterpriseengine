@@ -202,9 +202,10 @@ class Comms:
 
     def send_chat(self, room_id, text, *, transaction=None):
         """A repeated `transaction` returns the first event instead of posting again."""
+        transaction = urllib.parse.quote(transaction or uuid.uuid4().hex, safe="")
         return self._mx(
             "PUT",
-            f"/_matrix/client/v3/rooms/{urllib.parse.quote(room_id)}/send/m.room.message/{transaction or uuid.uuid4().hex}",
+            f"/_matrix/client/v3/rooms/{urllib.parse.quote(room_id)}/send/m.room.message/{transaction}",
             {"msgtype": "m.text", "body": text},
         )["event_id"]
 

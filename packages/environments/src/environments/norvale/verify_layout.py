@@ -73,16 +73,19 @@ def business_days(cfg):
 
 def end_of_day_scans(trace, days):
     """{date: problem} for days whose last end-of-day collector pass is missing or had errors."""
-    last = {}
+    last, problems = {}, {}
     if trace.is_file():
         with trace.open() as rows:
             for line in rows:
                 if '"lake_scan"' not in line:
                     continue
-                event = json.loads(line)
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    problems["trace"] = "damaged line in the run trace"
+                    continue
                 if event.get("kind") == "lake_scan":
                     last[event["business_minute"]] = event["errors"]
-    problems = {}
     for number, day in enumerate(days):
         errors = last.get((number + 1) * 1440 - 1)
         if errors is None:
@@ -92,16 +95,30 @@ def end_of_day_scans(trace, days):
     return problems
 
 
+def configured_sources(settings):
+    """The source identities the collector is commissioned to read."""
+    if not settings.is_file():
+        return set()
+    entries = json.loads(settings.read_text()).values()
+    return {entry.get("source") or entry["reader"]["source_id"] for entry in entries}
+
+
 def verify_run(runtime, cfg, *, completed):
     """Check the delivered run and write verification.json."""
     days = business_days(cfg)
-    missing_days, failed_sources = [], {}
+    expected = configured_sources(runtime / "analytics.json")
+    missing_days, failed_sources, unreported = [], {}, {}
     for day in days:
         path = runtime / "observable/days" / day / "manifest.json"
         if not path.is_file():
             missing_days.append(day)
-        elif failed := json.loads(path.read_text()).get("failed_sources"):
+            continue
+        manifest = json.loads(path.read_text())
+        failed = manifest.get("failed_sources", [])
+        if failed:
             failed_sources[day] = failed
+        if silent := sorted(expected - set(failed) - set(manifest.get("read_sources", []))):
+            unreported[day] = silent
     archive = runtime / RUN_ARCHIVE
     rows = Lake(archive / "delta", {}).index()
     undated = Counter(f"{row['source']}/{row['entity']}" for row in rows if not row.get("business_date"))
@@ -120,12 +137,13 @@ def verify_run(runtime, cfg, *, completed):
     }
     scans = end_of_day_scans(runtime / "private/trace/trace.jsonl", days)
     report = dict(
-        ok=completed and not (missing_days or failed_sources or undated or missing or scans),
+        ok=completed and not (missing_days or failed_sources or unreported or undated or missing or scans),
         run_completed=completed,
         requested_days=len(days),
         manifests_found=len(days) - len(missing_days),
         missing_days=missing_days,
         failed_sources=failed_sources,
+        unreported_sources=unreported,
         end_of_day_scan_problems=scans,
         rows=len(rows),
         undated_rows=dict(sorted(undated.items())),

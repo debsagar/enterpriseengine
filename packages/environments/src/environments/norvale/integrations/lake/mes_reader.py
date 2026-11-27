@@ -270,8 +270,8 @@ def scan_definitions(root, mes, *, product=None, company=None):
         raise ValueError("A product scope requires its company")
     scope = dict(product=product, company=company) if product is not None else None
 
-    def rows(model, fields, domain):
-        return mes.call(model, "search_read", domain, fields=fields, order="id")
+    def rows(model, fields, domain, **options):
+        return mes.call(model, "search_read", domain, fields=fields, order="id", **options)
 
     def document(row):
         # The archive's name is the native ID; the order's own number moves to `reference`.
@@ -288,7 +288,9 @@ def scan_definitions(root, mes, *, product=None, company=None):
         return [document(row) for row in rows("mrp.production", ORDER_FIELDS, domain)]
 
     def boms():
-        found = rows("mrp.bom", BOM_FIELDS, [["company_id", "=", company]] if scope else [])
+        # Archived BOMs stay visible, so a snapshot records that one became inactive.
+        domain = [["company_id", "=", company]] if scope else []
+        found = rows("mrp.bom", BOM_FIELDS, domain, context={"active_test": False})
         identifiers = [row["id"] for row in found]
         lines = rows("mrp.bom.line", BOM_LINE_FIELDS, [["bom_id", "in", identifiers]]) if found else []
         return [document(dict(row, components=[x for x in lines if x["bom_id"][0] == row["id"]])) for row in found]

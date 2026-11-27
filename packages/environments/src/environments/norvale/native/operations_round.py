@@ -77,8 +77,11 @@ def run(engine):
         "END:VCALENDAR",
         "",
     ]
-    chair.ensure_calendar()
-    chair.put_event(uid.split("@")[0], "\r\n".join(lines))
+    # Calendars are private to their owner, so each attendee holds its own copy of the invitation.
+    for identity, *_ in POSTS:
+        attendee = client(identity)
+        attendee.ensure_calendar()
+        attendee.put_event(uid.split("@")[0], "\r\n".join(lines))
     done["days"].append(today)
     engine.persist()
     engine.log("operations_round", date=today, room=done["room"], event=uid)
