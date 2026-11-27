@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 from environments.norvale import generate
 from environments.norvale.integrations.company_run.lake import scheduled_scan, write_daily_manifest
 from environments.norvale.integrations.company_run.timing import DEFAULT_TIMING
-from environments.norvale.integrations.lake.adapter import Lake
+from environments.norvale.integrations.lake.adapter import Lake, observation
 from environments.norvale.integrations.lake.boundary import DISPOSITION_ENTITY, Frappe
 from environments.norvale.integrations.lake.calendar_reader import parse_vevents
 from environments.norvale.integrations.lake.mail_reader import normalize_message
@@ -185,6 +185,25 @@ class ScheduledLake(TestCase):
             write_daily_manifest(root, "2027-01-01", ())
             manifest = snapshot_at(root, "2027-01-01")
             self.assertEqual(list(manifest["sources"]["operations"]["Delivery Note"]["records"]), ["DN-1"])
+
+    def test_an_update_to_an_older_snapshot_counts_from_the_day_it_is_observed(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            lake = Lake(root / "delta", {})
+            doc = dict(name="DN-1", posting_date="2027-01-01", status="v1")
+            lake.ingest("operations", "Delivery Note", [doc], "posting_date")
+            token = observation.set(("2027-01-04", True))
+            try:
+                lake.ingest("operations", "Delivery Note", [dict(doc, status="v2")], "posting_date")
+                # A calendar event counts from the day it was recorded, ahead of its future start.
+                event = dict(name="E-1", source_recorded_at="20270102T090000Z", effective_at="20270110T090000Z")
+                lake.ingest("calendar", "Calendar Event", [event], "effective_at")
+            finally:
+                observation.reset(token)
+            self.assertEqual(
+                sorted((row["native_id"], row["business_date"] or "") for row in lake.index()),
+                [("DN-1", ""), ("DN-1", "2027-01-04"), ("E-1", "2027-01-02")],
+            )
 
     def test_business_cutoffs_independent_failure_and_resume(self):
         with TemporaryDirectory() as temp:

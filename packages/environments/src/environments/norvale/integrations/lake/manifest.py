@@ -62,16 +62,26 @@ def business_date(stamps, observed, previous=None):
     wall-clock stamps, future effective dates, and a posting date that an update left unchanged.
     """
     for stamp in stamps:
-        try:
-            parsed = _parse_ts(stamp)
-        except ValueError:
-            continue
-        if parsed is None or parsed[0] != "dt":
-            continue
-        day = parsed[1].astimezone(timezone.utc).date().isoformat()
-        if RUN_START <= day <= observed and (previous is None or day > previous):
+        day = _calendar_day(stamp)
+        if day and RUN_START <= day <= observed and (previous is None or day > previous):
             return day
     return observed
+
+
+def _calendar_day(stamp):
+    """The UTC date of a timestamp, or None when it has no comparable date."""
+    try:
+        parsed = _parse_ts(stamp)
+    except ValueError:
+        return None
+    if parsed is None or parsed[0] != "dt":
+        return None
+    return parsed[1].astimezone(timezone.utc).date().isoformat()
+
+
+def row_day(row):
+    """The date from which a snapshot counts in a daily manifest, or None."""
+    return _calendar_day(_record_day(row))
 
 
 def _record_day(row):
@@ -85,11 +95,7 @@ def _record_day(row):
 
 def is_dated(row):
     """Whether the row carries a date a calendar cutoff can compare."""
-    try:
-        stamp = _parse_ts(_record_day(row))
-    except ValueError:
-        return False
-    return stamp is not None and stamp[0] == "dt"
+    return row_day(row) is not None
 
 
 def _content_digest(row):
@@ -117,11 +123,20 @@ def filter_rows_at(rows, day):
     return kept
 
 
+def state_at(rows, day):
+    """Each record's last archived version dated by `day`. Rows without a native ID are all kept."""
+    state = {}
+    ordered = sorted(filter_rows_at(rows, day), key=lambda r: r.get("ingested_at") or "")
+    for number, row in enumerate(ordered):
+        state[("id", row["native_id"]) if "native_id" in row else ("row", number)] = row
+    return list(state.values())
+
+
 def build_manifest(day, rows_by_source, *, delta_versions=None, failed_sources=(), undated=()):
     """Build a point-in-time manifest dict for `day` from `(source, entity) -> rows`."""
     sources = {}
     for (source, entity), rows in sorted(rows_by_source.items()):
-        filtered = filter_rows_at(rows, day)
+        filtered = state_at(rows, day)
         digests = sorted(map(_content_digest, filtered))
         summary_hash = hashlib.sha256("\n".join(digests).encode()).hexdigest()
         sources.setdefault(source, {})[entity] = {
@@ -175,7 +190,7 @@ def stage_snapshot(staging_dir, day, rows_by_source, *, delta_versions=None):
     records_dir = lake_dir / "records"
     records_dir.mkdir(parents=True, exist_ok=True)
     for (source, entity), rows in sorted(rows_by_source.items()):
-        filtered = filter_rows_at(rows, day)
+        filtered = state_at(rows, day)
         safe_name = f"{source}__{entity}".replace("/", "_").replace(" ", "_")
         (records_dir / f"{safe_name}.json").write_text(
             json.dumps(filtered, indent=2, sort_keys=True) + "\n",
