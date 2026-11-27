@@ -136,6 +136,8 @@ class RunLayout(TestCase):
         report = finish_run(self.run_dir, SCENARIO, completed=True)
         self.assertFalse(report["ok"])
         self.assertEqual(report["end_of_day_scan_problems"], {"trace": "damaged line in the run trace"})
+        (self.run_dir / RUN_ARCHIVE / "manifests/2027-01-02.json").write_text("{")
+        self.assertEqual(finish_run(self.run_dir, SCENARIO, completed=True)["missing_days"], ["2027-01-02"])
 
     def test_offline_run_cannot_resume_live(self):
         code, report, env, error = self.simulate(flags=())

@@ -31,7 +31,7 @@ class OperationsRound(TestCase):
                 engine.day = 1
                 operations_round.run(engine)
             client.create_room.assert_called_once()
-            self.assertEqual(client.join.call_count, 2)
+            self.assertEqual(client.join.call_count, 4)
             posts = client.send_chat.call_args_list
             self.assertEqual(len(posts), 6)
             self.assertEqual(posts[0].args, ("!room", "2027-01-01 Open work orders: Work Order-1"))

@@ -56,20 +56,25 @@ def chains(state):
     def get(entity):
         return submitted(state.get(entity, {}))
 
-    def following(entity, before, field, table="items"):
+    def following(entity, before, field, table="items", doctype=None):
         return {
-            name: doc for name, doc in get(entity).items() if any(row.get(field) in before for row in lines(doc, table))
+            name: doc
+            for name, doc in get(entity).items()
+            if any(
+                row.get(field) in before and (doctype is None or row.get("reference_doctype") == doctype)
+                for row in lines(doc, table)
+            )
         }
 
     sales = get("Sales Order")
     deliveries = following("Delivery Note", sales, "against_sales_order")
     invoices = following("Sales Invoice", deliveries, "delivery_note")
-    receipts_in = following("Payment Entry", invoices, "reference_name", "references")
+    receipts_in = following("Payment Entry", invoices, "reference_name", "references", "Sales Invoice")
 
     orders = get("Purchase Order")
     receipts = following("Purchase Receipt", orders, "purchase_order")
     bills = following("Purchase Invoice", receipts, "purchase_receipt")
-    paid = following("Payment Entry", bills, "reference_name", "references")
+    paid = following("Payment Entry", bills, "reference_name", "references", "Purchase Invoice")
 
     # Each step keeps only records that follow from the step before it.
     work = get("Work Order")
@@ -119,7 +124,8 @@ def chains(state):
     mes_boms = {
         n
         for n, d in publications.items()
-        if str((d.get("acknowledgments", {}).get("mes") or {}).get("native_id")) in state.get("MES BOM", {})
+        if n in erp_boms
+        and str((d.get("acknowledgments", {}).get("mes") or {}).get("native_id")) in state.get("MES BOM", {})
     }
     return {
         "sell": [
@@ -172,7 +178,10 @@ def software(run, rows, report):
     for row in rows:
         if row.get("business_date") in changed:
             changed[row["business_date"]][system_of(row["source"])] += 1
-    known = {(row["source"], row["entity"], row["native_id"], row["content_hash"]): row for row in rows}
+    first_day = {}  # the earliest business date of each archived version; content can recur
+    for row in rows:
+        key = row["source"], row["entity"], row["native_id"], row["content_hash"]
+        first_day[key] = min(row.get("business_date") or "9999", first_day.get(key, "9999"))
     snapshots, previous = {}, None
     for day in days:
         path = run / "observable/days" / day / "manifest.json"
@@ -186,7 +195,7 @@ def software(run, rows, report):
             for entity, summary in entities.items()
             for name, digest in summary.get("records", {}).items()
         }
-        bad = [key for key in pinned if key not in known or known[key].get("business_date", "9999") > day]
+        bad = [key for key in pinned if first_day.get(key, "9999") > day]
         if bad:
             failures.append(f"{day}: {len(bad)} snapshot records are missing from the lake or dated later")
         if pinned == previous:
@@ -230,7 +239,12 @@ def references(value):
 def behaviour(run, rows, report):
     failures = []
     trace = run / "private/trace/trace.jsonl"
-    events = [json.loads(line) for line in trace.read_text().splitlines() if line.strip()] if trace.is_file() else []
+    events = []
+    for line in trace.read_text().splitlines() if trace.is_file() else []:
+        try:
+            events.append(json.loads(line) if line.strip() else {})
+        except ValueError:
+            failures.append("damaged line in the private trace")
     decisions = [event for event in events if event.get("kind") == "decision"]
     known = {row["native_id"] for row in rows}
     state = latest(rows)

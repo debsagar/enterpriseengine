@@ -48,13 +48,13 @@ def run(engine):
         return Comms({"mail": emails[identity], "chat": identity.lower()}, secrets[identity], engine.eps)
 
     chair = client(CHAIR)
+    invited = [identity for identity, *_ in POSTS if identity != CHAIR]
     if not done["room"]:
-        invited = [identity for identity, *_ in POSTS if identity != CHAIR]
-        room = chair.create_room("Daily operations", [identity.lower() for identity in invited])
-        for identity in invited:
-            client(identity).join(room)
-        done["room"] = room
+        done["room"] = chair.create_room("Daily operations", [identity.lower() for identity in invited])
         engine.persist()
+    # Joining is repeatable, so a resumed day completes the membership of the saved room.
+    for identity in invited:
+        client(identity).join(done["room"])
     for identity, role, doctype, filters, heading in POSTS:
         names = [row["name"] for row in engine.observe(role, doctype, filters, ["name"])]
         listed = ", ".join(sorted(names)) or "none"

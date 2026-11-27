@@ -84,7 +84,7 @@ def end_of_day_scans(trace, days):
                 except ValueError:
                     problems["trace"] = "damaged line in the run trace"
                     continue
-                if event.get("kind") == "lake_scan":
+                if isinstance(event, dict) and event.get("kind") == "lake_scan":
                     last[event["business_minute"]] = event["errors"]
     for number, day in enumerate(days):
         errors = last.get((number + 1) * 1440 - 1)
@@ -113,7 +113,11 @@ def verify_run(runtime, cfg, *, completed):
         if not path.is_file():
             missing_days.append(day)
             continue
-        manifest = json.loads(path.read_text())
+        try:
+            manifest = json.loads(path.read_text())
+        except ValueError:
+            missing_days.append(day)
+            continue
         failed = manifest.get("failed_sources", [])
         if failed:
             failed_sources[day] = failed
