@@ -34,6 +34,24 @@ class ReorderBlock(TestCase):
                 day = 3 + REORDER_BLOCK_DAYS
                 self.assertEqual(shortage(day, changes), [f"change:BOT250:{day}"])
 
+    def test_request_deferred_by_review_expires_and_is_never_reviewed_again(self):
+        change = dict(item="BOT250", level=618, requested_day=0)
+        reviewer = Engine.__new__(Engine)
+        reviewer.config, reviewer.wh = {}, dict(rm="Raw", hold="Hold")
+        reviewer.state = dict(decisions={}, ops=dict(purchases={}, changes={"change:BOT250": change}))
+        reviewer.write, reviewer.mail, reviewer.persist, reviewer.log = Mock(), Mock(), Mock(), Mock()
+        reviewer.get = Mock(return_value={"name": "TODO-1"})
+        reviewer.observe, reviewer.observed_usage = Mock(return_value=[]), Mock(return_value={})
+        reviewer.reorder_level = Mock(return_value=0)
+        reviewer.catalog = SimpleNamespace(source_list={})
+        reviewer.api = {"SCM_MGR": Mock()}
+        reviewer.choose = Mock(return_value=dict(action="request_info", reason="why", message="which?"))
+        for reviewer.day in range(2, 40):
+            reviewer.approvals()
+        self.assertEqual(reviewer.choose.call_count, 3)
+        day = change["deferred_day"] + REORDER_BLOCK_DAYS
+        self.assertEqual(shortage(day, {"change:BOT250": change}), [f"change:BOT250:{day}"])
+
     def test_open_or_approved_request_keeps_blocking(self):
         old = {"item": "BOT250", "rejected_day": 3}
         for current in ({"requested_day": 9}, {"approved_day": 9}, {"approved_day": 9, "implemented": 10}):
