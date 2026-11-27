@@ -34,6 +34,7 @@
 
 - A rejected reorder-level request no longer blocks its item for the rest of a run: after 5 days a continuing shortage raises a new request.
 - Seed opening stock directly into Raw Materials and make it available before day-0 production. It is not lab-sampled; any QMS inspection record or quarantined quantity withdraws the exemption, and MES staging accepts it without a release.
+- Work using inspected opening stock can resume after ERP sync confirms a QMS release covering the reserved inputs.
 - A purchase or reorder-level case with no decision after 3 reviews is deferred, escalated to the CFO as a task and not reviewed again; a deferred draft order no longer counts as inbound supply.
 - The role model's API key, endpoint and model now come from one provider; with both keys set, the OpenAI key was sent to OpenRouter. OpenRouter now wins.
 - TK-101 no longer rebuilds its full-horizon scan input lists on every plant advance, so the time per simulated day no longer grows with the configured horizon.
