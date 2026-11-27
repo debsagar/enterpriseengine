@@ -27,7 +27,7 @@
 
 ### Fixed
 
-- Seed opening stock directly into Raw Materials and make opening lots available before day-0 production.
+- Seed opening stock directly into Raw Materials and make it available before day-0 production. It is not lab-sampled; any QMS inspection record or quarantined quantity withdraws the exemption, and MES staging accepts it without a release.
 - The role model's API key, endpoint and model now come from one provider; with both keys set, the OpenAI key was sent to OpenRouter. OpenRouter now wins.
 - TK-101 no longer rebuilds its full-horizon scan input lists on every plant advance, so the time per simulated day no longer grows with the configured horizon.
 - Register a PLM product family for every seeded SKU during Norvale operating setup, so day-0 inspections no longer fail with "No registered PLM family".

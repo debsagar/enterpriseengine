@@ -165,6 +165,8 @@ class Demo:
             for key, lot in state["lots"].items()
             if key not in physical
             and not lot.get("rework_key")
+            # Go-live stock is already accepted; sampling it would withdraw it mid-production.
+            and not lot.get("go_live")
             and lot.get("work_order") not in external
             and (lot["kind"] in ("finished", "intermediate") or lot["item"] in wanted)
         }

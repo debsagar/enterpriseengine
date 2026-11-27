@@ -386,6 +386,7 @@ class CompanyERP:
                 source_row=row["name"],
                 **quality_scope,
                 **({k: row.get(k) for k in ("purchase_order", "purchase_order_item")} if kind == "incoming" else {}),
+                **({"go_live": True} if kind == "opening" and warehouse == self.e.wh["rm"] else {}),
             )
         self.e.persist()
 
@@ -741,6 +742,8 @@ class CompanyERP:
     def sync(self, lot):
         self.reconcile_moves(lot)
         d = self.disposition(lot, "QA")
+        if self.exempt(lot, d, "QA"):
+            return True
         eligible = self.e.wh["fg" if lot["kind"] == "finished" else "rm"]
         hold = self.e.wh["hold"]
         current = self.balance(lot, eligible, "QA")
@@ -817,11 +820,7 @@ class CompanyERP:
             self.attempt("rework-reconciliation", "PRODUCTION", self.poll_rework)
         uncertain = self.reserved_dispatch_batches()
         for lot in list(self.state["lots"].values()):
-            if lot["batch"] not in uncertain and (
-                lot.get("kind") != "opening"
-                or self.disposition(lot, "QA") is not None
-                or self.balance(lot, self.e.wh["hold"], "QA") > 0
-            ):
+            if lot["batch"] not in uncertain:
                 self.attempt("sync:" + lot["batch"], "QA", lambda: self.sync(lot))
 
     def poll_rework(self):
@@ -840,18 +839,22 @@ class CompanyERP:
             raise Pending("Rework requests must be an array")
         return requests
 
+    def exempt(self, lot, disposition, role):
+        """Go-live stock needs no release while QMS holds no record of it and none of it is quarantined."""
+        if not lot.get("go_live") or disposition is not None:
+            return False
+        # An authority that cannot answer gives no exemption.
+        inspected = getattr(self.authority, "inspected", None)
+        if inspected is None or inspected(deepcopy(lot), role=role):
+            return False
+        return not self.balance(lot, self.e.wh["hold"], role)
+
     def available(self, lot, role):
         warehouse = self.e.wh["fg" if lot["kind"] == "finished" else "rm"]
         balance = self.balance(lot, warehouse, role)
         d = self.disposition(lot, role)
-        if (
-            lot.get("kind") == "opening"
-            and d is None
-            and not self.state.get("synced", {}).get(lot["batch"])
-            and "sync:" + lot["batch"] not in self.state.get("pending", {})
-            and self.balance(lot, self.e.wh["hold"], role) == 0
-        ):
-            return max(0, balance - self.used(lot)), None
+        if "sync:" + lot["batch"] not in self.state.get("pending", {}) and self.exempt(lot, d, role):
+            return balance, None  # posted consumption has already left the ERP balance
         if (
             not d
             or d != self.state.get("synced", {}).get(lot["batch"])
