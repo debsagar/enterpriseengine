@@ -165,6 +165,8 @@ class Demo:
             for key, lot in state["lots"].items()
             if key not in physical
             and not lot.get("rework_key")
+            # Go-live stock is already accepted; sampling it would withdraw it mid-production.
+            and not lot.get("go_live")
             and lot.get("work_order") not in external
             and (lot["kind"] in ("finished", "intermediate") or lot["item"] in wanted)
         }
@@ -315,11 +317,14 @@ class Demo:
 
     def released_inputs(self, work, rows):
         flow = self.e.company_erp
-        released = [
-            row["lot_id"]
-            for row, inp in zip(rows, work["inputs"], strict=True)
-            if flow.disposition(flow.state["lots"][inp["batch"]], "PRODUCTION") == inp["disposition"]
-        ]
+
+        def current(inp):
+            lot = flow.state["lots"][inp["batch"]]
+            d = flow.disposition(lot, "PRODUCTION")
+            # A pin without a release holds only while the lot is still exempt: a draft record also reads None.
+            return d == inp["disposition"] and (d is not None or flow.exempt(lot, d, "PRODUCTION"))
+
+        released = [row["lot_id"] for row, inp in zip(rows, work["inputs"], strict=True) if current(inp)]
         if len(released) != len(rows):
             raise Pending("Pinned input disposition changed before MES execution")
         return released
