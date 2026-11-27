@@ -3,6 +3,7 @@
 import json
 import tempfile
 import unittest
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,7 +17,7 @@ from environments.norvale.integrations.lake.manifest import (
     write_manifest,
 )
 from environments.norvale.integrations.lake.master_reader import load_master_file, normalize_account, scan_master
-from environments.norvale.integrations.lake.matrix_reader import normalize_event, scan_matrix
+from environments.norvale.integrations.lake.matrix_reader import fetch_matrix_messages, normalize_event, scan_matrix
 
 
 class _FakeSink:
@@ -160,6 +161,17 @@ class TestReaders(unittest.TestCase):
         sink = _FakeSink()
         self.assertEqual(scan_matrix([ev], sink=sink), 1)
         self.assertEqual(sink.calls[0][0], "matrix")
+
+    def test_matrix_advances_past_empty_page(self):
+        pages = [
+            {"chunk": [], "end": "next/cursor"},
+            {"chunk": [{"type": "m.room.message", "event_id": "$later"}]},
+        ]
+        responses = [BytesIO(json.dumps(page).encode()) for page in pages]
+        with patch("urllib.request.urlopen", side_effect=responses) as fetch:
+            messages = fetch_matrix_messages("https://matrix.test", "token", "!ops:matrix.test", limit=None)
+        self.assertEqual([message["event_id"] for message in messages], ["$later"])
+        self.assertIn("&from=next%2Fcursor", fetch.call_args.args[0].full_url)
 
     def test_master_reader(self):
         with self.assertRaises(ValueError):

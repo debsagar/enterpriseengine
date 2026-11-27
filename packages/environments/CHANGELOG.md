@@ -31,6 +31,7 @@
 - Correct source paths and commands in the Norvale integration guides.
 
 ### Fixed
+- Matrix lake ingestion follows advancing cursors across empty pages so later room messages reach the archive.
 
 - A rejected reorder-level request no longer blocks its item for the rest of a run: after 5 days a continuing shortage raises a new request.
 - Seed opening stock directly into Raw Materials and make it available before day-0 production. It is not lab-sampled; any QMS inspection record or quarantined quantity withdraws the exemption, and MES staging accepts it without a release.
