@@ -62,11 +62,11 @@ def save(run, decisions, date, worked=()):
     worked lists the business dates with a completed stage, so a day without decisions still has an entry.
     """
     days = daily(decisions)
-    for day in worked:
+    for day in (date, *worked):  # the current date too: setup stages carry no day number
         days.setdefault(day, empty())
     path = run / "behaviour.json"
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(dict(sorted(days.items())), indent=2) + "\n")
     temporary.chmod(0o600)
     temporary.replace(path)
-    return days.get(date, empty())
+    return days[date]

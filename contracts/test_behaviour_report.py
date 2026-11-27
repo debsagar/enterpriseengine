@@ -34,6 +34,9 @@ class BehaviourReport(unittest.TestCase):
             quiet = behaviour.save(Path(temp), decisions, "2027-01-09")
         self.assertEqual(today, saved["2027-01-02"])
         self.assertEqual((quiet["decisions"], list(saved)), (0, ["2027-01-02", "2027-01-03"]))
+        with tempfile.TemporaryDirectory() as temp:
+            setup = behaviour.save(Path(temp), {}, "2027-01-01")
+            self.assertEqual(json.loads((Path(temp) / "behaviour.json").read_text()), {"2027-01-01": setup})
         purchase = today["case_types"]["purchase"]
         self.assertEqual((purchase["decisions"], purchase["approval_rate"]), (2, 0.5))
         self.assertEqual(today["case_types"]["reorder_change"]["approval_rate"], 1.0)
