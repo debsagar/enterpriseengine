@@ -17,6 +17,7 @@ ROWS = {
         id=7, name="WH/MO/00007", create_date="2026-11-01 00:00:00", write_date="2026-11-01 00:00:00"
     ),
     "mrp.bom": dict(id=3, code="PLM-R1", create_date="2026-11-01 00:00:00", write_date="2026-11-01 00:00:00"),
+    "mrp.bom.line": dict(id=8, bom_id=[3, "PLM-R1"], product_qty=2),
 }
 
 
@@ -90,6 +91,7 @@ class FlowCoverage(TestCase):
             rows = {(row["entity"], row["native_id"]): row for row in Lake(archive / "delta", {})._rows()}
             order = rows["MES Manufacturing Order", "7"]
             self.assertEqual(json.loads(order["payload"])["reference"], "WH/MO/00007")
+            self.assertEqual(json.loads(rows["MES BOM", "3"]["payload"])["components"][0]["id"], 8)
             self.assertEqual(
                 {key[0] for key in rows},
                 {"MES Manufacturing Order", "MES BOM", "Gitea Issue", "Gitea Comment", "Directory Account"},

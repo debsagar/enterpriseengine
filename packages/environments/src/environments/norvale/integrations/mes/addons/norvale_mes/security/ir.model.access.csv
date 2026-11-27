@@ -1,6 +1,7 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 analytics_production,Analytics manufacturing order,mrp.model_mrp_production,group_analytics_reader,1,0,0,0
 analytics_bom,Analytics BOM,mrp.model_mrp_bom,group_analytics_reader,1,0,0,0
+analytics_bom_line,Analytics BOM line,mrp.model_mrp_bom_line,group_analytics_reader,1,0,0,0
 analytics_workorder,Analytics work order,mrp.model_mrp_workorder,group_analytics_reader,1,0,0,0
 analytics_workcenter,Analytics work center,mrp.model_mrp_workcenter,group_analytics_reader,1,0,0,0
 analytics_productivity,Analytics labor,mrp.model_mrp_workcenter_productivity,group_analytics_reader,1,0,0,0
