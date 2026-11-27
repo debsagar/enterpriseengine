@@ -202,13 +202,16 @@ def software(run, rows, report):
     return failures
 
 
+CHILD_TABLES = {"items", "taxes", "payment_schedule", "payment_terms", "accounts", "references", "readings", "entries"}
+
+
 def references(value):
-    """Native record names cited anywhere inside a decision's evidence."""
+    """Native record names cited anywhere inside a decision's evidence. Child row names are not records."""
     if isinstance(value, dict):
         for key, item in value.items():
             if key in ("name", "report") and isinstance(item, str):
                 yield item
-            else:
+            elif key not in CHILD_TABLES:
                 yield from references(item)
     elif isinstance(value, list):
         for item in value:
