@@ -1,5 +1,7 @@
 # Start here: collaborator handoff
 
+This is stable onboarding. Current project state is `/data/enterpriseknowledge/HANDOFF.md`; the reading order is in `skills/run-180/SKILL.md`.
+
 ## Goal, in the owner's words
 
 Owner instructions from the project conversation, 2026-11-17:
