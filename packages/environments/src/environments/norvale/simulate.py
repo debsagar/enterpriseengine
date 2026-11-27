@@ -133,7 +133,17 @@ def main(*, checkout=CHECKOUT):
         python = release / ".venv/bin/python" if (release / SOURCE_LAYOUT).is_dir() else sys.executable
         # Archives made before the entry points still carry the root launcher.
         generator = ["generate.py"] if (release / "generate.py").is_file() else ["-m", "environments.norvale.generate"]
+        from datetime import datetime, timezone
+
+        from .verify_layout import verify_run, write_run_layout
+
+        started_at = datetime.now(timezone.utc).isoformat()
         subprocess.run([python, *generator, "--run", str(runtime / "business")], cwd=release, check=True)
+        rev = (runtime / "revision").read_text().strip() if (runtime / "revision").is_file() else ""
+        write_run_layout(runtime, cfg, revision=rev, started_at=started_at)
+        report = verify_run(runtime, cfg)
+        if not report["ok"]:
+            raise ValueError(f"Run verification failed: {report}")
     except (OSError, ImportError, ValueError, PreflightError, subprocess.SubprocessError) as exc:
         p.exit(1, f"{exc}\n")
 
