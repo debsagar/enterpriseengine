@@ -15,7 +15,8 @@ Read README.md → docs/HANDOFF.md → docs/ARCHITECTURE.md before changing beha
 - Notebook inspection stays read-only. Explain generated tables directly underneath their outputs. No unnecessary ZIP deliverables.
 - Run `ruff check` and `ruff format --check` before pushing.
 - Run appropriate offline checks from README.md. Report what was actually checked, not just saved historical pass results.
-- Project state lives in PROJECT-LOG.jsonl (append-only). Read relevant recent events. Record validation evidence in the PR. The four swarm roles are off, and the provenance and swarm checks are optional on dev. Maintainers own updates to the shared log.
+- Project state lives in `/data/enterpriseknowledge/PROJECT-LOG.jsonl` (append-only); this repo's PROJECT-LOG.jsonl stopped 2026-11-24. Read relevant recent events. Record validation evidence in the PR. The four swarm roles are off, and the provenance and swarm checks are optional on dev. Maintainers own updates to the shared log.
 
 For code changes, completion notes should name affected A–L blocks, changed behavior, validation and remaining limits. Update architecture/docs only where the implementation or intended contract changed.
+- Employee behaviour (roles, triggers, decisions, messages) follows [docs/BEHAVIOUR.md](docs/BEHAVIOUR.md).
 - 180-day run work: follow `skills/run-180/SKILL.md` (shared by all agents; tracker = GitHub issues labelled `run-180`).

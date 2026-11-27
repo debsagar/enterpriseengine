@@ -7,6 +7,24 @@ description: Shared work loop for every agent (Claude, Codex, Gemini) preparing 
 
 Goal: Norvale can run 180 business days live and produce authentic records. Plan with evidence: https://claude.ai/artifact/Bo23EzProH7BJdARr8ZccM
 
+## Context: what to read, in this order
+Read live sources before documents, and documents in this order. Stop when you have what the task needs.
+1. Owner rules: `~/.claude/CLAUDE.md` (Claude) and the owner-preference lines in `/data/enterpriseknowledge/CLAUDE.md` (all agents).
+2. Current state: `/data/enterpriseknowledge/HANDOFF.md`. It is the only current-state file. `docs/HANDOFF.md` in this repo is stable onboarding, not current state.
+3. What happened since: the last ~30 lines of `/data/enterpriseknowledge/PROJECT-LOG.jsonl`. Not `/data/PROJECT-LOG.jsonl` (VM maintenance) and not this repo's `PROJECT-LOG.jsonl` (stopped 2026-11-24).
+4. Closed decisions: `DECISIONS.md`. Requirements: `SPEC.md`. Employee behaviour: `docs/BEHAVIOUR.md`.
+5. Live state, never from documents: `gh issue list -l run-180`, `gh pr list -B dev`, `/data/runs/INDEX.tsv` and each run's `business/heartbeat.json`.
+6. Research behind a decision: `/data/enterpriseknowledge/research/` (README there indexes it).
+
+Do not take context from `/data/enterpriseknowledge/attic/`, dated files in `handoffs/`, or scratch folders under `/data` (`norvale-*`, `nv-*`, `company-*`). They are history.
+
+## Time rules
+- Every fact has a date. A newer owner instruction beats an older document; a closed decision in DECISIONS.md beats both until the owner changes it.
+- Compare `HANDOFF.md`'s date with the last log event. If the log is newer, the log says what happened and HANDOFF is stale: say so, and refresh HANDOFF's "Latest state" before you finish.
+- A document's claim about a PR, issue or run is only as old as the document. Re-check it live before acting on it or repeating it.
+- Write dates as YYYY-MM-DD. "Today", "now" and "latest" mean nothing in a file someone reads next week.
+- Finishing a session: append one event to `/data/enterpriseknowledge/PROJECT-LOG.jsonl` and update `HANDOFF.md` "Latest state" with today's date.
+
 ## Tracker
 GitHub issues with label `run-180` are the only task list:
 `gh issue list -R debsagar/enterpriseengine -l run-180`
@@ -23,5 +41,5 @@ Each issue says what to do and when it is done. Take one that is open and not `i
 - Paid model calls and live probes need the owner's go, except a probe the owner already approved.
 - Never print secrets. Everything stays under /data.
 - Claims cite a file:line or a trace line. If you are unsure, say so.
-- Behaviour (prompts, evidence bundle, model choice) issues are labelled `behaviour`. Software agents don't change them.
+- Behaviour (prompts, evidence bundle, model choice, role triggers) issues are labelled `behaviour` and follow `docs/BEHAVIOUR.md`. Software agents don't change them.
 - If blocked, comment on the issue with the reason, add label `blocked`, and move on.

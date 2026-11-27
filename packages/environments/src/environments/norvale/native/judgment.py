@@ -13,11 +13,23 @@ ACTIONS = ("approve", "approve_with_condition", "request_info", "reject")
 APPROVALS = ("approve", "approve_with_condition")
 MANDATES = {
     "SCM_MGR": "Approve or reject supplier purchases and item reorder changes using observed evidence; issue scoped purchasing policies.",
-    "CFO": "Review finances and revise purchasing policies; no configured spending ceiling.",
+    "CFO": "Review finances and revise purchasing policies; no configured spending ceiling. Approve, hold or query supplier invoices for payment.",
     "BUYER": "Observe materials, request purchases; cannot approve own purchase or book stock.",
     "IT_ADMIN": "Implement separately approved item changes after approval date.",
     "PRODUCTION": "Execute authorized operations within available stock and shift capacity.",
+    "QA_MGR": "Close, keep open or escalate non-conformances once their lot has a final outcome; cannot override a QA hold.",
+    "PLANNER": "Decide how to handle a shortage of released stock for planned work: wait, reschedule other work or escalate to supply chain.",
+    "PROC_ENG": "Raise a design change, or make none, when non-conformances repeat on one item; cannot edit a BOM directly.",
 }
+
+CASE_INSTRUCTION = (
+    "Return JSON with action, reason, message, cites. action must be one of the list in actions; nothing else is "
+    "executed. reason is one or two sentences. message is one or two sentences to the colleagues affected and must "
+    "name the record. cites is a list of paths into this input that the reason rests on, such as "
+    "facts.flags.billed_over_received. facts holds values computed by code from the evidence; facts.flags are "
+    "contradictions found by code. Do not approve over a flag unless the reason names it. Do not assume unseen "
+    "facts. role_card states your duty, authority limits and escalation."
+)
 
 INSTRUCTION = (
     "Return JSON with action, reason, message, cites. action is one of: approve; approve_with_condition (approval "
@@ -83,7 +95,7 @@ def graded(sent, answer):
     """Hold an approval the role may not execute. Nothing is ever upgraded to an approval."""
     if answer.get("action") in ("defer", "investigate"):  # earlier wording for "not approved yet"
         answer = {**answer, "action": "request_info"}
-    if answer.get("action") not in ACTIONS:
+    if answer.get("action") not in (sent.get("actions") or ACTIONS):
         raise ValueError("Invalid decision action")
     evidence = sent["evidence"]
     inner = evidence.get("observations", evidence) if isinstance(evidence, dict) else evidence
@@ -95,7 +107,12 @@ def graded(sent, answer):
     answer["message"] = str(answer.get("message") or answer["reason"] or "No detail given.")
     if answer["action"] not in APPROVALS:
         return answer
-    if any(f["flag"] == "over_role_approval_limit" for f in sent["facts"]["flags"]):
+    unnamed = (
+        [f["flag"] for f in sent["facts"]["flags"] if f["flag"] not in answer["reason"]] if sent.get("actions") else []
+    )
+    if unnamed:
+        why = "The approval did not name the flag " + unnamed[0] + "."
+    elif any(f["flag"] == "over_role_approval_limit" for f in sent["facts"]["flags"]):
         why = f"Amount exceeds your approval limit; escalate to {sent['role_card']['escalates_to']}."
     elif not answer["cites"]:
         why = "The approval cited no evidence present in the decision input."
@@ -229,11 +246,13 @@ def facts(role, evidence, as_of, policies=()):
                     "over_policy_approval_limit",
                     f"grand_total {total} exceeds the standing policy limit {policy_limit}",
                 )
+    flags += seen.get("facts", {}).get("flags", [])  # a role case carries its own code-computed facts
     return {**values, "flags": flags}
 
 
-def prompt(role, as_of, evidence, question, policies=()):
+def prompt(role, as_of, evidence, question, policies=(), actions=None):
     return {
+        **({"actions": list(actions)} if actions else {}),
         "role": role,
         "as_of": as_of,
         "question": question,
@@ -241,7 +260,7 @@ def prompt(role, as_of, evidence, question, policies=()):
         "facts": facts(role, evidence, as_of, policies),
         "role_card": role_card(role),
         "policy": {"effective_policies": list(policies)},
-        "instruction": INSTRUCTION,
+        "instruction": CASE_INSTRUCTION if actions else INSTRUCTION,
     }
 
 

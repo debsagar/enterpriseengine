@@ -745,11 +745,21 @@ class SiteOperator(Operating):
     def operator(self, work):
         request, revision, dispatch = (work[k] for k in ("request", "revision", "dispatch"))
         operator = self.execution
-        original = self.e.company_erp.state["work"][work["key"]] if "production_target" in work else work
+        flow = self.e.company_erp
+        original = flow.state["work"][work["key"]] if "production_target" in work else work
+        pins = request["inputs"]
+        current = original["inputs"]
+        # Reconciliation may refresh the quality evidence for the same opening-stock allocation.
+        same_inputs = len(pins) == len(current) and all(
+            pin == row
+            or (flow.state["lots"][pin["batch"]].get("go_live") and dict(row, disposition=pin["disposition"]) == pin)
+            for pin, row in zip(pins, current, strict=True)
+        )
         if (
             operator.source_id != revision.get("mes_source")
             or operator.source_id != dispatch.get("source")
-            or any(request[k] != original[k] for k in ("item", "uom", "qty", "revision", "equipment", "inputs"))
+            or any(request[k] != original[k] for k in ("item", "uom", "qty", "revision", "equipment"))
+            or not same_inputs
         ):
             raise Pending("MES execution differs from the pinned dispatch scope")
         mo = operator.read("mrp.production", int(dispatch["id"]))
@@ -788,7 +798,6 @@ class SiteOperator(Operating):
         if mo["state"] not in ("done", "cancel"):
             if operator.acknowledge(int(revision["mes_ack_id"]))["revision"] != dispatch["version"]:
                 raise Pending("Native MES BOM has changed since dispatch")
-            flow = self.e.company_erp
             for row in work["inputs"]:
                 lot = flow.state["lots"][row["batch"]]
                 available, disposition = flow.available(lot, "PRODUCTION")
@@ -818,6 +827,20 @@ def offline_decision(engine, key, role, evidence, question):
     if key in engine.state["decisions"]:
         return engine.state["decisions"][key]["output"]
     approved = False
+    if key.startswith("case:"):  # a role-contract case: the offline rule follows the facts in the evidence
+        from environments.norvale.native import behaviour_roles
+
+        choice, why = behaviour_roles.offline_rule(key, evidence)
+        output = dict(action=choice, reason=why, message=why)
+        result = dict(
+            mode="offline-operating-rule",
+            input=dict(role=role, as_of=engine.date(), evidence=evidence, question=question),
+            output=output,
+        )
+        engine.state["decisions"][key] = result
+        engine.persist()
+        engine.log("decision", **result)
+        return output
     if role == "SCM_MGR" and key.startswith("po-review:"):
         quote = evidence["supplier_quote"]
 

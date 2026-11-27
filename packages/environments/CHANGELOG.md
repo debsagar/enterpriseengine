@@ -8,6 +8,8 @@
 
 ### Added
 
+- Role contracts (`native/behaviour_roles.py`, `docs/BEHAVIOUR.md`): one registry and one daily `role_cases` phase, enabled by `"behaviour_roles": true` in an operating run's config (set at provision with `NORVALE_BEHAVIOUR_ROLES=1`). QA manager (close, keep open or escalate a non-conformance on a rejected lot), finance (approve, hold or request information on a supplier invoice; settlement pays only approved ones), planner (wait, reschedule or escalate a shortage, replacing the code-written task) and process engineer (raise or decline a design change after repeated non-conformances) each open one case per record, decide it (offline rule when `NORVALE_OFFLINE=1`), execute and read back the write, and escalate past-due cases.
+- With role contracts on, the daily chat has one message per decided case, naming the record, instead of the fixed status post; `behaviour.json` gains `run_targets` with the BEHAVIOUR.md run-level targets as pass/fail.
 - `norvale-simulate` runs use a fixed layout: `run.json`, `verification.json`, `observable/lake`, `observable/days/<date>/manifest.json` and `private/{trace,reports,logs}`. It exits non-zero unless every requested day has a manifest and a clean end-of-day scan, no source failed, no lake row lacks a business date and every business-chain entity has records.
 - Operating runs post a code-written daily operations status to a Matrix room and put the next day's review in the planner's calendar. The IT administrator can read all employee records.
 - `norvale-simulate --offline` runs the native services with deterministic role decisions and no provider credentials.
@@ -35,12 +37,15 @@
 - Correct source paths and commands in the Norvale integration guides.
 
 ### Fixed
+- Matrix lake ingestion follows advancing cursors across empty pages so later room messages reach the archive.
 
 - A rejected reorder-level request no longer blocks its item for the rest of a run: after 5 days a continuing shortage raises a new request.
 - Seed opening stock directly into Raw Materials and make it available before day-0 production. It is not lab-sampled; any QMS inspection record or quarantined quantity withdraws the exemption, and MES staging accepts it without a release.
+- Work using inspected opening stock can resume after ERP sync confirms a QMS release covering the reserved inputs.
 - A purchase or reorder-level case with no decision after 3 reviews is deferred, escalated to the CFO as a task and not reviewed again; a deferred draft order no longer counts as inbound supply.
 - The role model's API key, endpoint and model now come from one provider; with both keys set, the OpenAI key was sent to OpenRouter. OpenRouter now wins.
 - TK-101 no longer rebuilds its full-horizon scan input lists on every plant advance, so the time per simulated day no longer grows with the configured horizon.
+- Restaging a fork snapshot replaces its previous lake records and manifest, keeping later-day data out of earlier snapshots.
 - Register a PLM product family for every seeded SKU during Norvale operating setup, so day-0 inspections no longer fail with "No registered PLM family".
 - Avoid unsupported tuple unpacking in the Frappe QMS lease-dispatch script.
 

@@ -62,7 +62,7 @@ def fetch_matrix_messages(base_url, access_token, room_id, *, limit=100, timeout
         end_token = payload.get("end")
         if cursor is not None and end_token:
             cursor["batch"] = end_token
-        if not chunk or not end_token or end_token == token:
+        if not end_token or end_token == token:
             break
         token = end_token
         if remaining is not None:

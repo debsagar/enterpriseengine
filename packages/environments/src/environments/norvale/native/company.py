@@ -484,10 +484,10 @@ class Engine:
                 self.write("opening", "Stock Entry", doc, "WAREHOUSE", True)
         self.persist()
 
-    def decision(self, key, role, evidence, question):
+    def decision(self, key, role, evidence, question, actions=None):
         if key in self.state["decisions"]:
             return self.state["decisions"][key]
-        prompt = judgment.prompt(role, self.date(), evidence, question, self.effective_policies(role))
+        prompt = judgment.prompt(role, self.date(), evidence, question, self.effective_policies(role), actions)
         answer = judgment.complete(
             prompt,
             self.log,
@@ -1333,13 +1333,13 @@ class Engine:
             return "defer", "Supplier quote expired on " + quote["valid_till"]
         return "approve", "Within authorized policy scope and review date"
 
-    def choose(self, key, role, evidence, question, action="approve", model=False):
+    def choose(self, key, role, evidence, question, action="approve", model=False, actions=None):
         if key in self.state["decisions"]:
             return self.state["decisions"][key]["output"]
         if (getattr(self, "config", None) or {}).get("company_operating") and os.environ.get("NORVALE_OFFLINE") == "1":
             from environments.norvale.integrations.company_run.operating import offline_decision
 
-            return offline_decision(self, key, role, evidence, question)
+            return offline_decision(self, key, role, evidence, question)  # also decides every case: key
         from environments.norvale.native.router import route
 
         policies = self.effective_policies(role)
@@ -1433,7 +1433,11 @@ class Engine:
             long_run.record_spend(self, "jev", routed["response"])
         if routed["judgment"]:
             return self.decision(
-                key, role, {"observations": evidence, "prior_cases": cases, "effective_policies": policies}, question
+                key,
+                role,
+                {"observations": evidence, "prior_cases": cases, "effective_policies": policies},
+                question,
+                actions,
             )["output"]
         if not policy:
             result = {
@@ -2629,17 +2633,20 @@ class Engine:
             ops["shortage_days"].setdefault(item, [])
             if self.day not in ops["shortage_days"][item]:
                 ops["shortage_days"][item].append(self.day)
-            key = "shortage:" + item
-            task = self.write(
-                key,
-                "ToDo",
-                {
-                    "description": f"Planner observed missing released {item} for pending sales orders. Replenishment review required.",
-                    "allocated_to": "scm_mgr@norvale.test",
-                    "date": self.dated(self.day + 1),
-                },
-                "PLANNER",
-            )
+            if (getattr(self, "config", None) or {}).get("behaviour_roles"):
+                # The PLANNER role case decides what to do (native/behaviour_roles.py); no code-written task.
+                ops.setdefault("shortage_context", {})[item] = {"day": self.day, "work_planned": len(plan["work"])}
+            else:
+                self.write(
+                    "shortage:" + item,
+                    "ToDo",
+                    {
+                        "description": f"Planner observed missing released {item} for pending sales orders. Replenishment review required.",
+                        "allocated_to": "scm_mgr@norvale.test",
+                        "date": self.dated(self.day + 1),
+                    },
+                    "PLANNER",
+                )
             prior = [c for c in ops["changes"].values() if c["item"] == item]
             # An open or approved request blocks a duplicate; a closed one only for a few days.
             blocked = any(
@@ -2842,14 +2849,24 @@ class Engine:
 
         BankReceipts(self.company_erp).import_statements()
 
+    def role_cases(self):  # not "roles": self.roles is the ERP permission table
+        from environments.norvale.native import behaviour_roles
+
+        behaviour_roles.run(self)
+
     def settlements(self):
         if (self.config or {}).get("company_operating"):
+            from environments.norvale.native import behaviour_roles
             from environments.norvale.native.company_bank import BankReceipts
 
             bank = BankReceipts(self.company_erp)
             for key, invoice in self.state["ops"]["invoices"].items():
                 if invoice.get("paid") is not None:
                     continue
+                if (getattr(self, "config", None) or {}).get("behaviour_roles") and not behaviour_roles.invoice_cleared(
+                    self, key
+                ):
+                    continue  # a supplier invoice is paid only after finance approved it
                 # Look for prepayments too, but only flag absent evidence once due.
                 result = self.company_erp.attempt(
                     "settle:" + key, "FINANCE", lambda: bank.settle_invoice(key, overdue=self.day >= invoice["due"])
@@ -3059,6 +3076,7 @@ class Engine:
                 "production",
                 "replenishment",
                 "approvals",
+                *(["role_cases"] if (getattr(self, "config", None) or {}).get("behaviour_roles") else []),
                 "settlements",
                 "management",
             ]:
@@ -3120,6 +3138,8 @@ class Engine:
             or c.get("company_authority") != "integrations.company_run.authority:Authority"
         ):
             raise ValueError("Operating mode requires native company authority and timing")
+        if "behaviour_roles" in c and (type(c["behaviour_roles"]) is not bool or not c.get("company_operating")):
+            raise ValueError("Role contracts require an ordinary operating run and a boolean setting")
         if "supplier_quality" in c and (type(c["supplier_quality"]) is not bool or not c.get("company_operating")):
             raise ValueError("Supplier quality sampling requires an ordinary operating run and a boolean setting")
         if "company_timing" in c:
@@ -3213,6 +3233,8 @@ class Engine:
         if name == "native-clock":
             return (day + 1) * DAY - 1, self.PRIORITY_BASE
         opens = COMPANY_OPEN if "company_timing" in self.config else 720
+        if name == "role_cases":  # after approvals, before the bank feed, so settlement sees finance's decision
+            return day * DAY + opens, self.PRIORITY_BASE + 10 * (1 + self.ORDER.index("approvals")) + 5
         return day * DAY + opens, self.PRIORITY_BASE + 10 * (
             1 + (self.ORDER.index(name) if name in self.ORDER else len(self.ORDER))
         )
@@ -3304,7 +3326,12 @@ class Engine:
         """Rewrite the run's behaviour report and return today's numbers."""
         stages = (re.match(r"d(\d+):", done) for done in self.state["completed"])
         worked = sorted({self.dated(int(stage[1])) for stage in stages if stage})
-        return behaviour.save(self.run, self.state.get("decisions", {}), self.date(), worked)
+        run_targets = (
+            behaviour.targets(self.run, self.state, self.day)
+            if (getattr(self, "config", None) or {}).get("behaviour_roles")
+            else None
+        )
+        return behaviour.save(self.run, self.state.get("decisions", {}), self.date(), worked, run_targets)
 
     def run_phase(self, day, key, action):
         from environments.norvale.native.recurring_extensions import DAY, MIDNIGHT
@@ -3533,6 +3560,9 @@ def main(argv=None):
                     company_timing=DEFAULT_TIMING,
                     company_authority="integrations.company_run.authority:Authority",
                 )
+                # ponytail: one opt-in switch, read only at provision and kept in config.json for resumes.
+                if os.environ.get("NORVALE_BEHAVIOUR_ROLES") == "1":
+                    config["behaviour_roles"] = True
             initialize(a.run, config)
             return
         if a.demand_scale is not None and a.days is None:
