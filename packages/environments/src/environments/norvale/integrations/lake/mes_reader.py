@@ -13,6 +13,16 @@ from environments.norvale.integrations.revisions import valid_receiver_marker
 from environments.norvale.integrations.revisions.receivers import BOM, ODOO_SITE
 
 
+def changed_rows(mes, model, domain, fields, cursor):
+    """Read versions cheaply before fetching native detail and linked records."""
+    versions = mes.call(model, "search_read", domain, fields=["write_date"], order="id")
+    previous = cursor.get("versions", {})
+    current = {str(row["id"]): row["write_date"] for row in versions}
+    cursor["versions"] = current
+    ids = [row["id"] for row in versions if not row["write_date"] or previous.get(str(row["id"])) != row["write_date"]]
+    return mes.call(model, "read", ids, fields=fields) if ids else []
+
+
 def completion_document(entity, completion):
     source = completion["work"]["source_id"]
 
@@ -51,7 +61,7 @@ def completion_document(entity, completion):
     }
 
 
-def scan(root, mes, work_refs=None, *, product=None, company=None):
+def scan(root, mes, work_refs=None, *, product=None, company=None, incremental=False):
     if isinstance(work_refs, str):
         raise TypeError("Pass a sequence of ERP work references")
     requested = sorted(set(work_refs)) if work_refs is not None else None
@@ -63,14 +73,19 @@ def scan(root, mes, work_refs=None, *, product=None, company=None):
     elif product is not None or company is not None:
         raise ValueError("A product scope requires its company")
 
-    def fetch():
+    def fetch(cursor=None):
         optional = ["norvale_rework_of", "norvale_rework_authority", "norvale_rework_scrap"]
         fields = mes.call("mrp.production", "fields_get", optional, attributes=["type"])
         columns = ["company_id", *[field for field in optional if field in fields]]
-        ids = mes.call("mrp.production", "search", domain, order="id")
+        if cursor is None:
+            ids = mes.call("mrp.production", "search", domain, order="id")
+            orders = [dict(mes.call("mrp.production", "read", [i], fields=columns)[0], id=i) for i in ids]
+        else:
+            orders = changed_rows(mes, "mrp.production", domain, columns, cursor)
         markers = {}
-        supported = ids and ODOO_SITE in mes.call(BOM, "fields_get", [ODOO_SITE], attributes=["type"])
-        for identifier in ids:
+        supported = orders and ODOO_SITE in mes.call(BOM, "fields_get", [ODOO_SITE], attributes=["type"])
+        for mo in orders:
+            identifier = mo["id"]
             completion = mes.completion(identifier)
             ref = completion["work"]
             if (
@@ -79,7 +94,6 @@ def scan(root, mes, work_refs=None, *, product=None, company=None):
                 or (requested is not None and completion["erp_work_ref"] not in requested)
             ):
                 raise ValueError("Completion does not match the requested MES work")
-            mo = mes.call("mrp.production", "read", [identifier], fields=columns)[0]
             if company is not None and mo["company_id"][0] != company:
                 raise ValueError("Completion belongs to another company")
             completion = dict(completion, company_id=mo["company_id"][0])
@@ -131,11 +145,17 @@ def scan(root, mes, work_refs=None, *, product=None, company=None):
         if value is not None
     }
     return ingest(
-        root, "mrp.production", fetch, source=mes.source_id, projection=completion_document, scope=scope or None
+        root,
+        "mrp.production",
+        fetch,
+        source=mes.source_id,
+        projection=completion_document,
+        scope=scope or None,
+        fetch_incremental=fetch if incremental else None,
     )
 
 
-def scan_staging(root, mes, *, product=None, company=None):
+def scan_staging(root, mes, *, product=None, company=None, incremental=False):
     """Archive native receipts linked to the original manufacturing order."""
     if (product is None) != (company is None):
         raise ValueError("A product scope requires its company")
@@ -146,7 +166,7 @@ def scan_staging(root, mes, *, product=None, company=None):
         domain.extend([[link + ".product_id", "=", product], ["company_id", "=", company]])
         scope = dict(product=product, company=company)
 
-    def fetch():
+    def fetch(cursor=None):
         if link not in mes.call("stock.move", "fields_get", [link], attributes=["type"]):
             return
         move_fields = [
@@ -165,7 +185,12 @@ def scan_staging(root, mes, *, product=None, company=None):
             "location_dest_id",
             "write_date",
         ]
-        for move in mes.call("stock.move", "search_read", domain, fields=move_fields, order="id"):
+        moves = (
+            mes.call("stock.move", "search_read", domain, fields=move_fields, order="id")
+            if cursor is None
+            else changed_rows(mes, "stock.move", domain, move_fields, cursor)
+        )
+        for move in moves:
             order = mes.read("mrp.production", move[link][0])
             (line_id,) = move["move_line_ids"]
             fields = [
@@ -251,7 +276,15 @@ def scan_staging(root, mes, *, product=None, company=None):
                 destination_location_id=line["location_dest_id"][0],
             )
 
-    return ingest(root, "stock.move", fetch, source=mes.source_id, projection=lambda entity, row: row, scope=scope)
+    return ingest(
+        root,
+        "stock.move",
+        fetch,
+        source=mes.source_id,
+        projection=lambda _, row: row,
+        scope=scope,
+        fetch_incremental=fetch if incremental else None,
+    )
 
 
 ORDER_FIELDS = (
@@ -264,7 +297,7 @@ BOM_FIELDS = (
 BOM_LINE_FIELDS = "bom_id product_id product_qty product_uom_id".split()
 
 
-def scan_definitions(root, mes, *, product=None, company=None):
+def scan_definitions(root, mes, *, product=None, company=None, incremental=False):
     """Archive manufacturing orders in every state, and the MES BOMs with their component lines."""
     if (product is None) != (company is None):
         raise ValueError("A product scope requires its company")
@@ -283,9 +316,14 @@ def scan_definitions(root, mes, *, product=None, company=None):
             modified=row["write_date"],
         )
 
-    def orders():
+    def orders(cursor=None):
         domain = [["product_id", "=", product], ["company_id", "=", company]] if scope else []
-        return [document(row) for row in rows("mrp.production", ORDER_FIELDS, domain)]
+        found = (
+            rows("mrp.production", ORDER_FIELDS, domain)
+            if cursor is None
+            else changed_rows(mes, "mrp.production", domain, ORDER_FIELDS, cursor)
+        )
+        return [document(row) for row in found]
 
     def boms():
         # Archived BOMs stay visible, so a snapshot records that one became inactive.
@@ -296,12 +334,20 @@ def scan_definitions(root, mes, *, product=None, company=None):
         return [document(dict(row, components=[x for x in lines if x["bom_id"][0] == row["id"]])) for row in found]
 
     return sum(
-        ingest(root, entity, fetch, source=mes.source_id, projection=lambda _, row: row, scope=scope)
+        ingest(
+            root,
+            entity,
+            fetch,
+            source=mes.source_id,
+            projection=lambda _, row: row,
+            scope=scope,
+            fetch_incremental=fetch if incremental and fetch is orders else None,
+        )
         for entity, fetch in (("MES Manufacturing Order", orders), ("MES BOM", boms))
     )
 
 
-def scan_labor(root, mes, work_refs=None, *, product=None, company=None):
+def scan_labor(root, mes, work_refs=None, *, product=None, company=None, incremental=False):
     """Read native productivity by its own durable ID through the reader account."""
     from environments.norvale.integrations.mes.client import EVENT, MO, WO
 
@@ -317,7 +363,7 @@ def scan_labor(root, mes, work_refs=None, *, product=None, company=None):
     if product is not None:
         domain.extend([[production + "product_id", "=", product], ["company_id", "=", company]])
 
-    def fetch():
+    def fetch(cursor=None):
         fields = [
             "norvale_scheduled_labor",
             "norvale_bridge_started",
@@ -335,7 +381,12 @@ def scan_labor(root, mes, work_refs=None, *, product=None, company=None):
         supported = mes.call(EVENT, "fields_get", ["norvale_scheduled_labor"], attributes=["type"])
         if "norvale_scheduled_labor" not in supported:
             return
-        for row in mes.call(EVENT, "search_read", domain, fields=fields, order="id"):
+        events = (
+            mes.call(EVENT, "search_read", domain, fields=fields, order="id")
+            if cursor is None
+            else changed_rows(mes, EVENT, domain, fields, cursor)
+        )
+        for row in events:
             labor = row["norvale_scheduled_labor"]
             wo = mes.read(WO, row["workorder_id"][0])
             mo = mes.read(MO, wo["production_id"][0])
@@ -389,7 +440,15 @@ def scan_labor(root, mes, work_refs=None, *, product=None, company=None):
         for key, value in [("product", product), ("company", company), ("work_refs", requested)]
         if value is not None
     }
-    return ingest(root, EVENT, fetch, source=mes.source_id, projection=lambda entity, row: row, scope=scope or None)
+    return ingest(
+        root,
+        EVENT,
+        fetch,
+        source=mes.source_id,
+        projection=lambda _, row: row,
+        scope=scope or None,
+        fetch_incremental=fetch if incremental else None,
+    )
 
 
 if __name__ == "__main__":

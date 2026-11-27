@@ -28,7 +28,7 @@ class Plant:
         pass
 
     def call(self, model, method, *args, **kwargs):
-        if method == "search_read" and model in ROWS and "norvale_rework_of" not in str(args):
+        if method in ("search_read", "read") and model in ROWS and ["state", "=", "done"] not in args[0]:
             return [dict(ROWS[model])]
         return {} if method == "fields_get" else []
 
@@ -37,13 +37,22 @@ class Desk:
     def __init__(self, *_, **__):
         pass
 
-    def records(self):
+    def records(self, *, since=None):
         stamp = "2026-11-01T00:00:00Z"
         return [dict(number=1, title="Filler fault", state="open", created_at=stamp, updated_at=stamp)]
 
-    def comments(self, number):
+    def changed_comments(self, *, since=None):
         stamp = "2026-11-01T00:00:00Z"
-        return [dict(id=4, body="Checked", user=dict(login="technician"), created_at=stamp, updated_at=stamp)]
+        return [
+            dict(
+                id=4,
+                issue_url="http://local/issues/1",
+                body="Checked",
+                user=dict(login="technician"),
+                created_at=stamp,
+                updated_at=stamp,
+            )
+        ]
 
 
 class FlowCoverage(TestCase):

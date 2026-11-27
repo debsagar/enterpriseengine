@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The scheduled Norvale lake collector retains successful native read cursors per source, entity and scope, and logs its scan time. Frappe and Odoo use native version inventories, mail uses IMAP UIDs, CalDAV uses ETags, Matrix uses room pagination tokens, Gitea uses update times and the directory uses the file revision. QMS workflow and sample evidence, composite MES BOMs and InvenTree definitions, publications and changes still need full readback because their linked records have no shared change cursor.
+
 ### Added
 
 - `norvale-simulate` runs use a fixed layout: `run.json`, `verification.json`, `observable/lake`, `observable/days/<date>/manifest.json` and `private/{trace,reports,logs}`. It exits non-zero unless every requested day has a manifest and a clean end-of-day scan, no source failed, no lake row lacks a business date and every business-chain entity has records.

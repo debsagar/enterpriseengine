@@ -179,6 +179,56 @@ class BoundaryTest(unittest.TestCase):
 
 
 class FrappeTest(unittest.TestCase):
+    def test_incremental_scan_retries_and_carries_unchanged_records_into_each_day(self):
+        from unittest.mock import patch
+
+        from environments.norvale.integrations.company_run.lake import observing, write_daily_manifest
+        from environments.norvale.integrations.lake.boundary import Frappe
+
+        entity = "Sales Order"
+        native = {name: dict(name=name, modified="2027-01-01 08:00:00", status="Open") for name in ("A", "B")}
+        reads = []
+        fail = False
+
+        def read(path):
+            name = path.rsplit("/", 1)[-1]
+            reads.append(name)
+            if fail:
+                raise ConnectionError("read failed")
+            return native[name]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            def collect(day):
+                # A fresh reader on each attempt exercises the on-disk cursor.
+                client = Frappe("http://localhost", "reader", "test")
+                with (
+                    patch.object(client, "list_rows", side_effect=lambda *args: list(native.values())),
+                    patch.object(client, "get", side_effect=read),
+                    observing(day, "erp"),
+                ):
+                    return ingest(root, entity, source="operations", open_reader=lambda: client)
+
+            self.assertEqual(collect("2027-01-01"), 2)
+            first = write_daily_manifest(root, "2027-01-01", [], ["operations"])
+            self.assertEqual(reads, ["A", "B"])
+            reads.clear()
+            native["B"] = dict(native["B"], modified="2027-01-02 08:00:00", status="Cancelled")
+            fail = True
+            with self.assertRaises(ConnectionError):
+                collect("2027-01-02")
+            fail = False
+            self.assertEqual(collect("2027-01-02"), 1)
+            second = write_daily_manifest(root, "2027-01-02", [], ["operations"])
+            self.assertEqual(collect("2027-01-02"), 0)
+            self.assertEqual(reads, ["B", "B"])
+            first, second = (json.loads(path.read_text()) for path in (first, second))
+            before, after = (m["sources"]["operations"][entity]["records"] for m in (first, second))
+            self.assertEqual(before.keys(), after.keys())
+            self.assertEqual(before["A"], after["A"])
+            self.assertNotEqual(before["B"], after["B"])
+
     def test_page_deletion_does_not_skip_unseen_name(self):
         from urllib.parse import parse_qs, urlparse
 

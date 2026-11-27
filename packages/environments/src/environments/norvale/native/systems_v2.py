@@ -129,25 +129,27 @@ class Tickets:
         # A stage retry rechecks native records before repeating a creation.
         return request_json(req, attempts=1 if method == "POST" else 4)
 
-    def records(self):
+    def _pages(self, path, **filters):
+        from urllib.parse import urlencode
+
         result = []
         page = 1
         while True:
-            rows = self.request("GET", f"/repos/{self.repo}/issues?state=all&limit=50&page={page}")
+            query = urlencode(dict(filters, limit=50, page=page))
+            rows = self.request("GET", f"/repos/{self.repo}/{path}?{query}")
             result.extend(rows)
             if len(rows) < 50:
                 return result
             page += 1
 
+    def records(self, *, since=None):
+        return self._pages("issues", state="all", **({"since": since} if since else {}))
+
     def comments(self, number):
-        result = []
-        page = 1
-        while True:
-            rows = self.request("GET", f"/repos/{self.repo}/issues/{number}/comments?limit=50&page={page}")
-            result.extend(rows)
-            if len(rows) < 50:
-                return result
-            page += 1
+        return self._pages(f"issues/{number}/comments")
+
+    def changed_comments(self, *, since=None):
+        return self._pages("issues/comments", **({"since": since} if since else {}))
 
     @staticmethod
     def marker(key):

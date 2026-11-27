@@ -4,6 +4,7 @@ import base64
 import re
 import urllib.request
 import xml.etree.ElementTree as ET
+from urllib.parse import urljoin
 
 
 def _unfold_ics(ics_text):
@@ -53,8 +54,11 @@ def parse_vevents(ics_text):
     return events
 
 
-def fetch_caldav_events(url, user, password, *, timeout=15):
+def fetch_caldav_events(url, user, password, *, timeout=15, cursor=None):
     """Fetch VEVENTs from a CalDAV collection using REPORT."""
+    token = base64.b64encode(f"{user}:{password}".encode()).decode("ascii")
+    if cursor is not None:
+        return fetch_changed_events(url, token, timeout, cursor)
     body = (
         b'<?xml version="1.0" encoding="utf-8" ?>'
         b'<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
@@ -62,7 +66,6 @@ def fetch_caldav_events(url, user, password, *, timeout=15):
         b'<C:filter><C:comp-filter name="VCALENDAR"><C:comp-filter name="VEVENT"/></C:comp-filter></C:filter>'
         b"</C:calendar-query>"
     )
-    token = base64.b64encode(f"{user}:{password}".encode()).decode("ascii")
     req = urllib.request.Request(
         url,
         data=body,
@@ -80,6 +83,38 @@ def fetch_caldav_events(url, user, password, *, timeout=15):
     for elem in root.iter():
         if elem.tag.endswith("calendar-data") and elem.text:
             events.extend(parse_vevents(elem.text))
+    return events
+
+
+def fetch_changed_events(url, token, timeout, cursor):
+    """Get only calendar resources whose DAV ETag changed since the last archive commit."""
+    dav = "{DAV:}"
+    headers = {"Authorization": f"Basic {token}"}
+    req = urllib.request.Request(
+        url,
+        data=b'<D:propfind xmlns:D="DAV:"><D:prop><D:getetag/></D:prop></D:propfind>',
+        method="PROPFIND",
+        headers={**headers, "Depth": "1", "Content-Type": "application/xml; charset=utf-8"},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        collection = ET.fromstring(response.read())
+    previous = cursor.get("etags", {})
+    versions = {}
+    events = []
+    for item in collection.findall(f"{dav}response"):
+        href = item.findtext(f"{dav}href")
+        resource = urljoin(url, href)
+        if resource.rstrip("/") == url.rstrip("/"):
+            continue
+        if not resource.startswith(url):
+            raise ValueError("CalDAV listed a resource outside its collection")
+        etag = item.findtext(f".//{dav}getetag")
+        versions[href] = etag
+        if not etag or previous.get(href) != etag:
+            req = urllib.request.Request(resource, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                events.extend(parse_vevents(response.read().decode("utf-8")))
+    cursor["etags"] = versions
     return events
 
 
