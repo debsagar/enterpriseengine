@@ -90,7 +90,7 @@ class PurchaseOutage(TestCase):
                             "content": json.dumps(
                                 dict(
                                     action="approve",
-                                    reason="Reviewed revised evidence",
+                                    reason="Reviewed revised evidence; duplicate_open_order is a planned top-up",
                                     message="Approved",
                                     cites=["evidence.observations.grand_total"],
                                 )

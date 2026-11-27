@@ -3,7 +3,7 @@
 A contract says what opens a case, what the role may choose, and which native write each choice makes.
 `run` is the only phase: for each contract it opens at most one case per record and version, decides it
 (Engine.choose; the offline rule when NORVALE_OFFLINE=1), executes the chosen action's write with readback,
-and escalates cases that stay open past their due day. Cases live in engine.state["role_cases"].
+and escalates (once) cases that stay open past their due day, still retrying them. Cases live in engine.state["role_cases"].
 """
 
 import json
@@ -68,7 +68,7 @@ def decided(engine, contract, **match):
         c
         for c in engine.state.get("role_cases", {}).values()
         if c["contract"] == contract
-        and c["status"] in ("decided", "open")
+        and c["status"] in ("decided", "open", "escalated")
         and all(c["context"].get(k) == v for k, v in match.items())
     ]
 
@@ -83,7 +83,7 @@ def qa_evidence(engine, case):
         for n in nonconformances(engine)
         if n["item"] == ctx["item"] and engine.day - day_of(engine, n["creation"]) <= WINDOW_DAYS
     ]
-    pending = [c for c in decided(engine, "design_change", item=ctx["item"]) if c["status"] == "open"]
+    pending = [c for c in decided(engine, "design_change", item=ctx["item"]) if c["status"] != "decided"]
     escalated = [
         c
         for c in decided(engine, "nonconformance", item=ctx["item"])
@@ -128,6 +128,8 @@ def qa_rule(evidence):
 
 
 def qa_close(engine, case, evidence, out):
+    if evidence.get("engineering_review_open"):  # a model choice, or a retry replaying an earlier one
+        raise RuntimeError("engineering review is still pending on this item")
     qa = qa_actor(engine, evidence["batch"])
     qa.update(
         CASE,
@@ -363,7 +365,7 @@ def design_trigger(engine):
         if engine.day - day_of(engine, n["creation"]) <= WINDOW_DAYS:
             by_item.setdefault(n["item"], []).append(n)
     return [
-        dict(record=item, version=",".join(sorted(n["name"] for n in rows)))
+        dict(record=item, item=item, version=",".join(sorted(n["name"] for n in rows)))
         for item, rows in sorted(by_item.items())
         if len(rows) >= 2
     ]
@@ -561,6 +563,7 @@ def decide(engine, c, case):
         status="decided", action=out["action"], reason=out["reason"], decided=engine.day, message=message(case, out)
     )
     case["approval"] = out["action"] in c.get("approvals", ())
+    case.pop("posted", None)  # an escalated case that is now decided gets its own chat message
     engine.log("role_case_decided", case=case["key"], action=out["action"])
 
 
@@ -586,7 +589,8 @@ def run(engine):
     cases = engine.state.setdefault("role_cases", {})
     for c in CONTRACTS:
         open_cases(engine, c, cases)
-        for case in [x for x in cases.values() if x["contract"] == c["name"] and x["status"] == "open"]:
+        live = ("open", "escalated")  # an escalated case is still undone: keep retrying it
+        for case in [x for x in cases.values() if x["contract"] == c["name"] and x["status"] in live]:
             try:
                 decide(engine, c, case)
             except (
