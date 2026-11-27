@@ -827,6 +827,20 @@ def offline_decision(engine, key, role, evidence, question):
     if key in engine.state["decisions"]:
         return engine.state["decisions"][key]["output"]
     approved = False
+    if key.startswith("case:"):  # a role-contract case: the offline rule follows the facts in the evidence
+        from environments.norvale.native import behaviour_roles
+
+        choice, why = behaviour_roles.offline_rule(key, evidence)
+        output = dict(action=choice, reason=why, message=why)
+        result = dict(
+            mode="offline-operating-rule",
+            input=dict(role=role, as_of=engine.date(), evidence=evidence, question=question),
+            output=output,
+        )
+        engine.state["decisions"][key] = result
+        engine.persist()
+        engine.log("decision", **result)
+        return output
     if role == "SCM_MGR" and key.startswith("po-review:"):
         quote = evidence["supplier_quote"]
 
