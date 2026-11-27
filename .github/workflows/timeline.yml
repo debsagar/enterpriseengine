@@ -1,0 +1,60 @@
+name: Project timeline (R19, R20)
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled]
+  # Use the trusted base workflow for PR events, including forks.
+  pull_request_target:
+    types: [opened, reopened, closed, synchronize, edited, labeled, unlabeled, ready_for_review, converted_to_draft]
+  issue_comment:
+    types: [created]
+  status:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: project-timeline-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      github.event_name != 'status' ||
+      github.event.context == 'swarm/validate' ||
+      github.event.context == 'review/independent'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      statuses: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.event.pull_request.base.repo.default_branch || github.event.repository.default_branch || github.ref }}
+          persist-credentials: false
+      - name: Build the public timeline
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/timeline/build.py --out "$RUNNER_TEMP/timeline"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/timeline
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

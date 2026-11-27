@@ -24,3 +24,24 @@ import direction and installed-wheel compatibility.
 Use `uv run norvale-generate` and `uv run norvale-simulate` from the workspace.
 See the [Norvale guide](docs/NORVALE.md) for prerequisites and the
 [release notes](docs/RELEASE_NOTES.md) for the wheel gate.
+
+### Public project timeline (R19, R20)
+
+Set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**
+after the workflow reaches the default branch. Allow the default branch and
+`dev` in the `github-pages` environment if it uses deployment branch rules.
+The workflow rebuilds from the default branch on public activity and every ten
+minutes, then publishes the generated artifact. Its deployment output links
+to the site. Open a PR and check that its row appears within 15 minutes.
+
+The page uses UTC and shows current PR diff totals and author provenance on
+each PR row. Historical updates come from GitHub's retained PR timeline, with
+commit dates used for commit activity. It pairs public verdict comments with
+statuses by head, context and run ID. A comment without a matching status is
+shown as a reported verdict. The site publishes selected public fields and
+keeps the presentation in `scripts/timeline/theme.css`.
+
+```sh
+python3 scripts/timeline/build.py --offline-fixture contracts/fixtures/timeline.json --out /tmp/tl
+python3 -m unittest discover -s contracts -p test_timeline.py
+```
